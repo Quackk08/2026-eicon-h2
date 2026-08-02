@@ -227,6 +227,166 @@
   }
 }
 
+.reflection-mission {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 2.5rem;
+  border-left: 3px solid var(--color-leaf);
+  padding-left: 1rem;
+}
+
+.reflection-mission span {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.reflection-mission p {
+  font-family: var(--font-editorial);
+  font-size: 1.15rem;
+}
+
+.reflection-form {
+  display: grid;
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--color-line);
+}
+
+.outcome-options,
+.effort-options {
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-line);
+  margin: 0;
+  padding: 2rem 0;
+}
+
+.outcome-options legend,
+.effort-options legend {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+}
+
+.outcome-options > div {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.outcome-options label {
+  display: grid;
+  min-height: 7rem;
+  align-content: center;
+  border: 1px solid var(--color-line);
+  gap: 0.4rem;
+  padding: 1rem;
+  cursor: pointer;
+  grid-template-columns: 1.5rem 1fr;
+}
+
+.outcome-options label.is-selected {
+  border-color: var(--color-forest);
+  background: var(--color-citron);
+}
+
+.outcome-options input,
+.effort-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.outcome-options svg {
+  width: 1.1rem;
+}
+
+.outcome-options strong {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+.outcome-options span {
+  grid-column: 2;
+  font-family: var(--font-editorial);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.effort-options > div {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.effort-options label {
+  display: grid;
+  min-height: 3rem;
+  align-items: center;
+  border: 1px solid var(--color-line);
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  grid-template-columns: 1.25rem 1fr;
+}
+
+.effort-options label.is-selected {
+  border-color: var(--color-forest);
+  background: var(--color-citron);
+}
+
+.effort-options i {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 1px solid var(--color-ink);
+  border-radius: 50%;
+}
+
+.effort-options .is-selected i {
+  border: 3px solid var(--color-paper);
+  background: var(--color-forest);
+  box-shadow: 0 0 0 1px var(--color-forest);
+}
+
+.next-adjustment {
+  margin-top: 1rem;
+  background: var(--color-sky);
+  padding: 1.5rem;
+}
+
+.next-adjustment > p:last-child {
+  max-width: 38rem;
+  margin-top: 0.75rem;
+  font-family: var(--font-editorial);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+@media (min-width: 48rem) {
+  .reflection-mission,
+  .reflection-form {
+    margin-left: 4.5rem;
+  }
+
+  .outcome-options > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .effort-options > div {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .effort-options label {
+    min-height: 4rem;
+    align-content: center;
+    justify-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    text-align: center;
+    grid-template-columns: 1fr;
+  }
+}
+
 .mission-empty {
   display: grid;
   min-height: calc(100svh - 4.75rem);
