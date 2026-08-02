@@ -227,6 +227,261 @@
   }
 }
 
+.insight-page {
+  width: min(100%, 70rem);
+  margin-inline: auto;
+  padding: 2.5rem 1rem 5rem;
+}
+
+.insight-heading {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.insight-heading h1 {
+  max-width: 52rem;
+  margin-top: 0.75rem;
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.insight-heading > div:first-child > p:last-child {
+  max-width: 42rem;
+  margin-top: 1rem;
+  font-family: var(--font-editorial);
+  line-height: 1.7;
+}
+
+.insight-range {
+  display: grid;
+  width: min(100%, 17rem);
+  border: 1px solid var(--color-ink);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.insight-range button {
+  min-height: 3rem;
+  border: 0;
+  border-right: 1px solid var(--color-ink);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.insight-range button:last-child {
+  border-right: 0;
+}
+
+.insight-range button.is-active {
+  background: var(--color-forest);
+  color: var(--color-paper);
+}
+
+.insight-notice {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 2.5rem;
+  background: var(--color-sky);
+  padding: 1rem;
+  grid-template-columns: 1.25rem 1fr;
+}
+
+.insight-notice svg {
+  width: 1rem;
+}
+
+.insight-notice strong {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.insight-notice p {
+  margin-top: 0.35rem;
+  font-family: var(--font-editorial);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.insight-stats {
+  display: grid;
+  margin-top: 1.5rem;
+  border: 1px solid var(--color-ink);
+}
+
+.insight-stats article {
+  min-height: 7rem;
+  border-bottom: 1px solid var(--color-ink);
+  padding: 1.25rem;
+}
+
+.insight-stats article:last-child {
+  border-bottom: 0;
+}
+
+.insight-stats span {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+}
+
+.insight-stats p {
+  margin-top: 0.35rem;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.insight-grid {
+  display: grid;
+  gap: 1px;
+  margin-top: 2.5rem;
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+}
+
+.weekly-rhythm,
+.signal-observation,
+.route-insight,
+.reflection-insight {
+  min-width: 0;
+  background: var(--color-paper);
+  padding: 1.5rem;
+}
+
+.weekly-rhythm h2,
+.signal-observation h2,
+.route-insight h2,
+.reflection-insight h2 {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 400;
+  line-height: 1.15;
+}
+
+.insight-week-row {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.insight-week-row > div {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+}
+
+.insight-week-row span {
+  font-size: 0.62rem;
+}
+
+.insight-week-row i {
+  display: block;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: 50%;
+}
+
+.insight-week-row .is-active i {
+  border-color: var(--color-forest);
+  background: var(--color-leaf);
+}
+
+.weekly-rhythm > p:last-child,
+.signal-observation > p:last-of-type,
+.route-insight > p {
+  margin-top: 1.5rem;
+  font-family: var(--font-editorial);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.signal-observation {
+  background: var(--color-citron);
+}
+
+.route-insight-progress {
+  margin-top: 1.5rem;
+}
+
+.route-insight-progress > div {
+  height: 4px;
+  background: var(--color-line);
+}
+
+.route-insight-progress i {
+  display: block;
+  height: 100%;
+  background: var(--color-forest);
+}
+
+.route-insight-progress span {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.reflection-insight {
+  display: grid;
+  align-items: start;
+  gap: 1rem;
+  background: var(--color-sky);
+  grid-template-columns: 1.5rem 1fr;
+}
+
+.reflection-insight > svg {
+  width: 1.25rem;
+}
+
+.reflection-insight p:last-child {
+  margin-top: 0.75rem;
+  font-family: var(--font-editorial);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+@media (min-width: 48rem) {
+  .insight-page {
+    padding: 4rem 2rem 7rem;
+  }
+
+  .insight-heading {
+    align-items: end;
+    grid-template-columns: 1fr auto;
+  }
+
+  .insight-heading h1 {
+    font-size: 4.5rem;
+  }
+
+  .insight-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .insight-stats article {
+    border-right: 1px solid var(--color-ink);
+    border-bottom: 0;
+  }
+
+  .insight-stats article:last-child {
+    border-right: 0;
+  }
+
+  .insight-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .weekly-rhythm,
+  .signal-observation,
+  .route-insight,
+  .reflection-insight {
+    padding: 2rem;
+  }
+}
+
 .joined-status {
   display: inline-flex;
   min-height: 2.75rem;
