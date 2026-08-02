@@ -10,11 +10,22 @@ import {
   UserRound
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import type { CheckInRhythm } from "../data/appData";
 import { useAppState } from "../state/AppState";
+
+const weekDays = [
+  { value: 0, short: "Sun", long: "Sunday" },
+  { value: 1, short: "Mon", long: "Monday" },
+  { value: 2, short: "Tue", long: "Tuesday" },
+  { value: 3, short: "Wed", long: "Wednesday" },
+  { value: 4, short: "Thu", long: "Thursday" },
+  { value: 5, short: "Fri", long: "Friday" },
+  { value: 6, short: "Sat", long: "Saturday" }
+] as const;
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { data, updateData, resetDemo } = useAppState();
+  const { data, ready, updateData, resetDemo } = useAppState();
   const [name, setName] = useState(data.profile.name);
   const [email, setEmail] = useState(data.profile.email);
   const [resetOpen, setResetOpen] = useState(false);
@@ -35,6 +46,48 @@ export function SettingsPage() {
       ...current,
       settings: { ...current.settings, [key]: value }
     }));
+  };
+
+  const updateRhythm = (updates: Partial<CheckInRhythm>) => {
+    updateData((current) => {
+      const checkInRhythm = { ...current.settings.checkInRhythm, ...updates };
+
+      return {
+        ...current,
+        settings: {
+          ...current.settings,
+          checkInTime: checkInRhythm.time,
+          reminders: checkInRhythm.enabled,
+          checkInRhythm
+        }
+      };
+    });
+  };
+
+  const updateFrequency = (frequency: CheckInRhythm["frequency"]) => {
+    const days =
+      frequency === "daily"
+        ? [0, 1, 2, 3, 4, 5, 6]
+        : frequency === "weekdays"
+          ? [1, 2, 3, 4, 5]
+          : frequency === "weekly"
+            ? [data.settings.checkInRhythm.days[0] ?? 1]
+            : data.settings.checkInRhythm.days.length > 0
+              ? data.settings.checkInRhythm.days
+              : [1];
+
+    updateRhythm({ frequency, days });
+  };
+
+  const toggleCustomDay = (day: number) => {
+    const currentDays = data.settings.checkInRhythm.days;
+    const days = currentDays.includes(day)
+      ? currentDays.length > 1
+        ? currentDays.filter((item) => item !== day)
+        : currentDays
+      : [...currentDays, day].sort((left, right) => left - right);
+
+    updateRhythm({ days });
   };
 
   const exportData = () => {
@@ -60,6 +113,15 @@ export function SettingsPage() {
     }));
     navigate("/login");
   };
+
+  if (!ready) {
+    return (
+      <main className="app-page dashboard-loading" aria-live="polite">
+        <span />
+        <p>Loading settings stored on this device...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="app-page settings-page">
@@ -91,18 +153,64 @@ export function SettingsPage() {
         <section className="settings-section" aria-labelledby="rhythm-settings-title">
           <div className="settings-section-heading">
             <Moon aria-hidden="true" />
-            <div><p className="app-kicker">Rhythm and comfort</p><h2 id="rhythm-settings-title">Daily preferences</h2></div>
+            <div><p className="app-kicker">Rhythm and comfort</p><h2 id="rhythm-settings-title">Check-In rhythm</h2></div>
           </div>
           <div className="settings-rows">
             <label className="settings-row">
-              <div><strong>Check-In time</strong><span>A gentle time reference for your day</span></div>
-              <select value={data.settings.checkInTime} onChange={(event) => updateSetting("checkInTime", event.target.value)}>
+              <div><strong>Frequency</strong><span>Choose when ReNew should offer a Check-In</span></div>
+              <select
+                value={data.settings.checkInRhythm.frequency}
+                onChange={(event) => updateFrequency(event.target.value as CheckInRhythm["frequency"])}
+              >
+                <option value="daily">Daily</option>
+                <option value="weekdays">Weekdays</option>
+                <option value="weekly">Weekly</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            {data.settings.checkInRhythm.frequency === "weekly" && (
+              <label className="settings-row">
+                <div><strong>Day</strong><span>The weekly Check-In day</span></div>
+                <select
+                  value={data.settings.checkInRhythm.days[0] ?? 1}
+                  onChange={(event) => updateRhythm({ days: [Number(event.target.value)] })}
+                >
+                  {weekDays.map((day) => <option value={day.value} key={day.value}>{day.long}</option>)}
+                </select>
+              </label>
+            )}
+            {data.settings.checkInRhythm.frequency === "custom" && (
+              <fieldset className="settings-custom-days">
+                <legend>Check-In days</legend>
+                <div>
+                  {weekDays.map((day) => (
+                    <button
+                      className={data.settings.checkInRhythm.days.includes(day.value) ? "is-active" : ""}
+                      type="button"
+                      aria-pressed={data.settings.checkInRhythm.days.includes(day.value)}
+                      onClick={() => toggleCustomDay(day.value)}
+                      key={day.value}
+                    >
+                      {day.short}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+            <label className="settings-row">
+              <div><strong>Check-In time</strong><span>A gentle time reference for a scheduled day</span></div>
+              <select value={data.settings.checkInRhythm.time} onChange={(event) => updateRhythm({ time: event.target.value })}>
                 {["08:00", "12:00", "18:00", "20:00", "22:00"].map((time) => <option value={time} key={time}>{time}</option>)}
               </select>
             </label>
             <label className="settings-row">
               <div><strong>Reminders</strong><span>Keep the reminder preference on this device</span></div>
-              <input className="switch-input" type="checkbox" checked={data.settings.reminders} onChange={(event) => updateSetting("reminders", event.target.checked)} />
+              <input
+                className="switch-input"
+                type="checkbox"
+                checked={data.settings.checkInRhythm.enabled}
+                onChange={(event) => updateRhythm({ enabled: event.target.checked })}
+              />
             </label>
             <label className="settings-row">
               <div><strong>Reduced motion</strong><span>Reduce decorative and transition motion</span></div>

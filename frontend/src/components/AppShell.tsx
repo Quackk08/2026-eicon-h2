@@ -19,7 +19,7 @@ const navigation = [
 ];
 
 const pageTitles: Record<string, string> = {
-  "/app/today": "Today",
+  "/app/today": "Life Dashboard",
   "/app/check-in": "Check-In",
   "/app/recommendation": "Recommendation",
   "/app/mission": "Mission",

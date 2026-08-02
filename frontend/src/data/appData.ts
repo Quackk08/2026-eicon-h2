@@ -107,6 +107,13 @@ export interface CommunityActivity {
   joined: boolean;
 }
 
+export interface CheckInRhythm {
+  frequency: "daily" | "weekdays" | "weekly" | "custom";
+  days: number[];
+  time: string;
+  enabled: boolean;
+}
+
 export interface AppData {
   profile: {
     name: string;
@@ -127,6 +134,7 @@ export interface AppData {
   settings: {
     checkInTime: string;
     reminders: boolean;
+    checkInRhythm: CheckInRhythm;
     reducedMotion: boolean;
     theme: "system" | "light";
   };
@@ -290,6 +298,12 @@ export function createDefaultAppData(): AppData {
     settings: {
       checkInTime: "18:00",
       reminders: true,
+      checkInRhythm: {
+        frequency: "daily",
+        days: [0, 1, 2, 3, 4, 5, 6],
+        time: "18:00",
+        enabled: true
+      },
       reducedMotion: false,
       theme: "system"
     },
@@ -314,7 +328,37 @@ const databasePromise = openDB<ReNewDatabase>("renew-client", 1, {
 
 export async function loadAppData(): Promise<AppData> {
   const database = await databasePromise;
-  return (await database.get("state", "app")) ?? createDefaultAppData();
+  const storedData = await database.get("state", "app");
+
+  if (!storedData) {
+    return createDefaultAppData();
+  }
+
+  const defaults = createDefaultAppData();
+  const storedSettings = storedData.settings as Partial<AppData["settings"]>;
+  const storedRhythm = storedSettings.checkInRhythm;
+  const rhythmTime = storedRhythm?.time ?? storedSettings.checkInTime ?? defaults.settings.checkInTime;
+  const rhythmEnabled = storedRhythm?.enabled ?? storedSettings.reminders ?? defaults.settings.reminders;
+
+  return {
+    ...defaults,
+    ...storedData,
+    profile: { ...defaults.profile, ...storedData.profile },
+    preferences: { ...defaults.preferences, ...storedData.preferences },
+    vision: { ...defaults.vision, ...storedData.vision },
+    settings: {
+      ...defaults.settings,
+      ...storedSettings,
+      checkInTime: rhythmTime,
+      reminders: rhythmEnabled,
+      checkInRhythm: {
+        ...defaults.settings.checkInRhythm,
+        ...storedRhythm,
+        time: rhythmTime,
+        enabled: rhythmEnabled
+      }
+    }
+  };
 }
 
 export async function saveAppData(data: AppData): Promise<void> {
