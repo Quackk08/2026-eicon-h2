@@ -227,6 +227,284 @@
   }
 }
 
+.discovery-page {
+  width: min(100%, 70rem);
+  margin-inline: auto;
+  padding: 2.5rem 1rem 5rem;
+}
+
+.discovery-heading {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.discovery-heading h1 {
+  max-width: 50rem;
+  margin-top: 0.75rem;
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.discovery-heading > div > p:last-child {
+  max-width: 40rem;
+  margin-top: 1rem;
+  font-family: var(--font-editorial);
+  line-height: 1.7;
+}
+
+.discovery-heading > .secondary-command {
+  justify-self: start;
+}
+
+.place-tools {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 2.5rem;
+}
+
+.search-field {
+  display: grid;
+  min-height: 3.5rem;
+  align-items: center;
+  border: 1px solid var(--color-ink);
+  padding: 0 1rem;
+  grid-template-columns: 1.25rem 1fr;
+}
+
+.search-field svg,
+.filter-toggle svg {
+  width: 1rem;
+}
+
+.search-field input {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0 0.75rem;
+  font-size: 1rem;
+  outline: none;
+}
+
+.filter-toggle {
+  display: inline-flex;
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid var(--color-ink);
+  background: transparent;
+  color: inherit;
+  padding: 0 1rem;
+  cursor: pointer;
+}
+
+.filter-toggle.is-active {
+  background: var(--color-forest);
+  color: var(--color-paper);
+}
+
+.place-type-tabs {
+  display: flex;
+  margin-top: 1rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.place-type-tabs button {
+  min-width: max-content;
+  min-height: 3rem;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: inherit;
+  padding: 0 1rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.place-type-tabs button.is-active {
+  border-bottom-color: var(--color-forest);
+}
+
+.place-result-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.place-result-meta span:last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.place-result-meta svg {
+  width: 0.9rem;
+}
+
+.place-results {
+  margin-top: 1rem;
+  border-top: 1px solid var(--color-ink);
+}
+
+.place-result {
+  position: relative;
+  display: grid;
+  border-bottom: 1px solid var(--color-ink);
+  padding: 1.25rem 0;
+}
+
+.place-result-visual {
+  position: relative;
+  display: block;
+  min-height: 11rem;
+  border: 1px solid var(--color-ink);
+  overflow: hidden;
+}
+
+.place-result-visual::before {
+  position: absolute;
+  inset: 14%;
+  border: 1px solid oklch(19% 0.025 145 / 35%);
+  content: "";
+}
+
+.place-result-visual span {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.place-result-copy {
+  padding-top: 1.25rem;
+}
+
+.place-result-copy h2 {
+  margin-top: 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 400;
+}
+
+.place-result-copy > p {
+  max-width: 38rem;
+  margin-top: 0.75rem;
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.place-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+.place-tags span {
+  border: 1px solid var(--color-line);
+  padding: 0.35rem 0.5rem;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+}
+
+.save-place {
+  position: absolute;
+  top: 1.75rem;
+  right: 0.5rem;
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: var(--color-paper);
+  color: inherit;
+  place-items: center;
+  cursor: pointer;
+}
+
+.save-place.is-saved {
+  background: var(--color-citron);
+}
+
+.save-place svg {
+  width: 1rem;
+}
+
+.empty-results {
+  display: grid;
+  min-height: 22rem;
+  align-content: center;
+  justify-items: start;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.empty-results h2 {
+  max-width: 32rem;
+  margin-top: 0.75rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 400;
+}
+
+.empty-results button {
+  margin-top: 1.5rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (min-width: 48rem) {
+  .discovery-page {
+    padding: 4rem 2rem 7rem;
+  }
+
+  .discovery-heading {
+    align-items: end;
+    grid-template-columns: 1fr auto;
+  }
+
+  .discovery-heading h1 {
+    font-size: 4.5rem;
+  }
+
+  .place-tools {
+    grid-template-columns: 1fr auto;
+  }
+
+  .place-result {
+    align-items: center;
+    gap: 2rem;
+    grid-template-columns: minmax(12rem, 0.55fr) minmax(0, 1fr) 3rem;
+  }
+
+  .place-result-copy {
+    padding-top: 0;
+  }
+
+  .save-place {
+    position: static;
+  }
+}
+
 .route-heading {
   display: grid;
 }
