@@ -227,6 +227,269 @@
   }
 }
 
+.joined-status {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--color-leaf);
+  padding: 0 0.75rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.joined-status svg {
+  width: 0.9rem;
+}
+
+.community-detail-hero {
+  position: relative;
+  overflow: hidden;
+  margin-top: 2rem;
+  background: var(--color-deep-forest);
+  color: var(--color-paper);
+  padding: 2.5rem 1.5rem;
+}
+
+.community-detail-hero > div:first-child {
+  position: relative;
+  z-index: 1;
+}
+
+.community-detail-hero h1 {
+  max-width: 48rem;
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.community-detail-hero > div:first-child > p:last-child {
+  max-width: 38rem;
+  margin-top: 1.25rem;
+  font-family: var(--font-editorial);
+  line-height: 1.7;
+}
+
+.community-detail-number {
+  position: absolute;
+  top: -1.5rem;
+  right: -0.5rem;
+  color: var(--color-leaf);
+  font-family: var(--font-display);
+  font-size: 9rem;
+  line-height: 1;
+  opacity: 0.62;
+}
+
+.community-facts {
+  display: grid;
+  border: 1px solid var(--color-ink);
+  border-top: 0;
+}
+
+.community-facts article {
+  display: grid;
+  min-height: 6rem;
+  align-content: center;
+  border-bottom: 1px solid var(--color-ink);
+  gap: 0.35rem;
+  padding: 1rem;
+  grid-template-columns: 1.25rem 1fr;
+}
+
+.community-facts article:last-child {
+  border-bottom: 0;
+}
+
+.community-facts svg {
+  width: 1rem;
+}
+
+.community-facts span {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.community-facts p {
+  grid-column: 2;
+  font-family: var(--font-editorial);
+}
+
+.community-detail-grid {
+  display: grid;
+  gap: 1px;
+  margin-top: 2.5rem;
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+}
+
+.participation-panel,
+.host-panel {
+  background: var(--color-paper);
+  padding: 1.5rem;
+}
+
+.participation-panel h2,
+.host-panel h2,
+.participation-confirm h2 {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 400;
+}
+
+.participation-panel ul {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.participation-panel li {
+  display: grid;
+  gap: 0.5rem;
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  grid-template-columns: 1rem 1fr;
+}
+
+.participation-panel li svg {
+  width: 0.85rem;
+}
+
+.participation-panel > button {
+  width: 100%;
+  margin-top: 2rem;
+}
+
+.host-panel > p:nth-of-type(2) {
+  margin-top: 1rem;
+  font-family: var(--font-editorial);
+  line-height: 1.7;
+}
+
+.participation-confirm {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  background: var(--color-citron);
+  padding: 1.5rem;
+}
+
+.participation-confirm > div:first-child > p:last-child {
+  margin-top: 0.75rem;
+  font-family: var(--font-editorial);
+  line-height: 1.6;
+}
+
+.participation-confirm > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.community-report {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+  padding: 1rem 0;
+}
+
+.community-report > div {
+  display: grid;
+  align-items: start;
+  gap: 0.6rem;
+  grid-template-columns: 1.25rem 1fr;
+}
+
+.community-report svg {
+  width: 1rem;
+}
+
+.community-report strong {
+  font-size: 0.75rem;
+}
+
+.community-report p {
+  margin-top: 0.2rem;
+  font-family: var(--font-editorial);
+  font-size: 0.78rem;
+}
+
+.report-form {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid var(--color-ink);
+  border-top: 0;
+  padding: 1.5rem;
+}
+
+.report-form select,
+.report-form textarea {
+  width: 100%;
+  min-height: 3.25rem;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.75rem;
+  font-size: 1rem;
+}
+
+.report-form textarea {
+  resize: vertical;
+}
+
+.report-form .primary-command {
+  justify-self: end;
+}
+
+@media (min-width: 48rem) {
+  .community-detail-hero {
+    padding: 4rem;
+  }
+
+  .community-detail-hero h1 {
+    font-size: 4.5rem;
+  }
+
+  .community-facts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .community-facts article {
+    border-right: 1px solid var(--color-ink);
+    border-bottom: 0;
+  }
+
+  .community-facts article:last-child {
+    border-right: 0;
+  }
+
+  .community-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .participation-panel,
+  .host-panel {
+    padding: 2rem;
+  }
+
+  .participation-confirm {
+    align-items: center;
+    padding: 2rem;
+    grid-template-columns: 1fr auto;
+  }
+}
+
 .community-safety-note {
   display: grid;
   align-items: start;
