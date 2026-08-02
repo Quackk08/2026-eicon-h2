@@ -1,4 +1,4 @@
-# 26e Icon
+# 26' e-ICON H2
 
 ## Project Structure
 
