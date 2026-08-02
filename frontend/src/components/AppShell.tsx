@@ -7,7 +7,7 @@ import {
   Settings,
   X
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 
 const navigation = [
@@ -38,6 +38,10 @@ export function AppShell() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const basePath = Object.keys(pageTitles).find((path) => location.pathname.startsWith(path));
   const pageTitle = basePath ? pageTitles[basePath] : "ReNew";
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [location.pathname]);
 
   return (
     <div className="product-shell">
