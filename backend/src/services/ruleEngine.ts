@@ -33,7 +33,7 @@ export function computeStateTags(state: StateVector): StateTag[] {
  * This bucketing is the assumed mapping between the two until a real
  * pricing model is defined — documented here rather than silently guessed.
  */
-function maxCostLevelFrom(maxCost: number): number {
+export function maxCostLevelFrom(maxCost: number): number {
   if (maxCost <= 0) return 0;
   if (maxCost < 5000) return 1;
   if (maxCost < 20000) return 2;
