@@ -227,6 +227,207 @@
   }
 }
 
+.recommendation-primary {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  margin-top: 3rem;
+  background: var(--color-forest);
+  color: var(--color-paper);
+  padding: 2rem 1.5rem;
+}
+
+.recommendation-index {
+  position: absolute;
+  top: -1.5rem;
+  right: -0.5rem;
+  color: var(--color-leaf);
+  font-family: var(--font-display);
+  font-size: 9rem;
+  line-height: 1;
+  opacity: 0.65;
+}
+
+.recommendation-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.recommendation-copy h2 {
+  max-width: 36rem;
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.recommendation-copy > p:nth-of-type(2) {
+  max-width: 34rem;
+  margin-top: 1.25rem;
+  font-family: var(--font-editorial);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.recommendation-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.recommendation-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.recommendation-meta svg {
+  width: 0.9rem;
+}
+
+.recommendation-copy .primary-command {
+  margin-top: 2rem;
+  border-color: var(--color-paper);
+  background: var(--color-paper);
+  color: var(--color-forest);
+}
+
+.recommendation-reason {
+  display: grid;
+  gap: 1.5rem;
+  border: 1px solid var(--color-ink);
+  border-top: 0;
+  padding: 1.5rem;
+}
+
+.recommendation-reason > div {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.recommendation-reason > div svg {
+  width: 1.1rem;
+}
+
+.recommendation-reason h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.recommendation-reason ul {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recommendation-reason li {
+  display: grid;
+  align-items: start;
+  gap: 0.6rem;
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  grid-template-columns: 1rem 1fr;
+}
+
+.recommendation-reason li svg {
+  width: 0.85rem;
+  color: var(--color-forest);
+}
+
+.alternative-section {
+  margin-top: 3rem;
+}
+
+.alternative-list {
+  display: grid;
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--color-line);
+}
+
+.alternative-list article {
+  display: grid;
+  gap: 1.25rem;
+  border-bottom: 1px solid var(--color-line);
+  padding: 1.5rem 0;
+}
+
+.alternative-list span {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.alternative-list h3 {
+  margin-top: 0.45rem;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.alternative-list p {
+  max-width: 34rem;
+  margin-top: 0.65rem;
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.alternative-list button {
+  width: 9rem;
+}
+
+.recommendation-skip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  border-top: 1px solid var(--color-line);
+  padding-top: 1rem;
+  font-size: 0.75rem;
+}
+
+.recommendation-skip a {
+  min-height: 2.75rem;
+  align-content: center;
+  text-decoration: underline;
+}
+
+@media (min-width: 48rem) {
+  .recommendation-primary {
+    margin-left: 4.5rem;
+    padding: 3rem;
+  }
+
+  .recommendation-copy h2 {
+    font-size: 4rem;
+  }
+
+  .recommendation-reason,
+  .alternative-section,
+  .recommendation-skip {
+    margin-left: 4.5rem;
+  }
+
+  .recommendation-reason {
+    grid-template-columns: 15rem 1fr;
+    padding: 2rem;
+  }
+
+  .alternative-list article {
+    align-items: center;
+    grid-template-columns: 1fr auto;
+  }
+}
+
 .product-shell {
   min-height: 100svh;
   background: var(--color-paper);
