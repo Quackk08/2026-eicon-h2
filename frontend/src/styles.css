@@ -15,7 +15,7 @@
   --color-plum: oklch(34% 0.08 345);
   --color-line: oklch(19% 0.025 145 / 24%);
   --font-display: "Bodoni Moda", serif;
-  --font-korean: "Gowun Batang", serif;
+  --font-editorial: "Bodoni Moda", serif;
   --font-script: "Pinyon Script", cursive;
   --space-xs: 0.5rem;
   --space-sm: 0.75rem;
@@ -181,7 +181,7 @@ ol {
   min-height: 4.75rem;
   align-items: center;
   border-bottom: 1px solid var(--color-line);
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 1.75rem;
   grid-template-columns: 3rem 1fr;
 }
@@ -329,7 +329,7 @@ ol {
 
 .hero-summary {
   margin-top: var(--space-xl);
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 1rem;
   line-height: 1.8;
 }
@@ -411,7 +411,7 @@ ol {
 .local-heading h2,
 .trust-statement h2,
 .closing h2 {
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 2.5rem;
   font-weight: 400;
   line-height: 1.25;
@@ -442,7 +442,7 @@ ol {
 .local-heading > p:last-child,
 .eicon-content > p,
 .trust-principles p {
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 1rem;
   line-height: 1.9;
 }
@@ -479,14 +479,14 @@ ol {
 }
 
 .process-list h3 {
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 1.4rem;
   font-weight: 700;
 }
 
 .process-list p {
   max-width: 34rem;
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 0.94rem;
   line-height: 1.75;
 }
@@ -519,7 +519,7 @@ ol {
 
 .vision-note p {
   margin-top: var(--space-sm);
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 1.1rem;
   line-height: 1.7;
 }
@@ -543,7 +543,7 @@ ol {
 }
 
 .route-levels p {
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 1rem;
   line-height: 1.5;
 }
@@ -642,7 +642,7 @@ ol {
   min-height: 7rem;
   align-content: center;
   padding: var(--space-md);
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 0.88rem;
   line-height: 1.55;
 }
@@ -681,7 +681,7 @@ ol {
 }
 
 .trust-principles h3 {
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 1.35rem;
 }
 
@@ -769,7 +769,7 @@ ol {
   gap: var(--space-xs);
   border-top: 1px solid oklch(96% 0.018 95 / 35%);
   padding: var(--space-md) 0;
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 0.88rem;
   line-height: 1.6;
 }
@@ -824,7 +824,7 @@ ol {
 }
 
 .site-footer > p {
-  font-family: var(--font-korean);
+  font-family: var(--font-editorial);
   font-size: 0.9rem;
 }
 

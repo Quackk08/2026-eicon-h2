@@ -4,38 +4,38 @@ import { ArrowDown, ArrowUpRight, Menu, X } from "lucide-react";
 const processSteps = [
   {
     number: "01",
-    title: "삶의 방향을 정합니다.",
-    description: "회복하고 싶은 일상과 오래 유지하고 싶은 삶의 모습을 직접 정의합니다."
+    title: "Define the life you want.",
+    description: "Describe the everyday life you want to regain and the patterns you want to sustain."
   },
   {
     number: "02",
-    title: "지금의 조건을 확인합니다.",
-    description: "기분을 진단하지 않고 에너지, 시간, 거리, 비용과 사회적 부담을 살펴봅니다."
+    title: "Read today's conditions.",
+    description: "Consider your energy, time, distance, cost, and social effort without diagnosing your mood."
   },
   {
     number: "03",
-    title: "오늘의 크기로 조정합니다.",
-    description: "장기 목표는 남겨두고 지금 실행할 수 있는 가장 현실적인 행동을 선택합니다."
+    title: "Adjust it to today's scale.",
+    description: "Keep the long-term goal, then choose the most realistic action you can take right now."
   },
   {
     number: "04",
-    title: "다음 삶에 반영합니다.",
-    description: "시도한 결과와 부담도를 기록하고 다음 행동과 장소를 다시 설계합니다."
+    title: "Shape the next step.",
+    description: "Reflect on the result and effort, then redesign the next action and place around what you learned."
   }
 ];
 
 const routeLevels = [
-  ["Level 05", "카페에서 20분 공부하기"],
-  ["Level 04", "카페에서 노트를 펼치고 10분 머무르기"],
-  ["Level 03", "가까운 카페 입구까지 다녀오기"],
-  ["Level 02", "집 앞까지 5분 걷기"],
-  ["Level 01", "가방에 노트 한 권 넣기"]
+  ["Level 05", "Study at a cafe for 20 minutes"],
+  ["Level 04", "Open a notebook at a cafe and stay for 10 minutes"],
+  ["Level 03", "Walk to the entrance of a nearby cafe"],
+  ["Level 02", "Take a five-minute walk outside"],
+  ["Level 01", "Put one notebook in your bag"]
 ];
 
 const navigationItems = [
-  ["ReNew란", "#about"],
-  ["작동 방식", "#method"],
-  ["지역 연결", "#local"],
+  ["About ReNew", "#about"],
+  ["How It Works", "#method"],
+  ["Local Network", "#local"],
   ["e-ICON", "#e-icon"]
 ];
 
@@ -78,11 +78,11 @@ export default function App() {
   return (
     <div className="site-shell">
       <header className="site-header">
-        <a className="wordmark" href="#top" aria-label="ReNew 홈">
+        <a className="wordmark" href="#top" aria-label="ReNew home">
           ReNew
         </a>
 
-        <nav className="desktop-nav" aria-label="주요 메뉴">
+        <nav className="desktop-nav" aria-label="Primary navigation">
           {navigationItems.map(([label, href]) => (
             <a key={href} href={href}>
               {label}
@@ -92,15 +92,15 @@ export default function App() {
 
         <div className="header-actions">
           <a className="text-link desktop-only" href="/login">
-            로그인
+            Sign in
           </a>
           <a className="header-cta desktop-only" href="/onboarding">
-            시작하기
+            Get started
           </a>
           <button
             className="menu-button"
             type="button"
-            aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
             aria-expanded={menuOpen}
             aria-controls="mobile-navigation"
             onClick={() => setMenuOpen((current) => !current)}
@@ -115,7 +115,7 @@ export default function App() {
         id="mobile-navigation"
         aria-hidden={!menuOpen}
       >
-        <nav aria-label="모바일 메뉴">
+        <nav aria-label="Mobile navigation">
           {navigationItems.map(([label, href], index) => (
             <a key={href} href={href} onClick={closeMenu}>
               <span>0{index + 1}</span>
@@ -125,10 +125,10 @@ export default function App() {
         </nav>
         <div className="mobile-menu-actions">
           <a href="/login" onClick={closeMenu}>
-            로그인
+            Sign in
           </a>
           <a href="/onboarding" onClick={closeMenu}>
-            ReNew 시작하기 <ArrowUpRight aria-hidden="true" />
+            Begin with ReNew <ArrowUpRight aria-hidden="true" />
           </a>
         </div>
       </div>
@@ -150,16 +150,16 @@ export default function App() {
               Rewrite the everyday
             </p>
             <p className="hero-summary">
-              원하는 삶의 방향을 잃지 않도록,
+              Keep the life you want in view.
               <br />
-              오늘 가능한 행동과 실제 생활의 장소를 연결합니다.
+              Connect what feels possible today with the real places around you.
             </p>
             <a className="hero-action" href="/onboarding">
-              ReNew 시작하기 <ArrowUpRight aria-hidden="true" />
+              Begin with ReNew <ArrowUpRight aria-hidden="true" />
             </a>
           </div>
 
-          <a className="scroll-cue" href="#about" aria-label="다음 내용 보기">
+          <a className="scroll-cue" href="#about" aria-label="View the next section">
             <span>Discover</span>
             <ArrowDown aria-hidden="true" />
           </a>
@@ -169,19 +169,20 @@ export default function App() {
           <div className="section-frame" data-reveal>
             <p className="section-kicker">01 / The question</p>
             <h2 className="manifesto-title">
-              당신은 어떤 삶을
+              What kind of life
               <br />
-              <span>만들고</span> 싶나요?
+              do you want to <span>build?</span>
             </h2>
             <div className="manifesto-copy">
               <p>
-                ReNew는 사용자를 환자나 위험군으로 먼저 정의하지 않습니다. 누구나 자신의 삶을
-                설계하고, 달라진 하루의 조건에 맞춰 행동의 크기와 환경을 조정할 수 있다고
-                믿습니다.
+                ReNew does not begin by defining anyone as a patient or a risk profile. It starts from
+                the belief that every person can shape their own life, then adjust the size and setting
+                of an action as each day changes.
               </p>
               <p>
-                장기 목표를 포기하는 대신 오늘의 한 걸음을 더 작게 만듭니다. 시간, 거리, 비용,
-                에너지와 사람을 만나는 부담까지 고려해 지금의 나에게 가능한 경로를 찾습니다.
+                Instead of abandoning a long-term goal, ReNew makes today's step smaller. It considers
+                time, distance, cost, energy, and social effort to find a route that is genuinely
+                possible right now.
               </p>
             </div>
           </div>
@@ -197,8 +198,8 @@ export default function App() {
                 <span>Adjust the day.</span>
               </h2>
               <p>
-                삶의 방향에서 시작해 오늘의 행동으로, 그리고 다시 다음 계획으로 이어지는 하나의
-                생활 루프입니다.
+                One continuous life loop, moving from your direction to today's action and back into
+                what comes next.
               </p>
             </div>
 
@@ -219,17 +220,17 @@ export default function App() {
             <div className="route-intro" data-reveal>
               <p className="section-kicker">03 / Adaptive life route</p>
               <h2>
-                목표는 남겨두고,
+                Keep the destination.
                 <br />
-                오늘의 크기만 바꿉니다.
+                Change today's scale.
               </h2>
               <div className="vision-note">
                 <span>Life vision</span>
-                <p>집 밖에서 규칙적으로 공부하는 생활 만들기</p>
+                <p>Build a routine of studying regularly outside the home</p>
               </div>
             </div>
 
-            <ol className="route-levels" aria-label="적응형 행동 단계 예시">
+            <ol className="route-levels" aria-label="Example adaptive action steps">
               {routeLevels.map(([level, action]) => (
                 <li key={level} data-reveal>
                   <span>{level}</span>
@@ -245,24 +246,24 @@ export default function App() {
             <div className="local-heading" data-reveal>
               <p className="section-kicker">04 / Local life network</p>
               <h2>
-                생활은 화면 안이 아니라
+                Life continues beyond the screen,
                 <br />
-                <span>실제 장소에서</span> 이어집니다.
+                <span>in real places.</span>
               </h2>
               <p>
-                가까운 카페, 도서관, 공원과 지역 프로그램을 거리, 비용, 접근성, 사회적 부담에 맞춰
-                행동 경로와 연결합니다.
+                Nearby cafes, libraries, parks, and community programs become part of your route,
+                matched to distance, cost, accessibility, and social effort.
               </p>
             </div>
 
-            <div className="place-mosaic" aria-label="ReNew가 연결하는 생활 장소 예시">
+            <div className="place-mosaic" aria-label="Examples of local places connected by ReNew">
               <figure className="place-tile place-tile-library" data-reveal>
                 <div className="place-visual" aria-hidden="true">
                   <span>Quiet / 01</span>
                 </div>
                 <figcaption>
                   <span>Library</span>
-                  조용히 머무를 수 있는 공공 공간
+                  A public place where you can stay quietly
                 </figcaption>
               </figure>
               <figure className="place-tile place-tile-cafe" data-reveal>
@@ -271,7 +272,7 @@ export default function App() {
                 </div>
                 <figcaption>
                   <span>Local cafe</span>
-                  짧은 행동을 시작하기 좋은 가까운 장소
+                  A nearby place for starting a small action
                 </figcaption>
               </figure>
               <figure className="place-tile place-tile-park" data-reveal>
@@ -280,7 +281,7 @@ export default function App() {
                 </div>
                 <figcaption>
                   <span>Park</span>
-                  비용 없이 움직임을 시작하는 생활 환경
+                  An open setting where movement costs nothing
                 </figcaption>
               </figure>
               <figure className="place-tile place-tile-community" data-reveal>
@@ -289,7 +290,7 @@ export default function App() {
                 </div>
                 <figcaption>
                   <span>Community</span>
-                  대화 없이도 함께 행동할 수 있는 연결
+                  A way to act alongside others without pressure to talk
                 </figcaption>
               </figure>
             </div>
@@ -301,26 +302,26 @@ export default function App() {
             <div className="trust-statement" data-reveal>
               <p className="section-kicker">05 / Your pace, your choice</p>
               <h2>
-                ReNew는 당신을
+                ReNew does not
                 <br />
-                <span>진단하지 않습니다.</span>
+                <span>diagnose you.</span>
               </h2>
             </div>
             <div className="trust-principles">
               <div data-reveal>
                 <span>01</span>
-                <h3>나의 기준선</h3>
-                <p>다른 사람과 비교하지 않고 나의 평소 생활과 최근 변화를 함께 봅니다.</p>
+                <h3>Your own baseline</h3>
+                <p>Look at your usual patterns and recent changes without comparing yourself to others.</p>
               </div>
               <div data-reveal>
                 <span>02</span>
-                <h3>선택 가능한 추천</h3>
-                <p>모든 행동과 장소는 더 작게 바꾸거나 거절하고 잠시 멈출 수 있습니다.</p>
+                <h3>Recommendations you control</h3>
+                <p>Make any action smaller, decline a place, or pause whenever you need to.</p>
               </div>
               <div data-reveal>
                 <span>03</span>
-                <h3>승인 기반 연결</h3>
-                <p>연락과 정보 공유는 내용을 미리 확인하고 직접 승인한 경우에만 실행됩니다.</p>
+                <h3>Connections by consent</h3>
+                <p>Contact and information sharing only happen after you review and approve them.</p>
               </div>
             </div>
           </div>
@@ -339,38 +340,39 @@ export default function App() {
 
             <div className="eicon-content" data-reveal>
               <p className="eicon-lead">
-                e-ICON 세계대회는 국내외 중·고등학생이 글로벌 팀을 이루어 지속가능개발목표를 위한
-                웹 앱을 만드는 국제 SW·AI 경진대회입니다.
+                e-ICON is an international SW and AI competition where secondary-school students from
+                Korea and around the world form global teams to build web apps that advance the
+                Sustainable Development Goals.
               </p>
               <p>
-                ReNew는 2026년 대회 주제인 SDG 3, 건강과 웰빙에 대한 응답으로 시작되었습니다.
-                건강을 진단 점수로 단순화하는 대신, 모든 연령의 사람이 자신의 생활 변화를
-                알아차리고 오늘 가능한 행동과 지역의 연결을 선택할 수 있도록 돕습니다.
+                ReNew began as a response to SDG 3, Good Health and Well-being, the 2026 competition
+                theme. Instead of reducing health to a diagnostic score, it helps people of all ages
+                recognize shifts in daily life and choose feasible actions and local connections.
               </p>
 
               <div className="sdg-links">
                 <a href="https://e-icon.or.kr/ko/" target="_blank" rel="noreferrer">
-                  e-ICON 세계대회 <ArrowUpRight aria-hidden="true" />
+                  Visit e-ICON <ArrowUpRight aria-hidden="true" />
                 </a>
                 <a href="https://sdgs.un.org/goals/goal3" target="_blank" rel="noreferrer">
-                  UN SDG 3 <ArrowUpRight aria-hidden="true" />
+                  Explore UN SDG 3 <ArrowUpRight aria-hidden="true" />
                 </a>
               </div>
             </div>
 
             <div className="eicon-relation" data-reveal>
-              <p>SDG 3 · Good Health and Well-being</p>
+              <p>SDG 3 / Good Health and Well-being</p>
               <div>
                 <span>Recognize</span>
-                생활의 변화를 스스로 알아차리기
+                Notice changes in your own everyday life
               </div>
               <div>
                 <span>Act</span>
-                오늘 가능한 가장 작은 행동 시작하기
+                Begin with the smallest action possible today
               </div>
               <div>
                 <span>Connect</span>
-                실제 장소와 낮은 부담의 관계로 이어지기
+                Reach real places and low-pressure relationships
               </div>
             </div>
           </div>
@@ -383,12 +385,12 @@ export default function App() {
               A life, renewed
             </p>
             <h2>
-              오늘 가능한
+              Start with what is
               <br />
-              한 걸음부터.
+              possible today.
             </h2>
             <a className="closing-action" href="/onboarding">
-              ReNew 시작하기 <ArrowUpRight aria-hidden="true" />
+              Begin with ReNew <ArrowUpRight aria-hidden="true" />
             </a>
           </div>
         </section>
@@ -400,9 +402,9 @@ export default function App() {
         </a>
         <p>Lifestyle Architecture for every life.</p>
         <div>
-          <a href="#about">서비스 소개</a>
+          <a href="#about">About</a>
           <a href="#e-icon">e-ICON</a>
-          <a href="/privacy">개인정보 처리방침</a>
+          <a href="/privacy">Privacy policy</a>
         </div>
         <span>2026 ReNew</span>
       </footer>
