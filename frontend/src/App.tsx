@@ -13,6 +13,7 @@ import { VisionPage } from "./pages/VisionPage";
 import { RoutePage } from "./pages/RoutePage";
 import { PlacesPage } from "./pages/PlacesPage";
 import { PlaceDetailPage } from "./pages/PlaceDetailPage";
+import { CommunityPage } from "./pages/CommunityPage";
 import { AppStateProvider } from "./state/AppState";
 
 const processSteps = [
@@ -446,6 +447,7 @@ export default function App() {
             <Route path="route" element={<RoutePage />} />
             <Route path="places" element={<PlacesPage />} />
             <Route path="places/:placeId" element={<PlaceDetailPage />} />
+            <Route path="community" element={<CommunityPage />} />
             <Route path="*" element={<Navigate to="/app/today" replace />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
