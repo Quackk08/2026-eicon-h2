@@ -3,6 +3,8 @@ import { ArrowDown, ArrowUpRight, Menu, X } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { SignInPage } from "./pages/SignInPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
+import { AppShell } from "./components/AppShell";
+import { TodayPage } from "./pages/TodayPage";
 import { AppStateProvider } from "./state/AppState";
 
 const processSteps = [
@@ -425,7 +427,11 @@ export default function App() {
           <Route path="/login" element={<SignInPage />} />
           <Route path="/sign-in" element={<Navigate to="/login" replace />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
-          <Route path="/app/*" element={<Navigate to="/login" replace />} />
+          <Route path="/app" element={<AppShell />}>
+            <Route index element={<Navigate to="/app/today" replace />} />
+            <Route path="today" element={<TodayPage />} />
+            <Route path="*" element={<Navigate to="/app/today" replace />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppStateProvider>
