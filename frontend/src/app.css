@@ -227,6 +227,211 @@
   }
 }
 
+.planning-page {
+  width: min(100%, 70rem);
+  margin-inline: auto;
+  padding: 2.5rem 1rem 5rem;
+}
+
+.planning-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.planning-heading h1 {
+  max-width: 48rem;
+  margin-top: 0.75rem;
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.planning-heading > div > p:last-child {
+  max-width: 36rem;
+  margin-top: 1rem;
+  font-family: var(--font-editorial);
+  line-height: 1.7;
+}
+
+.vision-status {
+  flex: 0 0 auto;
+  border: 1px solid currentColor;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.vision-status.is-active {
+  background: var(--color-leaf);
+}
+
+.vision-statement {
+  position: relative;
+  overflow: hidden;
+  margin-top: 3rem;
+  background: var(--color-deep-forest);
+  color: var(--color-paper);
+  padding: 2.5rem 1.5rem;
+}
+
+.vision-number {
+  position: absolute;
+  top: -1.5rem;
+  right: -0.5rem;
+  color: var(--color-leaf);
+  font-family: var(--font-display);
+  font-size: 8rem;
+  line-height: 1;
+  opacity: 0.55;
+}
+
+.vision-statement h2 {
+  position: relative;
+  max-width: 48rem;
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.vision-statement > p:nth-of-type(2) {
+  position: relative;
+  max-width: 38rem;
+  margin-top: 1.5rem;
+  font-family: var(--font-editorial);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.vision-actions {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.vision-actions .primary-command {
+  border-color: var(--color-paper);
+  background: var(--color-paper);
+  color: var(--color-forest);
+}
+
+.vision-actions .secondary-command {
+  border-color: var(--color-paper);
+  color: var(--color-paper);
+}
+
+.vision-edit-form {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 3rem;
+  border: 1px solid var(--color-ink);
+  padding: 1.5rem;
+}
+
+.vision-edit-form input,
+.vision-edit-form select,
+.vision-edit-form textarea {
+  width: 100%;
+  min-height: 3.5rem;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-editorial);
+  font-size: 1rem;
+}
+
+.vision-edit-form textarea {
+  resize: vertical;
+}
+
+.vision-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.vision-route-link {
+  display: grid;
+  gap: 1.5rem;
+  border: 1px solid var(--color-ink);
+  border-top: 0;
+  padding: 1.5rem;
+}
+
+.vision-route-link h2 {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 400;
+}
+
+.vision-route-link > div > p:last-child {
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+}
+
+.vision-principles {
+  margin-top: 3rem;
+}
+
+.vision-principles > div {
+  display: grid;
+  margin-top: 1rem;
+  border-top: 1px solid var(--color-line);
+}
+
+.vision-principles article {
+  display: grid;
+  min-height: 4rem;
+  align-items: center;
+  border-bottom: 1px solid var(--color-line);
+  grid-template-columns: 3rem 1fr;
+}
+
+.vision-principles span {
+  font-size: 0.65rem;
+}
+
+.vision-principles p {
+  font-family: var(--font-editorial);
+}
+
+@media (min-width: 48rem) {
+  .planning-page {
+    padding: 4rem 2rem 7rem;
+  }
+
+  .planning-heading h1 {
+    font-size: 4.5rem;
+  }
+
+  .vision-statement {
+    padding: 4rem;
+  }
+
+  .vision-statement h2 {
+    font-size: 4.5rem;
+  }
+
+  .vision-edit-form {
+    padding: 2.5rem;
+  }
+
+  .vision-route-link {
+    align-items: center;
+    padding: 2rem;
+    grid-template-columns: 1fr auto;
+  }
+}
+
 .reflection-mission {
   display: grid;
   gap: 0.5rem;

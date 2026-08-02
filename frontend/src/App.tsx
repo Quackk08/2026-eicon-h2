@@ -9,6 +9,7 @@ import { CheckInPage } from "./pages/CheckInPage";
 import { RecommendationPage } from "./pages/RecommendationPage";
 import { MissionPage } from "./pages/MissionPage";
 import { ReflectionPage } from "./pages/ReflectionPage";
+import { VisionPage } from "./pages/VisionPage";
 import { AppStateProvider } from "./state/AppState";
 
 const processSteps = [
@@ -438,6 +439,7 @@ export default function App() {
             <Route path="recommendation" element={<RecommendationPage />} />
             <Route path="mission" element={<MissionPage />} />
             <Route path="reflection" element={<ReflectionPage />} />
+            <Route path="vision" element={<VisionPage />} />
             <Route path="*" element={<Navigate to="/app/today" replace />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
