@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUpRight, Menu, X } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { SignInPage } from "./pages/SignInPage";
+import { OnboardingPage } from "./pages/OnboardingPage";
 import { AppStateProvider } from "./state/AppState";
 
 const processSteps = [
@@ -423,7 +424,7 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<SignInPage />} />
           <Route path="/sign-in" element={<Navigate to="/login" replace />} />
-          <Route path="/onboarding" element={<Navigate to="/login" replace />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/app/*" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
