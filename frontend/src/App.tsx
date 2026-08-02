@@ -5,6 +5,7 @@ import { SignInPage } from "./pages/SignInPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { AppShell } from "./components/AppShell";
 import { TodayPage } from "./pages/TodayPage";
+import { CheckInPage } from "./pages/CheckInPage";
 import { AppStateProvider } from "./state/AppState";
 
 const processSteps = [
@@ -430,6 +431,7 @@ export default function App() {
           <Route path="/app" element={<AppShell />}>
             <Route index element={<Navigate to="/app/today" replace />} />
             <Route path="today" element={<TodayPage />} />
+            <Route path="check-in" element={<CheckInPage />} />
             <Route path="*" element={<Navigate to="/app/today" replace />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
