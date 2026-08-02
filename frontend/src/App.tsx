@@ -144,13 +144,13 @@ export default function App() {
           <div className="hero-shade" aria-hidden="true" />
 
           <div className="hero-content">
-            <p className="section-kicker hero-kicker">Lifestyle Architecture for everyone</p>
+            <p className="section-kicker hero-kicker">Everyday mental well-being for everyone</p>
             <h1 id="hero-title">ReNew</h1>
             <p className="hero-script" aria-hidden="true">
               Rewrite the everyday
             </p>
             <p className="hero-summary">
-              Keep the life you want in view.
+              A gentle structure for the days that feel harder.
               <br />
               Connect what feels possible today with the real places around you.
             </p>
