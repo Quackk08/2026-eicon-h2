@@ -52,16 +52,28 @@ export function ReflectionPage() {
       createdAt: new Date().toISOString()
     };
 
-    updateData((current) => ({
-      ...current,
-      reflections: [...current.reflections, reflection],
-      route: current.route.map((step) =>
-        outcome === "completed" && !step.completed && step.id === current.route.find((item) => !item.completed)?.id
-          ? { ...step, completed: true }
-          : step
-      ),
-      mission: null
-    }));
+    updateData((current) => {
+      const currentMission = current.mission;
+      const routeStepId = currentMission?.routeStepId ?? current.route.find((item) => !item.completed)?.id;
+      const completedAt = new Date().toISOString();
+
+      return {
+        ...current,
+        reflections: [...current.reflections, reflection],
+        route: current.route.map((step) =>
+          outcome === "completed" && !step.completed && step.id === routeStepId
+            ? { ...step, completed: true }
+            : step
+        ),
+        missionHistory: currentMission
+          ? [
+              ...current.missionHistory.filter((item) => item.id !== currentMission.id),
+              { ...currentMission, status: outcome, completedAt }
+            ]
+          : current.missionHistory,
+        mission: null
+      };
+    });
     navigate("/app/today");
   };
 

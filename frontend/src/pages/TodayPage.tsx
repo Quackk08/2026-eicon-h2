@@ -1,66 +1,102 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
-  Activity,
   ArrowRight,
-  BellRing,
+  CalendarClock,
   CalendarDays,
+  CalendarPlus,
+  Check,
+  CheckCircle2,
   ChevronRight,
   Clock3,
-  CloudOff,
-  Compass,
-  HeartHandshake,
   MapPin,
-  Minimize2,
+  Navigation,
+  PackageCheck,
+  Pause,
+  Play,
+  Plus,
+  RefreshCcw,
   Route as RouteIcon,
-  ShieldCheck,
-  Sparkles,
-  Users
+  UsersRound,
+  WalletCards,
+  X
 } from "lucide-react";
-import { Link } from "react-router-dom";
-import type { AppData, CheckInRecord, EffortLevel, Reflection } from "../data/appData";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  createMissionFromOption,
+  type Mission,
+  type MissionVariant,
+  type RecommendationOption
+} from "../data/appData";
+import {
+  describeResultAdjustment,
+  getEligibleMissionOptions,
+  getLatestResult,
+  getMissionPlace,
+  getRecommendationReasons,
+  getRecommendedMissionOption
+} from "../data/missionLogic";
 import { useAppState } from "../state/AppState";
 
-const responseLabels: Record<EffortLevel, string> = {
-  1: "Very low",
-  2: "Low",
-  3: "In between",
-  4: "Good",
-  5: "Strong"
+const variantLabels: Record<MissionVariant, string> = {
+  recommended: "Recommended",
+  lighter: "Lighter",
+  different: "Different setting",
+  more: "More time",
+  alternative: "Another way"
 };
 
-const inverseLabels: Record<EffortLevel, string> = {
-  1: "Very light",
-  2: "Light",
-  3: "Manageable",
-  4: "Heavy",
-  5: "Very heavy"
-};
-
-const missionStatusLabels = {
-  planned: "Planned",
+const statusLabels: Record<Mission["status"], string> = {
+  planned: "Ready to start",
   in_progress: "In progress",
   completed: "Completed",
+  partly: "Partly completed",
+  not_today: "Moved on from today"
+};
+
+const outcomeLabels = {
+  completed: "Completed",
+  partly: "Partly completed",
   not_today: "Not today"
 } as const;
 
-const rhythmLabels = {
-  daily: "Daily",
-  weekdays: "Weekdays",
-  weekly: "Weekly",
-  custom: "Custom days"
-} as const;
+const scheduleTimes = ["08:00", "10:00", "12:00", "14:00", "18:00", "20:00"];
 
-function formatToday(): string {
-  return new Intl.DateTimeFormat("en", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric"
-  }).format(new Date());
+interface ScheduleDay {
+  value: string;
+  label: string;
+  weekday: string;
+  day: string;
+  month: string;
 }
 
-function formatRecordedAt(value: string): string {
+function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function buildScheduleDays(): ScheduleDay[] {
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index);
+    return {
+      value: toDateKey(date),
+      label: new Intl.DateTimeFormat("en", {
+        weekday: "long",
+        month: "short",
+        day: "numeric"
+      }).format(date),
+      weekday: new Intl.DateTimeFormat("en", { weekday: "short" }).format(date),
+      day: String(date.getDate()),
+      month: new Intl.DateTimeFormat("en", { month: "short" }).format(date)
+    };
+  });
+}
+
+function formatSchedule(value: string): string {
   return new Intl.DateTimeFormat("en", {
+    weekday: "short",
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -68,543 +104,504 @@ function formatRecordedAt(value: string): string {
   }).format(new Date(value));
 }
 
-function formatNextCheckIn(value: Date): string {
+function formatTime(value: string): string {
   return new Intl.DateTimeFormat("en", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
     hour: "numeric",
     minute: "2-digit"
-  }).format(value);
+  }).format(new Date(value));
 }
 
-function getNextCheckIn(data: AppData, now = new Date()): Date | null {
-  const rhythm = data.settings.checkInRhythm;
-
-  if (!rhythm.enabled || rhythm.days.length === 0) {
-    return null;
-  }
-
-  const [hours, minutes] = rhythm.time.split(":").map(Number);
-
-  for (let offset = 0; offset <= 14; offset += 1) {
-    const candidate = new Date(now);
-    candidate.setDate(now.getDate() + offset);
-    candidate.setHours(hours, minutes, 0, 0);
-
-    if (rhythm.days.includes(candidate.getDay()) && candidate.getTime() > now.getTime()) {
-      return candidate;
-    }
-  }
-
-  return null;
+function formatResultDate(value: string): string {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric"
+  }).format(new Date(value));
 }
 
-function isWithinLastSevenDays(value: string, now = Date.now()): boolean {
-  const timestamp = new Date(value).getTime();
-  return Number.isFinite(timestamp) && timestamp >= now - 7 * 24 * 60 * 60 * 1000 && timestamp <= now;
+function isInNextSevenDays(value: string): boolean {
+  const scheduled = new Date(value).getTime();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return scheduled >= today.getTime() && scheduled < today.getTime() + 7 * 24 * 60 * 60 * 1000;
 }
 
-type NumericCheckInKey = "mood" | "energy" | "capacity" | "stress" | "sleep" | "socialLoad";
-
-function averageSignal(records: CheckInRecord[], key: NumericCheckInKey): number | null {
-  const values = records
-    .map((record) => {
-      const value = record[key];
-      return typeof value === "number" ? value : null;
-    })
-    .filter((value): value is EffortLevel => value !== null);
-
-  if (values.length === 0) {
-    return null;
-  }
-
-  return values.reduce((total, value) => total + value, 0) / values.length;
-}
-
-function describeCurrentState(checkIn: CheckInRecord): string {
-  if (checkIn.energy <= 2 && checkIn.capacity <= 2) {
-    return "Your latest record shows lower available energy and everyday capacity. A smaller step may fit better today.";
-  }
-
-  if (checkIn.socialLoad !== undefined && checkIn.socialLoad >= 4) {
-    return "Being around people may feel relatively demanding today, so lower-contact options are shown first.";
-  }
-
-  if (checkIn.stress !== undefined && checkIn.stress >= 4) {
-    return "Your latest record carries a heavier stress load. ReNew will keep the next action clear and limited.";
-  }
-
-  if (checkIn.energy >= 4 && checkIn.capacity >= 4) {
-    return "Your latest record shows more available energy and capacity, while every suggested step remains optional.";
-  }
-
-  return "Your latest signals sit in a mixed range. The next action can stay flexible and change in size at any time.";
-}
-
-function describeRecentPattern(checkIns: CheckInRecord[], reflections: Reflection[]): string {
-  const validCheckIns = [...checkIns]
-    .filter((record) => Number.isFinite(new Date(record.createdAt).getTime()))
-    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
-
-  if (validCheckIns.length < 3) {
-    return "There are not enough records to describe a recent pattern yet. Three Check-Ins are needed before a comparison appears.";
-  }
-
-  const recent = validCheckIns.filter((record) => isWithinLastSevenDays(record.createdAt));
-  const previous = validCheckIns.filter((record) => !isWithinLastSevenDays(record.createdAt));
-
-  if (recent.length < 2) {
-    return "There are not enough Check-Ins from the last seven days to describe a recent pattern yet.";
-  }
-
-  const recentReflections = reflections.filter((reflection) => isWithinLastSevenDays(reflection.createdAt));
-
-  if (previous.length > 0) {
-    const comparisons = [
-      { key: "energy" as const, label: "available energy" },
-      { key: "capacity" as const, label: "everyday capacity" },
-      { key: "socialLoad" as const, label: "social load" }
-    ]
-      .map(({ key, label }) => {
-        const currentAverage = averageSignal(recent, key);
-        const previousAverage = averageSignal(previous, key);
-        return currentAverage === null || previousAverage === null
-          ? null
-          : { label, difference: currentAverage - previousAverage };
-      })
-      .filter((item): item is { label: string; difference: number } => item !== null)
-      .sort((left, right) => Math.abs(right.difference) - Math.abs(left.difference));
-
-    const clearestChange = comparisons.find((item) => Math.abs(item.difference) >= 0.5);
-
-    if (clearestChange) {
-      const direction = clearestChange.difference > 0 ? "higher" : "lower";
-      const reflectionNote = recentReflections.length > 0
-        ? ` You also added ${recentReflections.length} reflection${recentReflections.length === 1 ? "" : "s"} during this period.`
-        : "";
-      return `Recent records show ${direction} ${clearestChange.label} compared with earlier records.${reflectionNote}`;
-    }
-
-    return "Recent signals have stayed close to your earlier records. No clear shift is large enough to summarize yet.";
-  }
-
-  const recentEnergy = averageSignal(recent, "energy");
-  const recentCapacity = averageSignal(recent, "capacity");
-  const partlyCount = recentReflections.filter((reflection) => reflection.outcome === "partly").length;
-
-  if ((recentEnergy ?? 5) <= 2.5 && (recentCapacity ?? 5) <= 2.5) {
-    return "Recent records show lower available energy and capacity. Keeping actions small has remained an available choice.";
-  }
-
-  if (partlyCount > 0) {
-    return "Recent reflections include partly completed actions. These are recorded as useful adjustments, not failed attempts.";
-  }
-
-  return "A recent baseline is forming. More records over time will make comparisons with earlier weeks possible.";
-}
-
-function placeFitsBudget(cost: string, budget: AppData["preferences"]["budget"]): boolean {
-  if (budget === "Flexible") return true;
-  if (budget === "Low cost") return cost === "Free" || cost === "Low cost";
-  return cost === "Free";
-}
-
-function getSuggestedPlaces(data: AppData, latestCheckIn: CheckInRecord | null) {
-  const prefersLowestSocialLoad =
-    data.preferences.socialPreference === "Solo" || (latestCheckIn?.socialLoad ?? 0) >= 4;
-
-  return data.places
-    .filter((place) => place.distanceKm <= data.preferences.maxDistanceKm)
-    .filter((place) => placeFitsBudget(place.cost, data.preferences.budget))
-    .filter((place) => !prefersLowestSocialLoad || place.socialLoad === "Low")
-    .filter((place) =>
-      data.preferences.accessibilityNeeds.every((need) => place.accessibility.includes(need))
-    )
-    .sort((left, right) => {
-      const leftPreferred = data.preferences.preferredPlaces.includes(left.type) ? 0 : 1;
-      const rightPreferred = data.preferences.preferredPlaces.includes(right.type) ? 0 : 1;
-      return leftPreferred - rightPreferred || left.distanceKm - right.distanceKm;
-    })
-    .slice(0, 3);
-}
-
-function hasAvailability(capacity: string): boolean {
-  const match = capacity.match(/(\d+)\s+of\s+(\d+)/i);
-  return !match || Number(match[1]) < Number(match[2]);
-}
-
-function getSuggestedCommunity(data: AppData, latestCheckIn: CheckInRecord | null) {
-  if (data.preferences.socialPreference === "Solo") {
-    return null;
-  }
-
-  const needsLowSocialLoad =
-    data.preferences.socialPreference === "Low pressure" || (latestCheckIn?.socialLoad ?? 0) >= 4;
-
-  return data.community
-    .map((activity) => ({
-      activity,
-      venue: data.places.find((place) => place.name === activity.place)
-    }))
-    .filter(({ activity }) => activity.joined || hasAvailability(activity.capacity))
-    .filter(({ activity }) => !needsLowSocialLoad || activity.socialLoad === "Low")
-    .filter(({ venue }) => venue !== undefined && venue.distanceKm <= data.preferences.maxDistanceKm)
-    .sort((left, right) => {
-      if (left.activity.joined !== right.activity.joined) return left.activity.joined ? -1 : 1;
-      if (left.activity.socialLoad !== right.activity.socialLoad) {
-        return left.activity.socialLoad === "Low" ? -1 : 1;
-      }
-      return (left.venue?.distanceKm ?? 0) - (right.venue?.distanceKm ?? 0);
-    })[0] ?? null;
-}
-
-function getSmallerOption(data: AppData, currentRouteStep: AppData["route"][number] | null) {
-  const mission = data.mission;
-
-  if (!mission) {
-    return null;
-  }
-
-  const lighterRecommendation = data.recommendations.find(
-    (option) =>
-      option.effort === "Light" &&
-      option.id !== mission.optionId &&
-      option.durationMinutes < mission.durationMinutes
-  );
-
-  if (lighterRecommendation) {
-    return {
-      title: lighterRecommendation.title,
-      description: lighterRecommendation.description,
-      durationMinutes: lighterRecommendation.durationMinutes,
-      source: "Lighter reviewed option",
-      href: "/app/mission"
-    };
-  }
-
-  if (!currentRouteStep) {
-    return null;
-  }
-
-  const lowerRouteStep = [...data.route]
-    .filter((step) => step.level < currentRouteStep.level)
-    .sort((left, right) => right.level - left.level)[0];
-
-  return lowerRouteStep
-    ? {
-        title: lowerRouteStep.title,
-        description: `An explored step from Level ${lowerRouteStep.level} of your Life Route.`,
-        durationMinutes: lowerRouteStep.durationMinutes,
-        source: "Smaller Life Route step",
-        href: "/app/route"
-      }
-    : null;
+function missionDateKey(mission: Mission): string | null {
+  return mission.scheduledFor ? toDateKey(new Date(mission.scheduledFor)) : null;
 }
 
 export function TodayPage() {
-  const { data, ready } = useAppState();
-  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
+  const navigate = useNavigate();
+  const { data, ready, updateData } = useAppState();
+  const recommendedOption = useMemo(() => getRecommendedMissionOption(data), [data]);
+  const eligibleOptions = useMemo(() => getEligibleMissionOptions(data), [data]);
+  const scheduleDays = useMemo(buildScheduleDays, []);
+  const [selectedDay, setSelectedDay] = useState(scheduleDays[0].value);
+  const [selectedOptionId, setSelectedOptionId] = useState(
+    data.mission?.optionId ?? recommendedOption.id
+  );
+  const [scheduleTargetId, setScheduleTargetId] = useState<string | null>(null);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [scheduleDate, setScheduleDate] = useState(scheduleDays[0].value);
+  const [scheduleTime, setScheduleTime] = useState(data.settings.checkInRhythm.time);
+  const [scheduleNotice, setScheduleNotice] = useState("");
 
   useEffect(() => {
-    const markOnline = () => setOnline(true);
-    const markOffline = () => setOnline(false);
-    window.addEventListener("online", markOnline);
-    window.addEventListener("offline", markOffline);
-    return () => {
-      window.removeEventListener("online", markOnline);
-      window.removeEventListener("offline", markOffline);
-    };
-  }, []);
+    if (data.mission) {
+      setSelectedOptionId(data.mission.optionId);
+    } else {
+      setSelectedOptionId(recommendedOption.id);
+    }
+  }, [data.mission?.optionId, recommendedOption.id]);
 
-  const latestCheckIn = useMemo(
-    () =>
-      [...data.checkIns].sort(
-        (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
-      )[0] ?? null,
-    [data.checkIns]
-  );
-  const currentRouteIndex = data.route.findIndex((step) => !step.completed);
-  const currentRouteStep = currentRouteIndex >= 0 ? data.route[currentRouteIndex] : null;
-  const nextRouteStep = currentRouteIndex >= 0 ? data.route[currentRouteIndex + 1] ?? null : null;
-  const completedSteps = data.route.filter((step) => step.completed).length;
-  const routeProgress = data.route.length > 0 ? (completedSteps / data.route.length) * 100 : 0;
-  const nextCheckIn = getNextCheckIn(data);
-  const suggestedPlaces = getSuggestedPlaces(data, latestCheckIn);
-  const suggestedCommunity = getSuggestedCommunity(data, latestCheckIn);
-  const smallerOption = getSmallerOption(data, currentRouteStep);
-  const recentCheckIns = data.checkIns.filter((record) => isWithinLastSevenDays(record.createdAt));
-  const recentReflections = data.reflections.filter((reflection) => isWithinLastSevenDays(reflection.createdAt));
-  const weeklyStats = [
-    { label: "Check-Ins", value: recentCheckIns.length },
-    { label: "Reflections", value: recentReflections.length },
-    { label: "Completed", value: recentReflections.filter((item) => item.outcome === "completed").length },
-    { label: "Partly", value: recentReflections.filter((item) => item.outcome === "partly").length },
-    { label: "Not today", value: recentReflections.filter((item) => item.outcome === "not_today").length }
-  ];
+  const selectedOption =
+    data.recommendations.find((option) => option.id === selectedOptionId) ?? recommendedOption;
+  const selectedPlace = getMissionPlace(data, selectedOption);
+  const selectedIsActive = data.mission?.optionId === selectedOption.id;
+  const activeStatus = selectedIsActive ? data.mission?.status : null;
+  const reasons = getRecommendationReasons(data, selectedOption);
+  const completedRouteSteps = data.route.filter((step) => step.completed).length;
+  const currentRouteStep = data.route.find((step) => !step.completed) ?? null;
+  const latestResult = getLatestResult(data);
+  const resultAdjustment = describeResultAdjustment(latestResult);
+  const scheduleTarget = scheduleTargetId
+    ? data.recommendations.find((option) => option.id === scheduleTargetId) ?? null
+    : null;
+  const selectedDayInfo = scheduleDays.find((day) => day.value === selectedDay) ?? scheduleDays[0];
+  const isTodaySelected = selectedDay === scheduleDays[0].value;
+  const upcomingMissions = [...data.plannedMissions]
+    .filter((mission) => mission.scheduledFor && isInNextSevenDays(mission.scheduledFor))
+    .sort(
+      (left, right) =>
+        new Date(left.scheduledFor ?? 0).getTime() - new Date(right.scheduledFor ?? 0).getTime()
+    );
+  const selectedDayPlans = upcomingMissions.filter((mission) => missionDateKey(mission) === selectedDay);
+  const unscheduledCurrentMission =
+    isTodaySelected && data.mission && !data.mission.scheduledFor ? data.mission : null;
+  const selectedDayCount = selectedDayPlans.length + (unscheduledCurrentMission ? 1 : 0);
+  const plannerOptions = data.recommendations.filter((option) => option.visionId === data.vision.id);
+  const locationName =
+    selectedPlace?.name ?? (selectedOption.format === "At home" ? "Home" : "Online");
+  const focusTiming =
+    selectedIsActive && data.mission?.scheduledFor
+      ? formatSchedule(data.mission.scheduledFor)
+      : isTodaySelected
+        ? "Today / Flexible time"
+        : `${selectedDayInfo.label} / Time not set`;
+  const recordedResult = latestResult
+    ? `${outcomeLabels[latestResult.reflection.outcome]} on ${formatResultDate(latestResult.reflection.createdAt)}`
+    : "No result yet";
 
   if (!ready) {
     return (
       <main className="app-page dashboard-loading" aria-live="polite">
         <span />
-        <p>Loading your locally stored Dashboard...</p>
+        <p>Loading Missions stored on this device...</p>
       </main>
     );
   }
 
+  const chooseOption = (option: RecommendationOption, scrollToFocus = true) => {
+    setSelectedOptionId(option.id);
+    setScheduleNotice("");
+    if (scrollToFocus) {
+      document.getElementById("planner-focus")?.scrollIntoView({
+        behavior: data.settings.reducedMotion ? "auto" : "smooth",
+        block: "start"
+      });
+    }
+  };
+
+  const startSelectedMission = () => {
+    const startedAt = new Date().toISOString();
+    updateData((current) => ({
+      ...current,
+      mission:
+        current.mission?.optionId === selectedOption.id
+          ? { ...current.mission, status: "in_progress", startedAt }
+          : createMissionFromOption(selectedOption, { status: "in_progress", startedAt })
+    }));
+    navigate("/app/mission");
+  };
+
+  const finishSelectedMission = () => {
+    const completedAt = new Date().toISOString();
+    updateData((current) => ({
+      ...current,
+      mission: current.mission ? { ...current.mission, status: "completed", completedAt } : null
+    }));
+    navigate("/app/reflection");
+  };
+
+  const markNotToday = () => {
+    updateData((current) => ({
+      ...current,
+      mission: current.mission ? { ...current.mission, status: "not_today" } : null
+    }));
+    navigate("/app/reflection");
+  };
+
+  const runPrimaryAction = () => {
+    if (activeStatus === "in_progress") {
+      finishSelectedMission();
+    } else if (activeStatus === "completed" || activeStatus === "partly" || activeStatus === "not_today") {
+      navigate("/app/reflection");
+    } else {
+      startSelectedMission();
+    }
+  };
+
+  const openSchedule = (option: RecommendationOption, plan?: Mission, preferredDate?: string) => {
+    setScheduleTargetId(option.id);
+    setEditingPlanId(plan?.id ?? null);
+    if (plan?.scheduledFor) {
+      const scheduled = new Date(plan.scheduledFor);
+      const existingDate = toDateKey(scheduled);
+      setScheduleDate(scheduleDays.some((day) => day.value === existingDate) ? existingDate : scheduleDays[0].value);
+      setScheduleTime(`${String(scheduled.getHours()).padStart(2, "0")}:${String(scheduled.getMinutes()).padStart(2, "0")}`);
+    } else {
+      setScheduleDate(preferredDate ?? selectedDay);
+      setScheduleTime(data.settings.checkInRhythm.time);
+    }
+    setScheduleNotice("");
+  };
+
+  const saveSchedule = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!scheduleTarget) return;
+
+    const wasEditing = editingPlanId !== null;
+    const scheduledFor = new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
+    updateData((current) => ({
+      ...current,
+      plannedMissions: editingPlanId
+        ? current.plannedMissions.map((mission) =>
+            mission.id === editingPlanId ? { ...mission, scheduledFor } : mission
+          )
+        : [
+            ...current.plannedMissions,
+            createMissionFromOption(scheduleTarget, { status: "planned", scheduledFor })
+          ]
+    }));
+    setSelectedDay(scheduleDate);
+    setScheduleTargetId(null);
+    setEditingPlanId(null);
+    setScheduleNotice(wasEditing ? "Mission moved." : "Mission added to your week.");
+  };
+
+  const startPlannedMissionNow = (mission: Mission) => {
+    const startedAt = new Date().toISOString();
+    updateData((current) => ({
+      ...current,
+      mission: {
+        ...mission,
+        status: "in_progress",
+        scheduledFor: null,
+        selectedAt: startedAt,
+        startedAt
+      },
+      plannedMissions: current.plannedMissions.filter((item) => item.id !== mission.id)
+    }));
+    navigate("/app/mission");
+  };
+
+  const removePlannedMission = (missionId: string) => {
+    updateData((current) => ({
+      ...current,
+      plannedMissions: current.plannedMissions.filter((mission) => mission.id !== missionId)
+    }));
+  };
+
+  const primaryLabel = !isTodaySelected
+    ? `Plan for ${selectedDayInfo.weekday}`
+    : activeStatus === "in_progress"
+      ? "Finish and reflect"
+      : activeStatus === "completed" || activeStatus === "partly" || activeStatus === "not_today"
+        ? "Open reflection"
+        : activeStatus === "planned"
+          ? "Start mission"
+          : "Start now";
+
+  const handlePrimaryAction = () => {
+    if (isTodaySelected) {
+      runPrimaryAction();
+    } else {
+      openSchedule(selectedOption, undefined, selectedDay);
+    }
+  };
+
   return (
-    <main className="app-page dashboard-page">
-      <header className="dashboard-heading">
+    <main className="app-page mission-home planner-dashboard">
+      <header className="planner-heading">
         <div>
-          <p className="app-kicker">{formatToday()}</p>
-          <h1>Your life, in view.</h1>
-          <p>Welcome back, {data.profile.name}. Connect your longer direction with one workable choice for today.</p>
+          <p className="app-kicker">Week of {scheduleDays[0].month} {scheduleDays[0].day}</p>
+          <h1>Plan the week. Do one thing today.</h1>
+          <p>Give a possible action a real day and time, then adjust the plan when life changes.</p>
         </div>
-        <div className="dashboard-storage" aria-label="Data storage status">
-          <ShieldCheck aria-hidden="true" />
-          <div>
-            <strong>Saved locally</strong>
-            <span>Stored on this device / {online ? "Sync unavailable" : "Waiting for connection"}</span>
-          </div>
-        </div>
+        <Link className="planner-direction" to="/app/vision">
+          <span>Current direction</span>
+          <strong>{data.vision.title}</strong>
+          <small>{currentRouteStep ? `Route step ${currentRouteStep.level} of ${data.route.length}` : `${completedRouteSteps} steps explored`}</small>
+          <ChevronRight aria-hidden="true" />
+        </Link>
       </header>
 
-      <dl className="dashboard-summary-strip">
-        <div>
-          <dt>Last Check-In</dt>
-          <dd>{latestCheckIn ? formatRecordedAt(latestCheckIn.createdAt) : "No record yet"}</dd>
+      <section className="planner-flow" aria-label="Plan, do, and review status">
+        <div className={upcomingMissions.length ? "is-complete" : "is-current"}>
+          <span>01 / Plan</span>
+          <strong>{upcomingMissions.length ? `${upcomingMissions.length} on the calendar` : "Choose a day"}</strong>
         </div>
-        <div>
-          <dt>Next Check-In</dt>
-          <dd>{nextCheckIn ? formatNextCheckIn(nextCheckIn) : "Not scheduled"}</dd>
+        <div className={activeStatus === "in_progress" ? "is-current" : ""}>
+          <span>02 / Do</span>
+          <strong>{activeStatus ? statusLabels[activeStatus] : "Mission ready"}</strong>
         </div>
-        <div>
-          <dt>Local access</dt>
-          <dd>{online ? "Available on this device" : "Offline and available"}</dd>
+        <div className={latestResult ? "is-complete" : ""}>
+          <span>03 / Review</span>
+          <strong>{recordedResult}</strong>
         </div>
-      </dl>
+      </section>
 
-      <div className="dashboard-grid">
-        <section className="dashboard-panel direction-panel" aria-labelledby="direction-title">
-          <div className="dashboard-panel-heading">
-            <div><p className="app-kicker">My Life Direction</p><h2 id="direction-title">{data.vision.title}</h2></div>
-            <Compass aria-hidden="true" />
+      <section className="planner-calendar" aria-labelledby="planner-calendar-title">
+        <div className="planner-calendar-heading">
+          <div>
+            <p className="app-kicker">Your next seven days</p>
+            <h2 id="planner-calendar-title">This week</h2>
           </div>
-          <p className="dashboard-lead">{data.vision.description}</p>
-          <dl className="direction-facts">
-            <div><dt>Life area</dt><dd>{data.vision.domain}</dd></div>
-            <div><dt>Vision status</dt><dd>{data.vision.status === "active" ? "Active" : "Paused"}</dd></div>
-            <div><dt>Route position</dt><dd>{currentRouteStep ? `Level ${currentRouteStep.level}` : "All explored"}</dd></div>
-            <div><dt>Progress</dt><dd>{completedSteps} of {data.route.length} explored</dd></div>
-          </dl>
-          <div className="dashboard-actions">
-            <Link className="primary-command" to="/app/vision">Open Life Vision <ArrowRight aria-hidden="true" /></Link>
-            <Link className="inline-arrow-link" to="/app/route">View Life Route <ChevronRight aria-hidden="true" /></Link>
-          </div>
-        </section>
+          <CalendarDays aria-hidden="true" />
+        </div>
+        <div className="planner-day-strip" role="tablist" aria-label="Choose a day">
+          {scheduleDays.map((day, index) => {
+            const planCount = upcomingMissions.filter((mission) => missionDateKey(mission) === day.value).length;
+            const count = planCount + (index === 0 && data.mission && !data.mission.scheduledFor ? 1 : 0);
+            return (
+              <button
+                className={`${selectedDay === day.value ? "is-selected" : ""}${index === 0 ? " is-today" : ""}`}
+                type="button"
+                role="tab"
+                aria-selected={selectedDay === day.value}
+                onClick={() => setSelectedDay(day.value)}
+                key={day.value}
+              >
+                <span>{index === 0 ? "Today" : day.weekday}</span>
+                <strong>{day.day}</strong>
+                <small>{count ? `${count} planned` : "Open"}</small>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
-        <section className="dashboard-panel state-panel" aria-labelledby="state-title">
-          <div className="dashboard-panel-heading">
-            <div><p className="app-kicker">Current State</p><h2 id="state-title">Your latest signals</h2></div>
-            <Activity aria-hidden="true" />
+      <div className="planner-workspace">
+        <section className="planner-focus" id="planner-focus" aria-labelledby="planner-focus-title">
+          <div className="planner-focus-topline">
+            <span>{selectedIsActive && activeStatus ? statusLabels[activeStatus] : variantLabels[selectedOption.variant]}</span>
+            <small>{isTodaySelected ? "Today's action" : `For ${selectedDayInfo.label}`}</small>
           </div>
-          {latestCheckIn ? (
-            <>
-              <p className="state-summary">{describeCurrentState(latestCheckIn)}</p>
-              <dl className="signal-summary">
-                <div><dt>Mood</dt><dd>{responseLabels[latestCheckIn.mood]}</dd></div>
-                <div><dt>Energy</dt><dd>{responseLabels[latestCheckIn.energy]}</dd></div>
-                <div><dt>Everyday capacity</dt><dd>{responseLabels[latestCheckIn.capacity]}</dd></div>
-                {latestCheckIn.stress !== undefined && <div><dt>Stress load</dt><dd>{inverseLabels[latestCheckIn.stress]}</dd></div>}
-                {latestCheckIn.sleep !== undefined && <div><dt>Sleep</dt><dd>{responseLabels[latestCheckIn.sleep]}</dd></div>}
-                {latestCheckIn.socialLoad !== undefined && <div><dt>Social load</dt><dd>{inverseLabels[latestCheckIn.socialLoad]}</dd></div>}
-              </dl>
-              <p className="recorded-time">Recorded {formatRecordedAt(latestCheckIn.createdAt)} / {latestCheckIn.type} Check-In</p>
-            </>
-          ) : (
-            <div className="dashboard-empty-state">
-              <p>No state record yet.</p>
-              <span>A Check-In adds context without turning your day into a score.</span>
-              <Link className="primary-command" to="/app/check-in">Start Check-In <ArrowRight aria-hidden="true" /></Link>
-            </div>
-          )}
-        </section>
+          <h2 id="planner-focus-title">{selectedOption.title}</h2>
+          <p className="planner-focus-description">{selectedOption.description}</p>
 
-        <section className="dashboard-panel mission-panel" aria-labelledby="mission-title">
-          <div className="dashboard-panel-heading">
-            <div><p className="app-kicker">Today's Mission</p><h2 id="mission-title">{data.mission ? data.mission.title : "Choose what fits today"}</h2></div>
-            <Sparkles aria-hidden="true" />
-          </div>
-          {data.mission ? (
-            <>
-              <p className="dashboard-lead">{data.mission.description}</p>
-              <div className="mission-dashboard-meta">
-                <span><Clock3 aria-hidden="true" /> {data.mission.durationMinutes} min</span>
-                <span><MapPin aria-hidden="true" /> {data.mission.placeType}</span>
-                <span>{missionStatusLabels[data.mission.status]}</span>
-              </div>
-              <Link className="primary-command" to={data.mission.status === "completed" || data.mission.status === "not_today" ? "/app/reflection" : "/app/mission"}>
-                {data.mission.status === "completed" || data.mission.status === "not_today" ? "Open Reflection" : "Open Mission"}
-                <ArrowRight aria-hidden="true" />
-              </Link>
-            </>
-          ) : (
-            <div className="dashboard-empty-state mission-empty-actions">
-              <p>No Mission is selected. Start from your current conditions or return to your Route.</p>
-              <div>
-                <Link className="primary-command" to="/app/check-in">Start Check-In <ArrowRight aria-hidden="true" /></Link>
-                <Link className="secondary-command" to="/app/recommendation">View recommendations</Link>
-                <Link className="inline-arrow-link" to="/app/route">Choose from Life Route <ChevronRight aria-hidden="true" /></Link>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {smallerOption && (
-          <section className="dashboard-panel smaller-panel" aria-labelledby="smaller-title">
-            <div className="dashboard-panel-heading">
-              <div><p className="app-kicker">Smaller Option</p><h2 id="smaller-title">One step lighter</h2></div>
-              <Minimize2 aria-hidden="true" />
-            </div>
-            <span className="source-label">{smallerOption.source}</span>
-            <h3>{smallerOption.title}</h3>
-            <p>{smallerOption.description}</p>
-            <div className="smaller-footer">
-              <span><Clock3 aria-hidden="true" /> {smallerOption.durationMinutes} min</span>
-              <Link className="inline-arrow-link" to={smallerOption.href}>Review this option <ChevronRight aria-hidden="true" /></Link>
-            </div>
-          </section>
-        )}
-
-        <section className="dashboard-panel route-panel" aria-labelledby="route-title">
-          <div className="dashboard-panel-heading">
-            <div><p className="app-kicker">Life Route Progress</p><h2 id="route-title">Keep the direction, adjust the scale.</h2></div>
-            <RouteIcon aria-hidden="true" />
-          </div>
-          <div className="route-dashboard-progress">
-            <div><span>{completedSteps} explored</span><span>{data.route.length} total</span></div>
-            <div aria-hidden="true"><i style={{ width: `${routeProgress}%` }} /></div>
-          </div>
-          <div className="route-dashboard-steps">
-            <div>
-              <span>{data.vision.status === "paused" ? "Paused" : "Current step"}</span>
-              <p>{currentRouteStep?.title ?? "Every Route step has been explored."}</p>
-            </div>
-            {nextRouteStep && (
-              <div><span>Available next</span><p>{nextRouteStep.title}</p></div>
+          <div className="planner-focus-actions">
+            <button className="primary-command" type="button" onClick={handlePrimaryAction}>
+              {isTodaySelected ? <Play aria-hidden="true" /> : <CalendarPlus aria-hidden="true" />}
+              {primaryLabel}
+            </button>
+            <button
+              className="secondary-command"
+              type="button"
+              onClick={() => document.getElementById("mission-library")?.scrollIntoView({ behavior: data.settings.reducedMotion ? "auto" : "smooth" })}
+            >
+              <RefreshCcw aria-hidden="true" /> Change
+            </button>
+            {isTodaySelected && (
+              <button className="text-button" type="button" onClick={() => openSchedule(selectedOption)}>
+                <CalendarPlus aria-hidden="true" /> Add to calendar
+              </button>
+            )}
+            {selectedIsActive && activeStatus !== "completed" && activeStatus !== "not_today" && (
+              <button className="text-button planner-defer-action" type="button" onClick={markNotToday}>
+                <Pause aria-hidden="true" /> Not today
+              </button>
             )}
           </div>
-          <Link className="inline-arrow-link" to="/app/route">Open full Route <ChevronRight aria-hidden="true" /></Link>
-        </section>
 
-        <section className="dashboard-panel weekly-panel" aria-labelledby="weekly-title">
-          <div className="dashboard-panel-heading">
-            <div><p className="app-kicker">Last 7 Days</p><h2 id="weekly-title">Weekly life records</h2></div>
-            <CalendarDays aria-hidden="true" />
-          </div>
-          <dl className="weekly-stats">
-            {weeklyStats.map((stat) => <div key={stat.label}><dt>{stat.label}</dt><dd>{stat.value}</dd></div>)}
+          <dl className="planner-facts">
+            <div><dt><CalendarClock aria-hidden="true" /> When</dt><dd>{focusTiming}</dd></div>
+            <div><dt><Clock3 aria-hidden="true" /> Duration</dt><dd>{selectedOption.durationMinutes} minutes</dd></div>
+            <div><dt><MapPin aria-hidden="true" /> Place</dt><dd>{locationName}</dd></div>
+            <div><dt><Navigation aria-hidden="true" /> Travel</dt><dd>{selectedPlace ? `${selectedPlace.distanceKm} km` : "No travel"}</dd></div>
+            <div><dt><WalletCards aria-hidden="true" /> Cost</dt><dd>{selectedPlace?.cost ?? selectedOption.estimatedCost}</dd></div>
+            <div><dt><PackageCheck aria-hidden="true" /> Bring</dt><dd>{selectedOption.supplies.length ? selectedOption.supplies.join(", ") : "Nothing extra"}</dd></div>
           </dl>
-          <p>Partly and Not today are adjustment records. They are not failures or broken streaks.</p>
-          <Link className="inline-arrow-link" to="/app/insights">Open Insights <ChevronRight aria-hidden="true" /></Link>
         </section>
 
-        <section className="dashboard-panel pattern-panel" aria-labelledby="pattern-title">
-          <div className="dashboard-panel-heading">
-            <div><p className="app-kicker">Recent Pattern</p><h2 id="pattern-title">What the records can say</h2></div>
-            <Activity aria-hidden="true" />
-          </div>
-          <p className="pattern-copy">{describeRecentPattern(data.checkIns, data.reflections)}</p>
-          <span>Rule-based summary / No diagnosis / No comparison with other people</span>
-        </section>
+        <aside className="planner-day-agenda" aria-labelledby="planner-day-title">
+          <header>
+            <div>
+              <p className="app-kicker">{selectedDayInfo.label}</p>
+              <h2 id="planner-day-title">Day plan</h2>
+            </div>
+            <span>{selectedDayCount} {selectedDayCount === 1 ? "mission" : "missions"}</span>
+          </header>
 
-        <section className="dashboard-panel places-panel" aria-labelledby="places-title">
-          <div className="dashboard-panel-heading">
-            <div><p className="app-kicker">Nearby Places</p><h2 id="places-title">Places that fit your conditions</h2></div>
-            <MapPin aria-hidden="true" />
-          </div>
-          {suggestedPlaces.length > 0 ? (
-            <div className="dashboard-place-list">
-              {suggestedPlaces.map((place) => (
-                <Link to={`/app/places/${place.id}`} key={place.id}>
-                  <span className={`place-swatch is-${place.color}`} aria-hidden="true" />
-                  <div>
-                    <h3>{place.name}</h3>
-                    <p>{place.type} / {place.distanceKm} km / {place.cost} / {place.socialLoad} social load</p>
-                    <span>{place.hours} / {place.accessibility.join(", ") || "No accessibility details listed"}</span>
-                  </div>
+          <div className="planner-agenda-list">
+            {unscheduledCurrentMission && (
+              <article className="planner-agenda-item is-current">
+                <time>Anytime</time>
+                <div>
+                  <span>{statusLabels[unscheduledCurrentMission.status]}</span>
+                  <h3>{unscheduledCurrentMission.title}</h3>
+                  <p>{unscheduledCurrentMission.durationMinutes} min / {unscheduledCurrentMission.placeType}</p>
+                </div>
+                <button
+                  className="icon-button"
+                  type="button"
+                  aria-label={`Open ${unscheduledCurrentMission.title}`}
+                  title="Open mission"
+                  onClick={() => {
+                    const option = data.recommendations.find((item) => item.id === unscheduledCurrentMission.optionId);
+                    if (option) chooseOption(option, false);
+                  }}
+                >
                   <ChevronRight aria-hidden="true" />
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="dashboard-empty-state">
-              <p>No listed place matches all of your current distance, cost, social, and accessibility preferences.</p>
-            </div>
-          )}
-          <Link className="inline-arrow-link" to="/app/places">Browse all places <ChevronRight aria-hidden="true" /></Link>
-        </section>
+                </button>
+              </article>
+            )}
 
-        <section className="dashboard-panel community-panel" aria-labelledby="community-title">
-          <div className="dashboard-panel-heading">
-            <div><p className="app-kicker">Community Step</p><h2 id="community-title">A lower-pressure way to join</h2></div>
-            <Users aria-hidden="true" />
-          </div>
-          {suggestedCommunity ? (
-            <div className="community-dashboard-detail">
-              <span>{suggestedCommunity.activity.joined ? "Joined" : "Available"}</span>
-              <h3>{suggestedCommunity.activity.title}</h3>
-              <p>{suggestedCommunity.activity.dateLabel} / {suggestedCommunity.activity.place}</p>
-              <dl>
-                <div><dt>Social load</dt><dd>{suggestedCommunity.activity.socialLoad}</dd></div>
-                <div><dt>Participation</dt><dd>{suggestedCommunity.activity.capacity}</dd></div>
-                <div><dt>Distance</dt><dd>{suggestedCommunity.venue?.distanceKm} km</dd></div>
-              </dl>
-              <Link className="primary-command" to={`/app/community/${suggestedCommunity.activity.id}`}>Open activity <ArrowRight aria-hidden="true" /></Link>
-            </div>
-          ) : (
-            <div className="dashboard-empty-state">
-              <p>No community activity matches your current conditions.</p>
-              <span>You can keep choosing actions that are possible to do alone.</span>
-              <Link className="inline-arrow-link" to="/app/community">Review all activities <ChevronRight aria-hidden="true" /></Link>
-            </div>
-          )}
-          <p className="privacy-note">Your Check-In details are never shown to community hosts or participants.</p>
-        </section>
+            {selectedDayPlans.map((mission) => {
+              const option = data.recommendations.find((item) => item.id === mission.optionId) ?? recommendedOption;
+              const place = getMissionPlace(data, mission);
+              return (
+                <article className="planner-agenda-item" key={mission.id}>
+                  <time dateTime={mission.scheduledFor ?? undefined}>{mission.scheduledFor ? formatTime(mission.scheduledFor) : "Anytime"}</time>
+                  <div>
+                    <span>Planned</span>
+                    <h3>{mission.title}</h3>
+                    <p>{mission.durationMinutes} min / {place?.name ?? mission.placeType}</p>
+                  </div>
+                  <div className="planner-agenda-actions">
+                    {isTodaySelected && (
+                      <button className="planner-small-command" type="button" onClick={() => startPlannedMissionNow(mission)}>Start</button>
+                    )}
+                    <button className="icon-button" type="button" aria-label={`Move ${mission.title}`} title="Move" onClick={() => openSchedule(option, mission)}><CalendarClock aria-hidden="true" /></button>
+                    <button className="icon-button" type="button" aria-label={`Remove ${mission.title}`} title="Remove" onClick={() => removePlannedMission(mission.id)}><X aria-hidden="true" /></button>
+                  </div>
+                </article>
+              );
+            })}
 
-        <section className="dashboard-panel rhythm-panel" aria-labelledby="rhythm-title">
-          <div className="dashboard-panel-heading">
-            <div><p className="app-kicker">Check-In Rhythm</p><h2 id="rhythm-title">Your next pause point</h2></div>
-            <BellRing aria-hidden="true" />
+            {selectedDayCount === 0 && (
+              <div className="planner-open-slot">
+                <span>{data.settings.checkInRhythm.time}</span>
+                <div><strong>Open time</strong><p>Add one realistic action to this day.</p></div>
+                <button className="icon-button" type="button" aria-label={`Add a mission to ${selectedDayInfo.label}`} title="Add mission" onClick={() => openSchedule(selectedOption, undefined, selectedDay)}><Plus aria-hidden="true" /></button>
+              </div>
+            )}
           </div>
-          <dl className="rhythm-facts">
-            <div><dt>Schedule</dt><dd>{rhythmLabels[data.settings.checkInRhythm.frequency]} at {data.settings.checkInRhythm.time}</dd></div>
-            <div><dt>Reminder</dt><dd>{data.settings.checkInRhythm.enabled ? "On" : "Off"}</dd></div>
-            <div><dt>Next Check-In</dt><dd>{nextCheckIn ? formatNextCheckIn(nextCheckIn) : "Not scheduled"}</dd></div>
-          </dl>
-          <div className="dashboard-actions">
-            <Link className="primary-command" to="/app/check-in">Check in now <ArrowRight aria-hidden="true" /></Link>
-            <Link className="inline-arrow-link" to="/app/settings">Change rhythm <ChevronRight aria-hidden="true" /></Link>
-          </div>
-        </section>
 
-        <section className="dashboard-panel support-panel" aria-labelledby="support-title">
-          <div className="support-panel-icon"><HeartHandshake aria-hidden="true" /></div>
-          <div>
-            <p className="app-kicker">Support Options</p>
-            <h2 id="support-title">Support stays available by your choice.</h2>
-            <p>{data.trustedContact ? `${data.trustedContact.name} is saved as a trusted contact on this device.` : "Review message starters or add a trusted contact when it would be useful."} Nothing is sent and nobody is contacted without your approval.</p>
+          <div className="planner-day-footer">
+            <Link to="/app/check-in">Update today's conditions <ArrowRight aria-hidden="true" /></Link>
+            {scheduleNotice && <span aria-live="polite">{scheduleNotice}</span>}
           </div>
-          <Link className="secondary-command" to="/app/support">Review support <ArrowRight aria-hidden="true" /></Link>
-        </section>
+        </aside>
       </div>
 
-      {!online && (
-        <div className="dashboard-offline-note" role="status">
-          <CloudOff aria-hidden="true" />
-          <p><strong>Waiting for connection.</strong> Your Dashboard remains available with data stored on this device.</p>
-        </div>
+      {scheduleTarget && (
+        <form className="mission-schedule-editor planner-schedule-editor" onSubmit={saveSchedule}>
+          <div>
+            <p className="app-kicker">{editingPlanId ? "Move Mission" : "Add to calendar"}</p>
+            <h2>{scheduleTarget.title}</h2>
+          </div>
+          <label>
+            Day
+            <select value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)}>
+              {scheduleDays.map((day) => <option value={day.value} key={day.value}>{day.label}</option>)}
+            </select>
+          </label>
+          <label>
+            Time
+            <select value={scheduleTime} onChange={(event) => setScheduleTime(event.target.value)}>
+              {scheduleTimes.map((time) => <option value={time} key={time}>{time}</option>)}
+            </select>
+          </label>
+          <div className="mission-schedule-actions">
+            <button className="primary-command" type="submit">Save plan <ArrowRight aria-hidden="true" /></button>
+            <button className="icon-button" type="button" aria-label="Close schedule editor" title="Close" onClick={() => setScheduleTargetId(null)}>
+              <X aria-hidden="true" />
+            </button>
+          </div>
+        </form>
       )}
+
+      <section className="planner-library" id="mission-library" aria-labelledby="mission-library-title">
+        <div className="mission-section-heading">
+          <div>
+            <p className="app-kicker">Mission library</p>
+            <h2 id="mission-library-title">Build the day around what is possible.</h2>
+          </div>
+          <p>Select an action to preview it, or place it directly on {selectedDayInfo.weekday}.</p>
+        </div>
+
+        <div className="planner-library-list">
+          {plannerOptions.map((option) => {
+            const place = getMissionPlace(data, option);
+            const isSelected = option.id === selectedOption.id;
+            const isEligible = eligibleOptions.some((item) => item.id === option.id);
+            return (
+              <article className={isSelected ? "is-selected" : ""} key={option.id}>
+                <div className="planner-library-label">
+                  <span>{variantLabels[option.variant]}</span>
+                  {option.id === recommendedOption.id && <small>Best fit</small>}
+                </div>
+                <div className="planner-library-copy">
+                  <h3>{option.title}</h3>
+                  <p>{option.durationMinutes} min / {place?.name ?? option.placeType} / {place?.cost ?? option.estimatedCost} / {option.socialMode}</p>
+                  {!isEligible && <small>Outside one or more current preferences</small>}
+                </div>
+                <div className="planner-library-actions">
+                  <button className="secondary-command" type="button" onClick={() => chooseOption(option)}>
+                    {isSelected ? "Selected" : "Preview"}
+                  </button>
+                  <button className="icon-button" type="button" aria-label={`Add ${option.title} to ${selectedDayInfo.label}`} title="Add to calendar" onClick={() => openSchedule(option, undefined, selectedDay)}>
+                    <CalendarPlus aria-hidden="true" />
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="planner-fit" aria-labelledby="planner-fit-title">
+        <div>
+          <p className="app-kicker">Plan context</p>
+          <h2 id="planner-fit-title">Why this mission fits now</h2>
+        </div>
+        <ul>
+          {reasons.map((reason) => <li key={reason}><Check aria-hidden="true" /> {reason}</li>)}
+        </ul>
+        <p>Changing the size, place, or day keeps the action connected to <strong>{data.vision.title}</strong>.</p>
+      </section>
+
+      <section className="mission-result-section planner-result" aria-labelledby="mission-result-title">
+        <div>
+          <p className="app-kicker">Review and adjust</p>
+          <h2 id="mission-result-title">The next plan uses what happened.</h2>
+        </div>
+        <div className="mission-result-copy">
+          {latestResult ? (
+            <p><span>{recordedResult}</span><strong>{latestResult.mission?.title ?? "Previous Mission"}</strong></p>
+          ) : (
+            <p><span>No reflection yet</span><strong>Your first completed Mission will appear here.</strong></p>
+          )}
+          <p>{resultAdjustment}</p>
+        </div>
+      </section>
+
+      <nav className="mission-supporting-links" aria-label="Supporting ReNew tools">
+        <Link to="/app/route"><RouteIcon aria-hidden="true" /><span>Life Route<strong>{completedRouteSteps} of {data.route.length} explored</strong></span><ChevronRight aria-hidden="true" /></Link>
+        <Link to="/app/places"><MapPin aria-hidden="true" /><span>Places<strong>Review real-world conditions</strong></span><ChevronRight aria-hidden="true" /></Link>
+        <Link to="/app/insights"><CheckCircle2 aria-hidden="true" /><span>Activity records<strong>Monitor plans and results</strong></span><ChevronRight aria-hidden="true" /></Link>
+        <Link to="/app/support"><UsersRound aria-hidden="true" /><span>Support<strong>Available when you choose it</strong></span><ChevronRight aria-hidden="true" /></Link>
+      </nav>
     </main>
   );
 }

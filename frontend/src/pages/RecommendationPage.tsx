@@ -1,36 +1,47 @@
 import { ArrowLeft, ArrowRight, Check, Clock3, MapPin, SlidersHorizontal } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import type { RecommendationOption } from "../data/appData";
+import { createMissionFromOption, type MissionVariant, type RecommendationOption } from "../data/appData";
+import {
+  getEligibleMissionOptions,
+  getMissionPlace,
+  getRecommendationReasons,
+  getRecommendedMissionOption
+} from "../data/missionLogic";
 import { useAppState } from "../state/AppState";
+
+const variantLabels: Record<MissionVariant, string> = {
+  recommended: "Recommended for today",
+  lighter: "A little lighter",
+  different: "A different way",
+  more: "A little more",
+  alternative: "Another way"
+};
 
 export function RecommendationPage() {
   const navigate = useNavigate();
-  const { data, updateData } = useAppState();
-  const latestCheckIn = data.checkIns[data.checkIns.length - 1];
-  const averageCapacity = latestCheckIn
-    ? (latestCheckIn.energy + latestCheckIn.capacity + latestCheckIn.mood) / 3
-    : 3;
-  const recommendedEffort = averageCapacity <= 2.3 ? "Light" : averageCapacity >= 4.2 ? "Stretch" : "Balanced";
-  const recommended =
-    data.recommendations.find((option) => option.effort === recommendedEffort) ?? data.recommendations[0];
-  const alternatives = data.recommendations.filter((option) => option.id !== recommended.id);
+  const { data, ready, updateData } = useAppState();
+  const recommended = getRecommendedMissionOption(data);
+  const eligibleOptions = getEligibleMissionOptions(data);
+  const alternatives = eligibleOptions.filter((option) => option.id !== recommended.id).slice(0, 4);
+  const recommendedPlace = getMissionPlace(data, recommended);
+  const reasons = getRecommendationReasons(data, recommended);
 
   const chooseMission = (option: RecommendationOption) => {
     updateData((current) => ({
       ...current,
-      mission: {
-        id: crypto.randomUUID(),
-        optionId: option.id,
-        title: option.title,
-        description: option.description,
-        durationMinutes: option.durationMinutes,
-        placeType: option.placeType,
-        status: "planned",
-        selectedAt: new Date().toISOString()
-      }
+      mission: createMissionFromOption(option)
     }));
     navigate("/app/mission");
   };
+
+  if (!ready) {
+    return (
+      <main className="app-page dashboard-loading" aria-live="polite">
+        <span />
+        <p>Loading actions that fit your conditions...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="app-page flow-page recommendation-page">
@@ -48,12 +59,12 @@ export function RecommendationPage() {
       <section className="recommendation-primary" aria-labelledby="recommendation-title">
         <div className="recommendation-index" aria-hidden="true">01</div>
         <div className="recommendation-copy">
-          <p className="app-kicker">Suggested for today / {recommended.effort}</p>
+          <p className="app-kicker">Suggested for today</p>
           <h2 id="recommendation-title">{recommended.title}</h2>
           <p>{recommended.description}</p>
           <div className="recommendation-meta">
             <span><Clock3 aria-hidden="true" /> {recommended.durationMinutes} min</span>
-            <span><MapPin aria-hidden="true" /> {recommended.placeType}</span>
+            <span><MapPin aria-hidden="true" /> {recommendedPlace?.name ?? recommended.placeType}</span>
           </div>
           <button className="primary-command" type="button" onClick={() => chooseMission(recommended)}>
             Choose this step <ArrowRight aria-hidden="true" />
@@ -67,10 +78,7 @@ export function RecommendationPage() {
           <h2 id="reason-title">Why this fits today</h2>
         </div>
         <ul>
-          <li><Check aria-hidden="true" /> Within your {data.preferences.availableMinutes}-minute window</li>
-          <li><Check aria-hidden="true" /> Matches a {data.preferences.socialPreference.toLowerCase()} social setting</li>
-          <li><Check aria-hidden="true" /> Preserves your “{data.vision.title}” direction</li>
-          <li><Check aria-hidden="true" /> Uses only a reviewed action from your route</li>
+          {reasons.map((reason) => <li key={reason}><Check aria-hidden="true" /> {reason}</li>)}
         </ul>
       </section>
 
@@ -85,7 +93,7 @@ export function RecommendationPage() {
           {alternatives.map((option) => (
             <article key={option.id}>
               <div>
-                <span>{option.effort}</span>
+                <span>{variantLabels[option.variant]}</span>
                 <h3>{option.title}</h3>
                 <p>{option.description}</p>
               </div>

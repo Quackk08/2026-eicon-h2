@@ -52,24 +52,46 @@ export interface CheckInRecord {
   note?: string;
 }
 
+export type MissionVariant = "recommended" | "lighter" | "different" | "more" | "alternative";
+export type MissionFormat = "In person" | "At home" | "Online";
+export type MissionSocialMode = "Solo" | "Alongside others" | "Together";
+
 export interface RecommendationOption {
   id: string;
+  visionId: string;
+  routeStepId?: string;
+  variant: MissionVariant;
   title: string;
   description: string;
   durationMinutes: number;
   placeType: string;
-  effort: "Light" | "Balanced" | "Stretch";
+  placeId: string | null;
+  estimatedCost: string;
+  format: MissionFormat;
+  supplies: string[];
+  socialMode: MissionSocialMode;
 }
 
 export interface Mission {
   id: string;
   optionId: string;
+  visionId: string;
+  routeStepId?: string;
+  variant: MissionVariant;
   title: string;
   description: string;
   durationMinutes: number;
   placeType: string;
-  status: "planned" | "in_progress" | "completed" | "not_today";
+  placeId: string | null;
+  estimatedCost: string;
+  format: MissionFormat;
+  supplies: string[];
+  socialMode: MissionSocialMode;
+  status: "planned" | "in_progress" | "completed" | "partly" | "not_today";
   selectedAt: string;
+  scheduledFor: string | null;
+  startedAt?: string;
+  completedAt?: string;
 }
 
 export interface Reflection {
@@ -127,6 +149,8 @@ export interface AppData {
   checkIns: CheckInRecord[];
   recommendations: RecommendationOption[];
   mission: Mission | null;
+  plannedMissions: Mission[];
+  missionHistory: Mission[];
   reflections: Reflection[];
   savedPlaceIds: string[];
   places: Place[];
@@ -180,30 +204,98 @@ export function createDefaultAppData(): AppData {
     recommendations: [
       {
         id: "recommendation-balanced",
-        title: "Open your notebook at a nearby cafe",
-        description: "Arrive, choose a quiet seat, and stay for ten minutes. Finishing a task is optional.",
+        visionId: "vision-study",
+        routeStepId: "route-4",
+        variant: "recommended",
+        title: "Open your notebook at Greenwich Library for 10 minutes",
+        description: "Choose a quiet desk, open one page, and stop after ten minutes if that is enough for today.",
         durationMinutes: 10,
-        placeType: "Cafe",
-        effort: "Balanced"
+        placeType: "Library",
+        placeId: "place-library",
+        estimatedCost: "Free",
+        format: "In person",
+        supplies: ["Notebook", "Pen"],
+        socialMode: "Solo"
       },
       {
         id: "recommendation-light",
-        title: "Pack one notebook for later",
-        description: "Prepare the next step without needing to leave home today.",
+        visionId: "vision-study",
+        routeStepId: "route-3",
+        variant: "lighter",
+        title: "Walk to the Greenwich Library entrance and return",
+        description: "Reach the entrance without needing to go inside. The trip itself is the whole mission.",
+        durationMinutes: 8,
+        placeType: "Library",
+        placeId: "place-library",
+        estimatedCost: "Free",
+        format: "In person",
+        supplies: [],
+        socialMode: "Solo"
+      },
+      {
+        id: "recommendation-different",
+        visionId: "vision-study",
+        routeStepId: "route-1",
+        variant: "different",
+        title: "Put your workbook and pen in your bag at home",
+        description: "Prepare everything for a later study trip without needing to leave home today.",
         durationMinutes: 2,
         placeType: "Home",
-        effort: "Light"
+        placeId: null,
+        estimatedCost: "Free",
+        format: "At home",
+        supplies: ["Workbook", "Pen", "Bag"],
+        socialMode: "Solo"
       },
       {
         id: "recommendation-stretch",
-        title: "Study at the library for twenty minutes",
-        description: "Use a familiar public space and stop after one short focus block.",
+        visionId: "vision-study",
+        routeStepId: "route-5",
+        variant: "more",
+        title: "Solve three workbook pages at Greenwich Library",
+        description: "Use one focused block, stop after three pages, and leave the rest for another day.",
         durationMinutes: 20,
         placeType: "Library",
-        effort: "Stretch"
+        placeId: "place-library",
+        estimatedCost: "Free",
+        format: "In person",
+        supplies: ["Workbook", "Pen"],
+        socialMode: "Solo"
+      },
+      {
+        id: "recommendation-online-focus",
+        visionId: "vision-study",
+        routeStepId: "route-4",
+        variant: "alternative",
+        title: "Join a quiet online focus room for 15 minutes",
+        description: "Work alongside others with cameras and conversation optional, then leave after one short block.",
+        durationMinutes: 15,
+        placeType: "Online",
+        placeId: null,
+        estimatedCost: "Free",
+        format: "Online",
+        supplies: ["Workbook", "Device"],
+        socialMode: "Alongside others"
+      },
+      {
+        id: "recommendation-home-page",
+        visionId: "vision-study",
+        routeStepId: "route-2",
+        variant: "alternative",
+        title: "Complete one workbook page at your desk",
+        description: "Open to the next page, complete only that page, and put the book away when it is done.",
+        durationMinutes: 10,
+        placeType: "Home",
+        placeId: null,
+        estimatedCost: "Free",
+        format: "At home",
+        supplies: ["Workbook", "Pen"],
+        socialMode: "Solo"
       }
     ],
     mission: null,
+    plannedMissions: [],
+    missionHistory: [],
     reflections: [],
     savedPlaceIds: ["place-library"],
     places: [
@@ -326,6 +418,67 @@ const databasePromise = openDB<ReNewDatabase>("renew-client", 1, {
   }
 });
 
+export function createMissionFromOption(
+  option: RecommendationOption,
+  overrides: Partial<Pick<Mission, "id" | "status" | "selectedAt" | "scheduledFor" | "startedAt" | "completedAt">> = {}
+): Mission {
+  return {
+    id: overrides.id ?? crypto.randomUUID(),
+    optionId: option.id,
+    visionId: option.visionId,
+    ...(option.routeStepId ? { routeStepId: option.routeStepId } : {}),
+    variant: option.variant,
+    title: option.title,
+    description: option.description,
+    durationMinutes: option.durationMinutes,
+    placeType: option.placeType,
+    placeId: option.placeId,
+    estimatedCost: option.estimatedCost,
+    format: option.format,
+    supplies: option.supplies,
+    socialMode: option.socialMode,
+    status: overrides.status ?? "planned",
+    selectedAt: overrides.selectedAt ?? new Date().toISOString(),
+    scheduledFor: overrides.scheduledFor ?? null,
+    ...(overrides.startedAt ? { startedAt: overrides.startedAt } : {}),
+    ...(overrides.completedAt ? { completedAt: overrides.completedAt } : {})
+  };
+}
+
+function normalizeMission(
+  mission: Partial<Mission>,
+  recommendations: RecommendationOption[]
+): Mission {
+  const matchingOption = recommendations.find((option) => option.id === mission.optionId);
+  const fallbackOption = matchingOption ?? recommendations[0];
+  const normalizedFromOption = createMissionFromOption(fallbackOption, {
+    id: mission.id,
+    status: mission.status,
+    selectedAt: mission.selectedAt,
+    scheduledFor: mission.scheduledFor,
+    startedAt: mission.startedAt,
+    completedAt: mission.completedAt
+  });
+
+  if (matchingOption) {
+    return normalizedFromOption;
+  }
+
+  return {
+    ...normalizedFromOption,
+    ...mission,
+    visionId: mission.visionId ?? fallbackOption.visionId,
+    routeStepId: mission.routeStepId ?? fallbackOption.routeStepId,
+    variant: mission.variant ?? fallbackOption.variant,
+    placeId: mission.placeId ?? fallbackOption.placeId,
+    estimatedCost: mission.estimatedCost ?? fallbackOption.estimatedCost,
+    format: mission.format ?? fallbackOption.format,
+    supplies: mission.supplies ?? fallbackOption.supplies,
+    socialMode: mission.socialMode ?? fallbackOption.socialMode,
+    scheduledFor: mission.scheduledFor ?? null
+  };
+}
+
 export async function loadAppData(): Promise<AppData> {
   const database = await databasePromise;
   const storedData = await database.get("state", "app");
@@ -339,6 +492,10 @@ export async function loadAppData(): Promise<AppData> {
   const storedRhythm = storedSettings.checkInRhythm;
   const rhythmTime = storedRhythm?.time ?? storedSettings.checkInTime ?? defaults.settings.checkInTime;
   const rhythmEnabled = storedRhythm?.enabled ?? storedSettings.reminders ?? defaults.settings.reminders;
+  const storedMissionData = storedData as AppData & {
+    plannedMissions?: Partial<Mission>[];
+    missionHistory?: Partial<Mission>[];
+  };
 
   return {
     ...defaults,
@@ -346,6 +503,14 @@ export async function loadAppData(): Promise<AppData> {
     profile: { ...defaults.profile, ...storedData.profile },
     preferences: { ...defaults.preferences, ...storedData.preferences },
     vision: { ...defaults.vision, ...storedData.vision },
+    recommendations: defaults.recommendations,
+    mission: storedData.mission ? normalizeMission(storedData.mission, defaults.recommendations) : null,
+    plannedMissions: (storedMissionData.plannedMissions ?? []).map((mission) =>
+      normalizeMission(mission, defaults.recommendations)
+    ),
+    missionHistory: (storedMissionData.missionHistory ?? []).map((mission) =>
+      normalizeMission(mission, defaults.recommendations)
+    ),
     settings: {
       ...defaults.settings,
       ...storedSettings,

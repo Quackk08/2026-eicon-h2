@@ -9,13 +9,15 @@ import {
   Play
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { createMissionFromOption } from "../data/appData";
+import { getMissionPlace } from "../data/missionLogic";
 import { useAppState } from "../state/AppState";
 
 export function MissionPage() {
   const navigate = useNavigate();
   const { data, updateData } = useAppState();
   const mission = data.mission;
-  const matchingPlace = data.places.find((place) => place.type === mission?.placeType) ?? data.places[0];
+  const matchingPlace = mission ? getMissionPlace(data, mission) : null;
 
   if (!mission) {
     return (
@@ -33,31 +35,43 @@ export function MissionPage() {
   const updateMission = (status: "planned" | "in_progress" | "completed" | "not_today") => {
     updateData((current) => ({
       ...current,
-      mission: current.mission ? { ...current.mission, status } : null
-    }));
-  };
-
-  const makeSmaller = () => {
-    const smaller = data.recommendations.find((option) => option.effort === "Light");
-    if (!smaller) return;
-    updateData((current) => ({
-      ...current,
       mission: current.mission
         ? {
             ...current.mission,
-            optionId: smaller.id,
-            title: smaller.title,
-            description: smaller.description,
-            durationMinutes: smaller.durationMinutes,
-            placeType: smaller.placeType,
-            status: "planned"
+            status,
+            ...(status === "in_progress" ? { startedAt: new Date().toISOString() } : {})
           }
         : null
     }));
   };
 
+  const makeSmaller = () => {
+    const smaller = data.recommendations.find((option) => option.variant === "lighter");
+    if (!smaller) return;
+    updateData((current) => ({
+      ...current,
+      mission: current.mission
+        ? createMissionFromOption(smaller, {
+            id: current.mission.id,
+            status: "planned",
+            selectedAt: current.mission.selectedAt,
+            scheduledFor: current.mission.scheduledFor
+          })
+        : null
+    }));
+  };
+
   const finishMission = (status: "completed" | "not_today") => {
-    updateMission(status);
+    updateData((current) => ({
+      ...current,
+      mission: current.mission
+        ? {
+            ...current.mission,
+            status,
+            ...(status === "completed" ? { completedAt: new Date().toISOString() } : {})
+          }
+        : null
+    }));
     navigate("/app/reflection");
   };
 
@@ -89,9 +103,13 @@ export function MissionPage() {
             <button className="primary-command" type="button" onClick={() => updateMission("in_progress")}>
               <Play aria-hidden="true" /> Start this step
             </button>
-          ) : (
+          ) : mission.status === "in_progress" ? (
             <button className="primary-command" type="button" onClick={() => finishMission("completed")}>
               <CheckCircle2 aria-hidden="true" /> Mark complete
+            </button>
+          ) : (
+            <button className="primary-command" type="button" onClick={() => navigate("/app/reflection")}>
+              <ArrowRight aria-hidden="true" /> Open reflection
             </button>
           )}
 
@@ -104,16 +122,22 @@ export function MissionPage() {
         </section>
 
         <section className="mission-place" aria-labelledby="mission-place-title">
-          <div className={`mission-place-visual is-${matchingPlace.color}`} aria-hidden="true">
-            <span>{matchingPlace.type}</span>
+          <div className={`mission-place-visual is-${matchingPlace?.color ?? "leaf"}`} aria-hidden="true">
+            <span>{matchingPlace?.type ?? mission.format}</span>
           </div>
           <div>
-            <p className="app-kicker">A possible setting</p>
-            <h2 id="mission-place-title">{matchingPlace.name}</h2>
-            <p>{matchingPlace.distanceKm} km / {matchingPlace.cost} / {matchingPlace.socialLoad} social load</p>
-            <Link className="inline-arrow-link" to={`/app/places/${matchingPlace.id}`}>
-              View place details <ArrowRight aria-hidden="true" />
-            </Link>
+            <p className="app-kicker">Mission setting</p>
+            <h2 id="mission-place-title">{matchingPlace?.name ?? mission.placeType}</h2>
+            <p>
+              {matchingPlace ? `${matchingPlace.distanceKm} km / ${matchingPlace.cost}` : `No travel / ${mission.estimatedCost}`}
+              {` / ${mission.socialMode}`}
+            </p>
+            <p>{mission.supplies.length > 0 ? `Bring: ${mission.supplies.join(", ")}` : "Nothing extra to bring"}</p>
+            {matchingPlace && (
+              <Link className="inline-arrow-link" to={`/app/places/${matchingPlace.id}`}>
+                View place details <ArrowRight aria-hidden="true" />
+              </Link>
+            )}
           </div>
         </section>
       </div>
