@@ -227,6 +227,315 @@
   }
 }
 
+.support-page {
+  width: min(100%, 70rem);
+  margin-inline: auto;
+  padding: 2.5rem 1rem 5rem;
+}
+
+.support-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.support-heading h1 {
+  max-width: 50rem;
+  margin-top: 0.75rem;
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.support-heading > div > p:last-child {
+  max-width: 42rem;
+  margin-top: 1rem;
+  font-family: var(--font-editorial);
+  line-height: 1.7;
+}
+
+.support-heading > svg {
+  width: 1.5rem;
+  color: var(--color-forest);
+}
+
+.support-grid {
+  display: grid;
+  gap: 1px;
+  margin-top: 3rem;
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+}
+
+.trusted-contact-panel,
+.support-message-panel {
+  min-width: 0;
+  background: var(--color-paper);
+  padding: 1.5rem;
+}
+
+.contact-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.contact-form input {
+  width: 100%;
+  min-height: 3.25rem;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0 0.75rem;
+  font-size: 1rem;
+}
+
+.contact-form .primary-command {
+  justify-self: end;
+}
+
+.saved-contact {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--color-line);
+  padding-top: 1.5rem;
+}
+
+.saved-contact > span {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.saved-contact h3 {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 400;
+}
+
+.saved-contact > p {
+  margin-top: 0.35rem;
+  font-family: var(--font-editorial);
+}
+
+.saved-contact > div {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.saved-contact .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.saved-contact .text-button svg {
+  width: 0.9rem;
+}
+
+.message-starters {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.message-starters button {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.message-starters button.is-active {
+  background: var(--color-citron);
+}
+
+.support-message-field {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.support-message-field textarea {
+  width: 100%;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  padding: 1rem;
+  font-family: var(--font-editorial);
+  font-size: 1rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.support-message-panel > .primary-command {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.support-message-panel > .primary-command:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.support-required {
+  margin-top: 0.75rem;
+  font-size: 0.68rem;
+}
+
+.handoff-preview {
+  margin-top: 2rem;
+  border: 1px solid var(--color-ink);
+  background: var(--color-citron);
+  padding: 1.5rem;
+}
+
+.handoff-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.handoff-heading h2 {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 400;
+}
+
+.handoff-preview dl {
+  margin: 1.5rem 0 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.handoff-preview dl > div {
+  display: grid;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--color-line);
+  padding: 1rem 0;
+}
+
+.handoff-preview dt {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.handoff-preview dd {
+  margin: 0;
+  font-family: var(--font-editorial);
+  line-height: 1.6;
+}
+
+.handoff-message dd {
+  font-size: 1.15rem;
+}
+
+.handoff-approval {
+  display: grid;
+  align-items: start;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  border: 1px solid var(--color-ink);
+  padding: 1rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  grid-template-columns: 1.25rem 1fr;
+}
+
+.handoff-approval input {
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color: var(--color-forest);
+}
+
+.handoff-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.handoff-actions .is-disabled {
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+.formal-support-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+  padding: 1rem 0;
+}
+
+.formal-support-note > div {
+  display: grid;
+  align-items: start;
+  gap: 0.75rem;
+  grid-template-columns: 1.25rem 1fr;
+}
+
+.formal-support-note svg {
+  width: 1rem;
+}
+
+.formal-support-note strong {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.formal-support-note p {
+  margin-top: 0.35rem;
+  font-family: var(--font-editorial);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.formal-support-note > span {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+@media (min-width: 48rem) {
+  .support-page {
+    padding: 4rem 2rem 7rem;
+  }
+
+  .support-heading h1 {
+    font-size: 4.5rem;
+  }
+
+  .support-grid {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  }
+
+  .trusted-contact-panel,
+  .support-message-panel,
+  .handoff-preview {
+    padding: 2rem;
+  }
+
+  .handoff-preview dl > div {
+    grid-template-columns: 10rem 1fr;
+  }
+}
+
 .settings-page {
   width: min(100%, 70rem);
   margin-inline: auto;
