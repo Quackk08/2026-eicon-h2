@@ -62,3 +62,14 @@ These rules are implementation invariants. Feature code, AI prompts, analytics, 
 - Check-In and Reflection are written locally before synchronization.
 - Every mutation uses a stable local ID and idempotency key.
 - Route conflicts must remain recoverable and visible to the user.
+
+## Mobile and Responsive Rules
+
+- Mobile browsers are a first-class MVP environment, not a reduced feature set.
+- Do not hide core functionality on small screens; adapt layout and interaction instead.
+- Support layouts from 320px wide without horizontal page scrolling.
+- Keep primary touch targets at least 44x44px.
+- Do not make any required action depend on hover.
+- Account for device safe areas in fixed headers, navigation, sheets, and action bars.
+- Verify core flows on iOS Safari and Android Chrome in portrait and landscape.
+- Keep Check-In, Mission access, and Reflection usable on slow or unavailable networks.
