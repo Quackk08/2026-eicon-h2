@@ -227,6 +227,219 @@
   }
 }
 
+.route-heading {
+  display: grid;
+}
+
+.route-heading > .secondary-command {
+  margin-top: 1.5rem;
+}
+
+.route-overview {
+  display: grid;
+  margin-top: 3rem;
+  border: 1px solid var(--color-ink);
+}
+
+.route-overview > div {
+  min-width: 0;
+  border-bottom: 1px solid var(--color-ink);
+  padding: 1.25rem;
+}
+
+.route-overview > div:last-child {
+  border-bottom: 0;
+}
+
+.route-overview span {
+  font-family: var(--font-display);
+  font-size: 2rem;
+}
+
+.route-overview p {
+  margin-top: 0.25rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.route-overview-progress > div {
+  height: 4px;
+  margin-top: 0.75rem;
+  background: var(--color-line);
+}
+
+.route-overview-progress i {
+  display: block;
+  height: 100%;
+  background: var(--color-forest);
+}
+
+.route-manager {
+  margin-top: 3rem;
+}
+
+.route-manager-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.route-manager-heading h2,
+.route-editor-heading h2 {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 400;
+}
+
+.route-manager-list {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--color-line);
+}
+
+.route-manager-list li {
+  display: grid;
+  min-height: 6rem;
+  align-items: center;
+  border-bottom: 1px solid var(--color-line);
+  gap: 0.75rem;
+  padding: 1rem 0;
+  grid-template-columns: 2.75rem 1fr auto;
+}
+
+.route-manager-list li.is-completed .route-step-copy p {
+  text-decoration: line-through;
+  opacity: 0.62;
+}
+
+.route-complete-button,
+.route-row-actions button {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  place-items: center;
+}
+
+.route-complete-button svg,
+.route-row-actions svg {
+  width: 1rem;
+}
+
+.route-level-label {
+  display: none;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+}
+
+.route-step-copy p {
+  font-family: var(--font-editorial);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.route-step-copy span {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.route-row-actions {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(2, 2.75rem);
+}
+
+.route-row-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.25;
+}
+
+.route-editor {
+  margin-top: 2rem;
+  border: 1px solid var(--color-ink);
+  background: var(--color-citron);
+  padding: 1.5rem;
+}
+
+.route-editor-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.route-editor-fields {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.route-editor input {
+  min-height: 3.25rem;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: var(--color-paper);
+  color: inherit;
+  padding: 0 0.75rem;
+  font-size: 1rem;
+}
+
+.route-editor > .primary-command {
+  margin-top: 1.5rem;
+  margin-left: auto;
+}
+
+@media (min-width: 48rem) {
+  .route-heading {
+    align-items: end;
+    grid-template-columns: 1fr auto;
+  }
+
+  .route-heading > .secondary-command {
+    margin-top: 0;
+  }
+
+  .route-overview {
+    grid-template-columns: 1fr 1fr 2fr;
+  }
+
+  .route-overview > div {
+    border-right: 1px solid var(--color-ink);
+    border-bottom: 0;
+  }
+
+  .route-overview > div:last-child {
+    border-right: 0;
+  }
+
+  .route-manager-list li {
+    grid-template-columns: 2.75rem 5rem 1fr auto;
+  }
+
+  .route-level-label {
+    display: block;
+  }
+
+  .route-row-actions {
+    grid-template-columns: repeat(4, 2.75rem);
+  }
+
+  .route-editor {
+    padding: 2rem;
+  }
+
+  .route-editor-fields {
+    grid-template-columns: minmax(0, 2fr) minmax(7rem, 0.5fr) minmax(8rem, 0.7fr);
+  }
+}
+
 .planning-page {
   width: min(100%, 70rem);
   margin-inline: auto;
