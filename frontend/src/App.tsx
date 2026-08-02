@@ -16,6 +16,7 @@ import { PlaceDetailPage } from "./pages/PlaceDetailPage";
 import { CommunityPage } from "./pages/CommunityPage";
 import { CommunityDetailPage } from "./pages/CommunityDetailPage";
 import { InsightsPage } from "./pages/InsightsPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { AppStateProvider } from "./state/AppState";
 
 const processSteps = [
@@ -452,6 +453,7 @@ export default function App() {
             <Route path="community" element={<CommunityPage />} />
             <Route path="community/:activityId" element={<CommunityDetailPage />} />
             <Route path="insights" element={<InsightsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/app/today" replace />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
