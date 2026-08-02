@@ -1,78 +1,78 @@
 # 26e Icon
 
-## 프로젝트 구성
+## Project Structure
 
-- 루트: npm workspaces 관리
-- `frontend`: React + Vite + TypeScript 클라이언트
-- `backend`: Express + TypeScript API 서버
-- 프론트 개발 서버는 `/api` 요청을 백엔드로 프록시
+- Root: managed with npm workspaces
+- `frontend`: React + Vite + TypeScript client
+- `backend`: Express + TypeScript API server
+- The frontend dev server proxies `/api` requests to the backend
 
-## 개발 환경
+## Development Environment
 
-- Node.js와 npm 필요
-- 패키지 매니저: npm
-- 프론트 개발 포트: `5173`
-- 백엔드 개발 포트: `4000`
-- 백엔드 환경 변수 예시는 `backend/.env.example` 참고
+- Requires Node.js and npm
+- Package manager: npm
+- Frontend dev port: `5173`
+- Backend dev port: `4000`
+- Refer to `backend/.env.example` for backend environment variable examples
 
-## 설치
+## Installation
 
 ```bash
 npm install
 ```
 
-## 실행
+## Running the App
 
-- 프론트와 백엔드 동시 실행
+- Run the frontend and backend simultaneously
 
 ```bash
 npm run dev
 ```
 
-- 프론트만 실행
+- Run the frontend only
 
 ```bash
 npm run dev:frontend
 ```
 
-- 백엔드만 실행
+- Run the backend only
 
 ```bash
 npm run dev:backend
 ```
 
-## 확인 URL
+## Access URLs
 
-- 프론트: `http://localhost:5173`
-- 백엔드 헬스 체크: `http://localhost:4000/api/health`
+- Frontend: `http://localhost:5173`
+- Backend health check: `http://localhost:4000/api/health`
 
-## 검증
+## Verification
 
-- 타입 체크
+- Type checking
 
 ```bash
 npm run typecheck
 ```
 
-- 전체 빌드
+- Full build
 
 ```bash
 npm run build
 ```
 
-## 주요 스크립트
+## Key Scripts
 
-- `npm run dev`: 프론트와 백엔드를 함께 개발 모드로 실행
-- `npm run dev:frontend`: 프론트 개발 서버 실행
-- `npm run dev:backend`: 백엔드 개발 서버 실행
-- `npm run build`: 프론트와 백엔드 빌드
-- `npm run typecheck`: 프론트와 백엔드 타입 체크
-- `npm run start`: 빌드된 백엔드 서버 실행
+- `npm run dev`: run the frontend and backend together in development mode
+- `npm run dev:frontend`: start the frontend development server
+- `npm run dev:backend`: start the backend development server
+- `npm run build`: build the frontend and backend
+- `npm run typecheck`: run type checks for the frontend and backend
+- `npm run start`: start the built backend server
 
-## Git 준비
+## Git Setup
 
-- `node_modules`, `dist`, `.env`, 로그 파일, TypeScript 빌드 캐시는 커밋 대상에서 제외
-- 원격 저장소는 직접 추가 필요
+- Exclude `node_modules`, `dist`, `.env`, log files, and TypeScript build cache from commits
+- Add the remote repository manually if needed
 
 ```bash
 git remote add origin <repository-url>
