@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUpRight, Menu, X } from "lucide-react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { SignInPage } from "./pages/SignInPage";
+import { AppStateProvider } from "./state/AppState";
 
 const processSteps = [
   {
@@ -39,7 +42,7 @@ const navigationItems = [
   ["e-ICON", "#e-icon"]
 ];
 
-export default function App() {
+function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -409,5 +412,22 @@ export default function App() {
         <span>2026 ReNew</span>
       </footer>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppStateProvider>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<SignInPage />} />
+          <Route path="/sign-in" element={<Navigate to="/login" replace />} />
+          <Route path="/onboarding" element={<Navigate to="/login" replace />} />
+          <Route path="/app/*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AppStateProvider>
+    </BrowserRouter>
   );
 }
