@@ -10,6 +10,7 @@ import type {
 } from "../data/appData";
 import { ApiError, api, clearGuestProfileId, ensureProfile, getProfileId } from "./client";
 import { signIn, signUp, type AuthResult } from "./auth";
+import { flushQueue, writeOrQueue } from "./offlineQueue";
 import {
   fromApiCheckIn,
   fromApiCommunityActivity,
@@ -200,7 +201,7 @@ export async function updateVision(
   });
 }
 
-export async function submitCheckIn(record: CheckInRecord): Promise<ApiCheckIn> {
+function buildCheckInBody(record: CheckInRecord) {
   const base = {
     localId: record.id,
     capturedAt: record.createdAt,
@@ -223,7 +224,26 @@ export async function submitCheckIn(record: CheckInRecord): Promise<ApiCheckIn> 
         }
       : { ...base, type: "quick" as const };
 
-  return api.post<ApiCheckIn>("/check-ins", body);
+  return body;
+}
+
+export async function submitCheckIn(record: CheckInRecord): Promise<ApiCheckIn> {
+  return api.post<ApiCheckIn>("/check-ins", buildCheckInBody(record));
+}
+
+/**
+ * A Check-In is the one thing the app must never lose: it is a record of
+ * how someone actually was at a moment that has passed. When the network
+ * is the reason it cannot be saved, it is queued rather than dropped.
+ */
+export async function submitCheckInOrQueue(record: CheckInRecord): Promise<{ queued: boolean }> {
+  const body = buildCheckInBody(record);
+  return writeOrQueue(() => api.post<ApiCheckIn>("/check-ins", body), {
+    entityType: "check_in",
+    entityLocalId: record.id,
+    operation: "create",
+    payload: body as unknown as Record<string, unknown>
+  });
 }
 
 export async function requestDailyRecommendation(visionId?: string): Promise<ApiRecommendation> {
@@ -279,6 +299,30 @@ export async function submitReflection(
   });
 }
 
+/**
+ * Like a Check-In, a Reflection describes a moment that has already
+ * happened, so a dropped connection must not erase it.
+ */
+export async function submitReflectionOrQueue(
+  missionId: string,
+  reflection: Pick<Reflection, "outcome" | "effort" | "note">
+): Promise<{ queued: boolean }> {
+  const body = {
+    result: toApiReflectionResult(reflection.outcome),
+    burden: toApiScore(reflection.effort),
+    note: reflection.note || null
+  };
+  return writeOrQueue(
+    () => api.post(`/missions/${missionId}/reflection`, body),
+    {
+      entityType: "reflection",
+      entityLocalId: missionId,
+      operation: "create",
+      payload: { ...body, missionId }
+    }
+  );
+}
+
 export async function joinCommunityActivity(activityId: string): Promise<void> {
   await api.post(`/community/activities/${activityId}/join`);
 }
@@ -304,21 +348,116 @@ export interface HydrationResult {
  * local IndexedDB copy stays the immediate source of truth (offline-first,
  * per docs/PRODUCT_GUARDRAILS.md); this only overlays what the server knows.
  */
+export interface ApiTrustedContact {
+  id: string;
+  name: string;
+  relationship: string | null;
+  phone: string | null;
+}
+
+export async function fetchSavedPlaceIds(): Promise<string[]> {
+  return api.get<string[]>("/saved-places");
+}
+
+/**
+ * Queues rather than drops the change when the network is down, so a place
+ * saved on the train is still saved once there is signal again.
+ */
+export async function setPlaceSaved(placeId: string, saved: boolean): Promise<{ queued: boolean }> {
+  return writeOrQueue(
+    () => (saved ? api.put(`/saved-places/${placeId}`) : api.delete(`/saved-places/${placeId}`)),
+    {
+      entityType: "saved_place",
+      entityLocalId: placeId,
+      operation: saved ? "create" : "delete",
+      payload: { placeId }
+    }
+  );
+}
+
+export async function fetchTrustedContacts(): Promise<ApiTrustedContact[]> {
+  return api.get<ApiTrustedContact[]>("/trusted-contacts");
+}
+
+export async function saveTrustedContact(
+  contact: { name: string; phone: string; relationship: string },
+  existingId?: string
+): Promise<{ queued: boolean }> {
+  const body = {
+    name: contact.name,
+    phone: contact.phone || null,
+    relationship: contact.relationship || null
+  };
+  return writeOrQueue(
+    () =>
+      existingId
+        ? api.patch(`/trusted-contacts/${existingId}`, body)
+        : api.post("/trusted-contacts", body),
+    {
+      entityType: "trusted_contact",
+      entityLocalId: existingId ?? contact.name,
+      operation: existingId ? "update" : "create",
+      payload: existingId ? { ...body, id: existingId } : body
+    }
+  );
+}
+
+export async function removeTrustedContact(id: string): Promise<{ queued: boolean }> {
+  return writeOrQueue(() => api.delete(`/trusted-contacts/${id}`), {
+    entityType: "trusted_contact",
+    entityLocalId: id,
+    operation: "delete",
+    payload: { id }
+  });
+}
+
+/**
+ * Records that the person approved a handoff on the preview screen. The
+ * message itself is sent by the device's own SMS or phone app, never by
+ * ReNew (docs/PRODUCT_GUARDRAILS.md).
+ */
+export async function logSupportHandoff(input: {
+  trustedContactId: string | null;
+  channel: "sms" | "tel";
+  messagePreview: string;
+  includedData: string[];
+  excludedData: string[];
+}): Promise<void> {
+  await api.post("/support-messages", input);
+}
+
 export async function hydrateFromBackend(current: AppData): Promise<HydrationResult> {
   await ensureProfile();
 
-  const [profile, visions, places, community, missions, checkIns, reflections, templates, recommendation] =
-    await Promise.all([
-      fetchProfile(),
-      fetchVisions(),
-      fetchPlaces(),
-      fetchCommunityActivities().catch(() => [] as ApiCommunityActivity[]),
-      api.get<ApiMission[]>("/missions").catch(() => [] as ApiMission[]),
-      api.get<ApiCheckIn[]>("/check-ins").catch(() => [] as ApiCheckIn[]),
-      api.get<ApiReflection[]>("/reflections").catch(() => [] as ApiReflection[]),
-      api.get<ApiActionTemplate[]>("/action-templates").catch(() => [] as ApiActionTemplate[]),
-      fetchLatestRecommendation().catch(() => null)
-    ]);
+  // Anything written while offline goes up before we read, so the snapshot
+  // below reflects those writes instead of overwriting them.
+  await flushQueue().catch(() => 0);
+
+  const [
+    profile,
+    visions,
+    places,
+    community,
+    missions,
+    checkIns,
+    reflections,
+    templates,
+    recommendation,
+    savedPlaceIds,
+    trustedContacts
+  ] = await Promise.all([
+    fetchProfile(),
+    fetchVisions(),
+    fetchPlaces(),
+    fetchCommunityActivities().catch(() => [] as ApiCommunityActivity[]),
+    api.get<ApiMission[]>("/missions").catch(() => [] as ApiMission[]),
+    api.get<ApiCheckIn[]>("/check-ins").catch(() => [] as ApiCheckIn[]),
+    api.get<ApiReflection[]>("/reflections").catch(() => [] as ApiReflection[]),
+    api.get<ApiActionTemplate[]>("/action-templates").catch(() => [] as ApiActionTemplate[]),
+    fetchLatestRecommendation().catch(() => null),
+    fetchSavedPlaceIds().catch(() => [] as string[]),
+    fetchTrustedContacts().catch(() => [] as ApiTrustedContact[])
+  ]);
 
   const templatesById = new Map(templates.map((template) => [template.id, template]));
 
@@ -327,7 +466,18 @@ export async function hydrateFromBackend(current: AppData): Promise<HydrationRes
     places: places.map(fromApiPlace),
     community: community.map(fromApiCommunityActivity),
     checkIns: checkIns.map(fromApiCheckIn).reverse(),
-    reflections: reflections.map(fromApiReflection).reverse()
+    reflections: reflections.map(fromApiReflection).reverse(),
+    savedPlaceIds,
+    // The UI holds a single contact; the server stores a list, so the first
+    // one is the one shown.
+    trustedContact: trustedContacts[0]
+      ? {
+          id: trustedContacts[0].id,
+          name: trustedContacts[0].name,
+          phone: trustedContacts[0].phone ?? "",
+          relationship: trustedContacts[0].relationship ?? ""
+        }
+      : null
   };
 
   const activeVision = visions.find((vision) => vision.status === "active") ?? visions[0] ?? null;

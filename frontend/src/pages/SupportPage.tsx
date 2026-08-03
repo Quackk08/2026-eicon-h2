@@ -11,6 +11,7 @@ import {
   X
 } from "lucide-react";
 import { useAppState } from "../state/AppState";
+import { logSupportHandoff, removeTrustedContact, saveTrustedContact } from "../api/backend";
 
 const messageStarters = [
   "Could you check in with me when you have a moment?",
@@ -19,7 +20,7 @@ const messageStarters = [
 ];
 
 export function SupportPage() {
-  const { data, updateData } = useAppState();
+  const { data, updateData, refresh } = useAppState();
   const [editingContact, setEditingContact] = useState(!data.trustedContact);
   const [name, setName] = useState(data.trustedContact?.name ?? "");
   const [phone, setPhone] = useState(data.trustedContact?.phone ?? "");
@@ -30,14 +31,24 @@ export function SupportPage() {
 
   const saveContact = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const contact = { name: name.trim(), phone: phone.trim(), relationship: relationship.trim() };
+    const existingId = data.trustedContact?.id;
+
     updateData((current) => ({
       ...current,
-      trustedContact: { name: name.trim(), phone: phone.trim(), relationship: relationship.trim() }
+      trustedContact: { ...contact, id: existingId }
     }));
     setEditingContact(false);
+
+    // refresh() picks up the server-assigned id so a later edit updates the
+    // same row instead of adding a second contact.
+    void saveTrustedContact(contact, existingId)
+      .then(() => refresh())
+      .catch(() => undefined);
   };
 
   const removeContact = () => {
+    const existingId = data.trustedContact?.id;
     updateData((current) => ({ ...current, trustedContact: null }));
     setName("");
     setPhone("");
@@ -45,11 +56,30 @@ export function SupportPage() {
     setPreviewOpen(false);
     setApproved(false);
     setEditingContact(true);
+
+    if (existingId) void removeTrustedContact(existingId).catch(() => undefined);
   };
 
   const openPreview = () => {
     setApproved(false);
     setPreviewOpen(true);
+  };
+
+  /**
+   * Logs what the person approved, at the moment they choose to hand off.
+   * Only ever called from the approved anchors, so an unapproved preview is
+   * never recorded as an approval. The message is still sent by the
+   * device's own app, not by ReNew.
+   */
+  const recordHandoff = (channel: "sms" | "tel") => {
+    if (!approved) return;
+    void logSupportHandoff({
+      trustedContactId: data.trustedContact?.id ?? null,
+      channel,
+      messagePreview: message,
+      includedData: ["Phone number", "The exact message shown in the preview"],
+      excludedData: ["Check-In values", "Reflection history", "Diagnosis language", "Location"]
+    }).catch(() => undefined);
   };
 
   const safePhone = phone.replace(/[^+\d]/g, "");
@@ -144,10 +174,10 @@ export function SupportPage() {
             <span>I reviewed the recipient, channel, full message, included data, and excluded data.</span>
           </label>
           <div className="handoff-actions">
-            <a className={approved ? "primary-command" : "primary-command is-disabled"} href={approved ? smsHref : undefined} aria-disabled={!approved}>
+            <a className={approved ? "primary-command" : "primary-command is-disabled"} href={approved ? smsHref : undefined} aria-disabled={!approved} onClick={() => recordHandoff("sms")}>
               <MessageSquareText aria-hidden="true" /> Open SMS
             </a>
-            <a className={approved ? "secondary-command" : "secondary-command is-disabled"} href={approved ? telHref : undefined} aria-disabled={!approved}>
+            <a className={approved ? "secondary-command" : "secondary-command is-disabled"} href={approved ? telHref : undefined} aria-disabled={!approved} onClick={() => recordHandoff("tel")}>
               <Phone aria-hidden="true" /> Open phone
             </a>
           </div>

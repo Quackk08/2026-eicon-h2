@@ -13,6 +13,9 @@ import communityRouter from "./routes/community.js";
 import insightsRouter from "./routes/insights.js";
 import actionTemplatesRouter from "./routes/actionTemplates.js";
 import authRouter from "./routes/auth.js";
+import savedPlacesRouter from "./routes/savedPlaces.js";
+import supportRouter from "./routes/support.js";
+import syncRouter from "./routes/sync.js";
 
 const app = express();
 
@@ -37,6 +40,9 @@ app.use("/api", communityRouter);
 app.use("/api", insightsRouter);
 app.use("/api", actionTemplatesRouter);
 app.use("/api", authRouter);
+app.use("/api", savedPlacesRouter);
+app.use("/api", supportRouter);
+app.use("/api", syncRouter);
 
 // Express 5 forwards rejected async handlers here automatically.
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Check, CircleDot, Pause } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import type { EffortLevel, Reflection } from "../data/appData";
-import { submitReflection } from "../api/backend";
+import { submitReflectionOrQueue } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 const outcomes = [
@@ -79,10 +79,14 @@ export function ReflectionPage() {
     });
 
     try {
-      await submitReflection(mission.id, { outcome, effort, note: reflection.note });
-      await refresh();
+      const { queued } = await submitReflectionOrQueue(mission.id, {
+        outcome,
+        effort,
+        note: reflection.note
+      });
+      if (!queued) await refresh();
     } catch {
-      // Recorded locally; it syncs the next time the backend is reachable.
+      // Rejected by the server rather than undelivered; kept on this device.
     } finally {
       setSaving(false);
     }

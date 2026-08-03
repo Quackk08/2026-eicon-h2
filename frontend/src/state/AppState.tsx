@@ -82,6 +82,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   // leaving the previous identity's data on screen.
   useEffect(() => onAuthChange(() => void refresh()), [refresh]);
 
+  // Coming back online is the moment queued Check-Ins and Reflections can
+  // finally reach the server; refresh() drains the outbox before reading.
+  useEffect(() => {
+    const handleOnline = () => void refresh();
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [refresh]);
+
   useEffect(() => {
     if (ready) {
       void saveAppData(data);

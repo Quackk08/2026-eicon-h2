@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { reflectionSchema } from "@renew/shared";
 import {
   createReflection,
   listRecentReflections,
@@ -139,14 +140,6 @@ router.post("/missions/:id/adapt", resolveProfile, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
-
-const reflectionSchema = z.object({
-  result: z.enum(["completed", "partially_completed", "not_today"]),
-  burden: z.number().int().min(0).max(4).nullable().optional(),
-  socialMode: z.enum(["alone", "with_someone"]).nullable().optional(),
-  wantRepeat: z.boolean().nullable().optional(),
-  note: z.string().max(2000).nullable().optional()
 });
 
 function suggestNext(result: string, burden: number | null | undefined): string {

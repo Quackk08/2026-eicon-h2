@@ -165,6 +165,8 @@ export interface AppData {
     theme: "system" | "light";
   };
   trustedContact: {
+    /** Absent until the server has accepted the contact (e.g. saved offline). */
+    id?: string;
     name: string;
     phone: string;
     relationship: string;
@@ -239,17 +241,39 @@ const DATA_VERSION = 2;
 
 type StoredAppData = AppData & { dataVersion?: number };
 
+/**
+ * Writes made while offline, waiting to be replayed against the server.
+ * Kept in IndexedDB rather than memory so closing the tab mid-flight does
+ * not lose a Check-In the person already recorded.
+ */
+export interface OutboxOperation {
+  idempotencyKey: string;
+  entityType: "check_in" | "reflection" | "saved_place" | "trusted_contact";
+  entityLocalId: string;
+  operation: "create" | "update" | "delete";
+  payload: Record<string, unknown>;
+  createdAt: string;
+  retryCount: number;
+}
+
 interface ReNewDatabase extends DBSchema {
   state: {
     key: "app";
     value: StoredAppData;
   };
+  outbox: {
+    key: string;
+    value: OutboxOperation;
+  };
 }
 
-const databasePromise = openDB<ReNewDatabase>("renew-client", 1, {
+export const databasePromise = openDB<ReNewDatabase>("renew-client", 2, {
   upgrade(database) {
     if (!database.objectStoreNames.contains("state")) {
       database.createObjectStore("state");
+    }
+    if (!database.objectStoreNames.contains("outbox")) {
+      database.createObjectStore("outbox", { keyPath: "idempotencyKey" });
     }
   }
 });

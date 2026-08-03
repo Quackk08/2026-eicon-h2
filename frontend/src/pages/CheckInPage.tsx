@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, CloudOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import type { CheckInRecord, EffortLevel } from "../data/appData";
-import { requestDailyRecommendation, submitCheckIn } from "../api/backend";
+import { requestDailyRecommendation, submitCheckInOrQueue } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 const responseLabels = ["Very low", "Low", "In between", "Good", "Strong"] as const;
@@ -96,13 +96,17 @@ export function CheckInPage() {
     updateData((current) => ({ ...current, checkIns: [...current.checkIns, record] }));
 
     try {
-      await submitCheckIn(record);
-      // A Check-In is what today's suggestion is based on, so ask for a new
-      // one now rather than leaving the previous pick on screen.
-      await requestDailyRecommendation();
-      await refresh();
+      const { queued } = await submitCheckInOrQueue(record);
+      // Offline, the Check-In is in the outbox and there is nothing for the
+      // server to base a new suggestion on yet — asking would only fail.
+      if (!queued) {
+        // A Check-In is what today's suggestion is based on, so ask for a new
+        // one now rather than leaving the previous pick on screen.
+        await requestDailyRecommendation();
+        await refresh();
+      }
     } catch {
-      // Kept on this device; it syncs the next time the backend is reachable.
+      // Rejected by the server rather than undelivered; kept on this device.
     } finally {
       setSubmitting(false);
     }

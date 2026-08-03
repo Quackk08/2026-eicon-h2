@@ -2,6 +2,7 @@ import { Bookmark, Search, SlidersHorizontal, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppState } from "../state/AppState";
+import { setPlaceSaved } from "../api/backend";
 
 const placeTypes = ["All", "Library", "Cafe", "Park", "Community"];
 
@@ -25,12 +26,25 @@ export function PlacesPage() {
   );
 
   const toggleSaved = (placeId: string) => {
+    const nextSaved = !data.savedPlaceIds.includes(placeId);
+
+    // Applied locally first so the bookmark responds immediately; the write
+    // is queued if it cannot reach the server right now.
     updateData((current) => ({
       ...current,
-      savedPlaceIds: current.savedPlaceIds.includes(placeId)
-        ? current.savedPlaceIds.filter((id) => id !== placeId)
-        : [...current.savedPlaceIds, placeId]
+      savedPlaceIds: nextSaved
+        ? [...current.savedPlaceIds, placeId]
+        : current.savedPlaceIds.filter((id) => id !== placeId)
     }));
+
+    void setPlaceSaved(placeId, nextSaved).catch(() => {
+      updateData((current) => ({
+        ...current,
+        savedPlaceIds: nextSaved
+          ? current.savedPlaceIds.filter((id) => id !== placeId)
+          : [...current.savedPlaceIds, placeId]
+      }));
+    });
   };
 
   return (

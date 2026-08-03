@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight, Bookmark, Check, Clock3, MapPin, Route as RouteIcon } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { setMissionPlace } from "../api/backend";
+import { setMissionPlace, setPlaceSaved } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 export function PlaceDetailPage() {
@@ -25,12 +25,25 @@ export function PlaceDetailPage() {
   const relatedPlaces = data.places.filter((item) => item.id !== place.id).slice(0, 2);
 
   const toggleSaved = () => {
+    const nextSaved = !saved;
+
+    // Applied locally first so the bookmark responds immediately; the write
+    // is queued if it cannot reach the server right now.
     updateData((current) => ({
       ...current,
-      savedPlaceIds: current.savedPlaceIds.includes(place.id)
-        ? current.savedPlaceIds.filter((id) => id !== place.id)
-        : [...current.savedPlaceIds, place.id]
+      savedPlaceIds: nextSaved
+        ? [...current.savedPlaceIds, place.id]
+        : current.savedPlaceIds.filter((id) => id !== place.id)
     }));
+
+    void setPlaceSaved(place.id, nextSaved).catch(() => {
+      updateData((current) => ({
+        ...current,
+        savedPlaceIds: nextSaved
+          ? current.savedPlaceIds.filter((id) => id !== place.id)
+          : [...current.savedPlaceIds, place.id]
+      }));
+    });
   };
 
   const useForMission = async () => {
