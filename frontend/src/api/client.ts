@@ -1,3 +1,5 @@
+import { getAccessToken } from "./auth";
+
 const PROFILE_STORAGE_KEY = "renew.profileId";
 
 export class ApiError extends Error {
@@ -32,10 +34,33 @@ export function getProfileId(): string | null {
   return cachedProfileId;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/**
+ * Forgets the guest id after it has been claimed by an account, so a later
+ * sign-out cannot silently reopen someone's records without signing in.
+ */
+export function clearGuestProfileId(): void {
+  cachedProfileId = null;
+  try {
+    window.localStorage.removeItem(PROFILE_STORAGE_KEY);
+  } catch {
+    // Storage unavailable — the in-memory clear above is what matters.
+  }
+}
+
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  explicitToken?: string
+): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
-  if (cachedProfileId) {
+
+  // A bearer token identifies the account and wins over any guest id the
+  // browser still remembers; the backend enforces the same precedence.
+  const token = explicitToken ?? (await getAccessToken());
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  } else if (cachedProfileId) {
     headers.set("x-profile-id", cachedProfileId);
   }
 
@@ -59,6 +84,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 let inFlightProfile: Promise<string> | null = null;
 
 async function resolveOrCreateProfile(): Promise<string> {
+  // Signed in: the backend resolves the account's own profile from the token,
+  // creating one on first sign-in. Minting a guest profile here would strand
+  // records under an id the account never looks at.
+  const token = await getAccessToken();
+  if (token) {
+    const me = await request<{ id: string }>("/me");
+    return me.id;
+  }
+
   if (cachedProfileId) {
     try {
       await request("/me");
@@ -100,8 +134,12 @@ export function ensureProfile(): Promise<string> {
 
 export const api = {
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }),
+  post: <T>(path: string, body?: unknown, explicitToken?: string) =>
+    request<T>(
+      path,
+      { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) },
+      explicitToken
+    ),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: body === undefined ? undefined : JSON.stringify(body) })
 };

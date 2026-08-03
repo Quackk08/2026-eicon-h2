@@ -1,0 +1,71 @@
+import { createClient, type Session } from "@supabase/supabase-js";
+
+const url = import.meta.env.VITE_SUPABASE_URL;
+const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+/**
+ * Auth is optional: ReNew works as a guest, so a build without Supabase
+ * credentials still runs — it simply cannot sign anyone in.
+ */
+export const authEnabled = Boolean(url && publishableKey);
+
+const supabase = authEnabled
+  ? createClient(url as string, publishableKey as string, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    })
+  : null;
+
+export interface AuthResult {
+  ok: boolean;
+  /** Safe to show a user; Supabase messages are already user-facing. */
+  error?: string;
+  /**
+   * Taken straight from the sign-in response. Callers that act immediately
+   * must use this rather than re-reading the session — the client persists
+   * asynchronously, so getAccessToken() can still be empty at that point.
+   */
+  accessToken?: string;
+}
+
+export async function getAccessToken(): Promise<string | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
+export async function getSession(): Promise<Session | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session;
+}
+
+export function onAuthChange(handler: (session: Session | null) => void): () => void {
+  if (!supabase) return () => {};
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => handler(session));
+  return () => data.subscription.unsubscribe();
+}
+
+export async function signIn(email: string, password: string): Promise<AuthResult> {
+  if (!supabase) return { ok: false, error: "Sign in is not configured in this build." };
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, accessToken: data.session?.access_token };
+}
+
+export async function signUp(email: string, password: string): Promise<AuthResult> {
+  if (!supabase) return { ok: false, error: "Sign up is not configured in this build." };
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) return { ok: false, error: error.message };
+
+  // With email confirmation on, signUp succeeds without a session. Saying so
+  // is better than leaving someone on a screen that looks like it failed.
+  if (!data.session) {
+    return { ok: false, error: "Check your email to confirm this address, then sign in." };
+  }
+  return { ok: true, accessToken: data.session.access_token };
+}
+
+export async function signOut(): Promise<void> {
+  if (!supabase) return;
+  await supabase.auth.signOut();
+}

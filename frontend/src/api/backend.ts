@@ -8,7 +8,8 @@ import type {
   RouteStep,
   UserPreferences
 } from "../data/appData";
-import { api, ensureProfile, getProfileId } from "./client";
+import { ApiError, api, clearGuestProfileId, ensureProfile, getProfileId } from "./client";
+import { signIn, signUp, type AuthResult } from "./auth";
 import {
   fromApiCheckIn,
   fromApiCommunityActivity,
@@ -41,6 +42,67 @@ import type {
 
 export { ensureProfile, getProfileId } from "./client";
 export { ApiError } from "./client";
+
+/* ── Auth ──────────────────────────────────────────────────────────── */
+
+export interface SessionInfo {
+  signedIn: boolean;
+  profileId: string;
+  email: string | null;
+}
+
+export async function fetchSession(): Promise<SessionInfo> {
+  return api.get<SessionInfo>("/auth/session");
+}
+
+/**
+ * Signs in, then hands the guest profile over to the account so the work
+ * someone did before making an account is not stranded. Linking is
+ * best-effort: a refusal (the account already has records of its own) must
+ * not block signing in, so it is reported rather than thrown.
+ */
+export async function signInAndLink(email: string, password: string): Promise<AuthResult & { linkNote?: string }> {
+  const result = await signIn(email, password);
+  if (!result.ok) return result;
+  return { ...result, linkNote: await claimGuestProfile(result.accessToken) };
+}
+
+export async function signUpAndLink(email: string, password: string): Promise<AuthResult & { linkNote?: string }> {
+  const result = await signUp(email, password);
+  if (!result.ok) return result;
+  return { ...result, linkNote: await claimGuestProfile(result.accessToken) };
+}
+
+/**
+ * Hands the guest profile to the account that just signed in.
+ *
+ * The token is passed in explicitly: supabase-js persists the session
+ * asynchronously, so reading it back here can still return nothing and the
+ * request would go out as a guest — which the backend rightly refuses.
+ *
+ * Never silently succeeds. If the handover does not happen, the caller gets
+ * a note to show, because "you are signed in" while someone's Vision and
+ * Check-Ins were left behind is the worst possible outcome.
+ */
+async function claimGuestProfile(accessToken?: string): Promise<string | undefined> {
+  const guestProfileId = getProfileId();
+  if (!guestProfileId) return undefined;
+
+  try {
+    await api.post("/auth/link", { guestProfileId }, accessToken);
+    clearGuestProfileId();
+    return undefined;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409) {
+      // The account already has its own history. Keeping the two apart is
+      // correct, but the person needs to know their guest work is not here.
+      clearGuestProfileId();
+      return "Signed in. Work saved on this device beforehand was kept separate, because this account already has its own history.";
+    }
+    // Keep the guest id so the work is still reachable after signing out.
+    return "Signed in, but the work saved on this device could not be moved to this account yet. It is still on this device.";
+  }
+}
 
 /* ── Reads ─────────────────────────────────────────────────────────── */
 

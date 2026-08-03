@@ -10,6 +10,8 @@ import {
   UserRound
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { signOut as supabaseSignOut } from "../api/auth";
+import { clearAppData } from "../data/appData";
 import type { CheckInRhythm } from "../data/appData";
 import { useAppState } from "../state/AppState";
 
@@ -106,11 +108,16 @@ export function SettingsPage() {
     navigate("/onboarding");
   };
 
-  const signOut = () => {
+  const signOut = async () => {
+    await supabaseSignOut();
     updateData((current) => ({
       ...current,
       profile: { ...current.profile, signedIn: false }
     }));
+    // Records live on the server under the account, so the local copy is
+    // cleared too — otherwise the next person on this browser would open
+    // the previous account's Vision and Check-Ins.
+    await clearAppData();
     navigate("/login");
   };
 
@@ -236,7 +243,7 @@ export function SettingsPage() {
             <ShieldCheck aria-hidden="true" />
             <div><p className="app-kicker">Data controls</p><h2 id="data-settings-title">Local data</h2></div>
           </div>
-          <p>Frontend records are stored in IndexedDB on this browser. Nothing is sent to a server in this build.</p>
+          <p>Records are written to this browser first so ReNew keeps working offline, then synced to your ReNew account.</p>
           <div>
             <button className="secondary-command" type="button" onClick={exportData}><Download aria-hidden="true" /> Export JSON</button>
             <button className="secondary-command danger-command" type="button" onClick={() => setResetOpen(true)}><RefreshCcw aria-hidden="true" /> Reset demo data</button>

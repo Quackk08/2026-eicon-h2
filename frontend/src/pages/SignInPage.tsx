@@ -1,26 +1,45 @@
 import { useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowUpRight, Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { signInAndLink, signUpAndLink } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 export function SignInPage() {
   const navigate = useNavigate();
-  const { data, updateData } = useAppState();
+  const { data, updateData, refresh } = useAppState();
   const [email, setEmail] = useState(data.profile.email);
-  const [password, setPassword] = useState("renew-demo");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const authenticate = async (mode: "signIn" | "signUp") => {
+    setBusy(true);
+    setError(null);
+
+    const result =
+      mode === "signIn" ? await signInAndLink(email, password) : await signUpAndLink(email, password);
+
+    if (!result.ok) {
+      setError(result.error ?? "Could not sign in.");
+      setBusy(false);
+      return;
+    }
+
+    updateData((current) => ({
+      ...current,
+      profile: { ...current.profile, email, signedIn: true }
+    }));
+    await refresh();
+    setBusy(false);
+
+    if (result.linkNote) setError(result.linkNote);
+    else navigate(data.profile.onboardingComplete ? "/app/today" : "/onboarding");
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    updateData((current) => ({
-      ...current,
-      profile: {
-        ...current.profile,
-        email,
-        signedIn: true
-      }
-    }));
-    navigate(data.profile.onboardingComplete ? "/app/today" : "/onboarding");
+    void authenticate("signIn");
   };
 
   return (
@@ -90,12 +109,24 @@ export function SignInPage() {
             </button>
           </div>
 
-          <button className="primary-command" type="submit">
+          <button className="primary-command" type="submit" disabled={busy}>
             Sign in <ArrowUpRight aria-hidden="true" />
           </button>
 
+          {error && (
+            <p className="auth-note" role="alert">
+              {error}
+            </p>
+          )}
+
           <p className="auth-note">
             New to ReNew? <Link to="/onboarding">Create your first life route</Link>
+          </p>
+          <p className="auth-note">
+            Already started as a guest?{" "}
+            <button className="text-button" type="button" disabled={busy} onClick={() => void authenticate("signUp")}>
+              Create an account to keep it
+            </button>
           </p>
         </form>
       </section>

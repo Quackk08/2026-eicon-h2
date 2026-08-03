@@ -15,6 +15,7 @@ import {
   type AppData
 } from "../data/appData";
 import { hydrateFromBackend } from "../api/backend";
+import { onAuthChange } from "../api/auth";
 import type { ApiRecommendation } from "../api/types";
 
 interface AppStateValue {
@@ -76,6 +77,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       active = false;
     };
   }, [refresh]);
+
+  // Signing in or out changes whose records these are, so re-pull rather than
+  // leaving the previous identity's data on screen.
+  useEffect(() => onAuthChange(() => void refresh()), [refresh]);
 
   useEffect(() => {
     if (ready) {
