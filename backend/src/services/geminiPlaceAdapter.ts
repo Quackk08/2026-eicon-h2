@@ -47,7 +47,7 @@ STRICT RULES:
 1. selectedPlaceId and every id in alternatePlaceIds MUST be one of the CANDIDATE ids below.
 2. Do not favor a place because it might be a paid partner — only fit and safety matter.
 3. Only change the rule engine's pick if a listed candidate is clearly a better fit; never override for novelty.
-4. summary and userFacingReason must be short, practical, non-clinical, in Korean.
+4. summary and userFacingReason must be short, practical, non-clinical, in English.
 
 CONTEXT:
 - Action this place is for: ${input.templateTitle}

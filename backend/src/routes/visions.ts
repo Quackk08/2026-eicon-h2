@@ -34,7 +34,8 @@ router.post("/visions", resolveProfile, async (req, res, next) => {
 
 const patchVisionSchema = z.object({
   summary: z.string().min(1).max(500).optional(),
-  status: z.enum(["active", "paused"]).optional()
+  status: z.enum(["active", "paused"]).optional(),
+  domain: z.enum(LIFE_DOMAINS).optional()
 });
 
 router.patch("/visions/:id", resolveProfile, async (req, res, next) => {

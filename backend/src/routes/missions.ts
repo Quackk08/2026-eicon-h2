@@ -2,11 +2,13 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   createReflection,
+  listRecentReflections,
   type ReflectionInput
 } from "../repositories/reflections.js";
 import {
   getMissionById,
   getTodayMission,
+  listMissionsForProfile,
   switchMissionTemplate,
   updateMissionStatus
 } from "../repositories/missions.js";
@@ -14,6 +16,28 @@ import { getActionTemplateById, listActionTemplatesInLadderGroup } from "../repo
 import { resolveProfile } from "../middleware/resolveProfile.js";
 
 const router = Router();
+
+router.get("/missions", resolveProfile, async (req, res, next) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 100, 500);
+    const missions = await listMissionsForProfile(req.profileId!, limit);
+    const withTemplates = await Promise.all(
+      missions.map(async (mission) => ({ ...mission, template: await getActionTemplateById(mission.template_id) }))
+    );
+    res.json(withTemplates);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/reflections", resolveProfile, async (req, res, next) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 100, 500);
+    res.json(await listRecentReflections(req.profileId!, limit));
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.get("/missions/today", resolveProfile, async (req, res, next) => {
   try {
@@ -86,10 +110,14 @@ const reflectionSchema = z.object({
 });
 
 function suggestNext(result: string, burden: number | null | undefined): string {
-  if (result === "partially_completed") return "다음에는 오늘 완료한 만큼을 기준으로 더 작은 단계를 제안합니다.";
-  if (result === "completed" && (burden ?? 0) >= 3) return "같은 단계를 한 번 더 반복해볼 것을 제안합니다.";
-  if (result === "completed") return "다음에는 한 단계 확장된 행동을 제안합니다.";
-  return "오늘은 하지 않아도 괜찮습니다 — 실패로 기록하지 않습니다.";
+  if (result === "partially_completed") {
+    return "Next time will start from the part you finished, one level smaller.";
+  }
+  if (result === "completed" && (burden ?? 0) >= 3) {
+    return "The same step stays available to repeat at this size.";
+  }
+  if (result === "completed") return "A slightly larger step becomes available next time.";
+  return "Leaving this for another day is fine — it is not recorded as a failure.";
 }
 
 router.post("/missions/:id/reflection", resolveProfile, async (req, res, next) => {

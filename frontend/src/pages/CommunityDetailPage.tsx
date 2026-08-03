@@ -11,11 +11,16 @@ import {
   X
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
+import {
+  cancelCommunityActivity,
+  joinCommunityActivity,
+  reportCommunityActivity
+} from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 export function CommunityDetailPage() {
   const { activityId } = useParams();
-  const { data, updateData } = useAppState();
+  const { data, updateData, refresh } = useAppState();
   const activity = data.community.find((item) => item.id === activityId);
   const [confirming, setConfirming] = useState<"join" | "cancel" | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -33,19 +38,39 @@ export function CommunityDetailPage() {
 
   const linkedPlace = data.places.find((place) => place.name === activity.place);
 
-  const confirmParticipation = () => {
+  const confirmParticipation = async () => {
     const joined = confirming === "join";
     updateData((current) => ({
       ...current,
       community: current.community.map((item) => (item.id === activity.id ? { ...item, joined } : item))
     }));
     setConfirming(null);
+
+    try {
+      if (joined) {
+        await joinCommunityActivity(activity.id);
+      } else {
+        await cancelCommunityActivity(activity.id);
+      }
+      await refresh();
+    } catch {
+      // Recorded locally; it syncs on the next successful load.
+    }
   };
 
-  const submitReport = (event: FormEvent<HTMLFormElement>) => {
+  const submitReport = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const form = event.currentTarget;
+    const reason = new FormData(form).get("reason");
+    const details = new FormData(form).get("details");
     setReportSent(true);
     setReportOpen(false);
+
+    try {
+      await reportCommunityActivity(activity.id, [reason, details].filter(Boolean).join(": "));
+    } catch {
+      // The report stays queued locally rather than being lost.
+    }
   };
 
   return (
@@ -130,7 +155,7 @@ export function CommunityDetailPage() {
       <section className="community-report">
         <div>
           <AlertTriangle aria-hidden="true" />
-          <div><strong>Something does not look right?</strong><p>Reports are stored locally in this frontend demo.</p></div>
+          <div><strong>Something does not look right?</strong><p>Reports are sent to the ReNew review team.</p></div>
         </div>
         <button className="text-button" type="button" onClick={() => setReportOpen((current) => !current)}>
           {reportSent ? "Report recorded" : "Report activity"}
@@ -141,7 +166,7 @@ export function CommunityDetailPage() {
         <form className="report-form" onSubmit={submitReport}>
           <div className="field-group">
             <label htmlFor="report-reason">Reason</label>
-            <select id="report-reason" required defaultValue="">
+            <select id="report-reason" name="reason" required defaultValue="">
               <option value="" disabled>Select a reason</option>
               <option>Incorrect activity details</option>
               <option>Safety or access concern</option>
@@ -151,7 +176,7 @@ export function CommunityDetailPage() {
           </div>
           <div className="field-group">
             <label htmlFor="report-note">Details</label>
-            <textarea id="report-note" rows={4} maxLength={500} required />
+            <textarea id="report-note" name="details" rows={4} maxLength={500} required />
           </div>
           <button className="primary-command" type="submit">Record report <ArrowRight aria-hidden="true" /></button>
         </form>

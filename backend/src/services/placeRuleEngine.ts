@@ -77,8 +77,9 @@ export function buildRuleBasedPlaceRecommendation(
   return {
     contractVersion: 1,
     selectedPlaceId: best.id,
-    summary: `"${templateTitle}"에 어울리는 장소로 ${best.name}을(를) 추천합니다.`,
-    userFacingReason: "현재 조건(거리·비용·사회적 부담)에 맞는 검수된 장소 중에서 규칙 기반으로 선택했습니다.",
+    summary: `${best.name} suits "${templateTitle}".`,
+    userFacingReason:
+      "Chosen from reviewed places that fit your current distance, cost, and social preferences.",
     alternatePlaceIds: alternates,
     warnings: []
   };

@@ -132,29 +132,31 @@ export function buildRuleBasedWeeklySummary(stats: WeeklyInsightStats): WeeklyIn
   if (!stats.hasEnoughData) {
     return {
       contractVersion: 1,
-      summary: "아직 이번 주 패턴을 설명할 만큼 기록이 충분하지 않습니다.",
+      summary: "There is not enough recorded activity yet to describe this week's pattern.",
       maintainedNote: null,
       adjustmentSuggestion: null
     };
   }
 
   const parts: string[] = [];
-  parts.push(`이번 주 체크인 ${stats.checkInCount}회, 완료 ${stats.completedCount}회, 일부 완료 ${stats.partiallyCompletedCount}회, 오늘은 하지 않음 ${stats.notTodayCount}회입니다.`);
+  parts.push(
+    `This week: ${stats.checkInCount} Check-Ins, ${stats.completedCount} completed, ${stats.partiallyCompletedCount} partly completed, and ${stats.notTodayCount} left for another day.`
+  );
 
   if (stats.moodThisWeek !== null && stats.moodPriorWeek !== null) {
     const diff = stats.moodThisWeek - stats.moodPriorWeek;
-    if (diff <= -1) parts.push("기분은 지난주보다 다소 낮게 느껴진 편입니다.");
-    else if (diff >= 1) parts.push("기분은 지난주보다 나아진 편입니다.");
+    if (diff <= -1) parts.push("Mood was recorded lower than the previous week.");
+    else if (diff >= 1) parts.push("Mood was recorded higher than the previous week.");
   }
 
   const maintainedNote = stats.lowestBurdenTemplateId
-    ? `부담이 낮았던 행동은 계속 유지할 만합니다.`
+    ? "The action that took the least effort is worth keeping available."
     : null;
 
   const adjustmentSuggestion = stats.mostPostponedTemplateId
-    ? "반복적으로 미룬 행동이 있다면, 다음 주에는 더 작은 단계로 조정해볼 수 있습니다."
+    ? "One action was postponed more than once. It can be made smaller next week."
     : stats.avgBurden !== null && stats.avgBurden >= 3
-      ? "전반적으로 부담도가 높았던 한 주였습니다. 다음 주는 계획을 더 작게 만드는 것을 고려해볼 수 있습니다."
+      ? "Recorded effort was high overall. Making next week's plan smaller stays an option."
       : null;
 
   return {

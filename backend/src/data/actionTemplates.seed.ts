@@ -3,13 +3,14 @@ import type { ActionTemplate } from "@renew/shared";
 /**
  * Reviewed Activity Ladder seed data. AI never invents entries here — it
  * can only select among them (docs/IMPLEMENTATION_PLAN.md section 7).
+ * Copy is written in the app's UI language (English).
  */
 export const actionTemplateSeeds: ActionTemplate[] = [
   // Study & School ladder
   {
     id: "study-notebook-prep",
     goalDomains: ["study_school"],
-    title: "노트와 펜 하나 가방에 넣기",
+    title: "Put one notebook and pen in your bag",
     minCapacity: 0,
     maxSocialLoad: 0,
     durationRange: [1, 5],
@@ -23,7 +24,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "study-home-desk",
     goalDomains: ["study_school"],
-    title: "집 책상에서 5분 공부하기",
+    title: "Study for five minutes at your desk",
     minCapacity: 1,
     maxSocialLoad: 0,
     durationRange: [5, 10],
@@ -37,7 +38,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "study-cafe-entrance",
     goalDomains: ["study_school"],
-    title: "가까운 카페 입구까지 걸어갔다 오기",
+    title: "Walk to a nearby cafe entrance and back",
     minCapacity: 1,
     maxSocialLoad: 0,
     durationRange: [5, 15],
@@ -51,7 +52,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "study-cafe-short-stay",
     goalDomains: ["study_school"],
-    title: "카페에서 노트를 펼치고 10분 머무르기",
+    title: "Open your notebook at a cafe and stay ten minutes",
     minCapacity: 2,
     maxSocialLoad: 1,
     durationRange: [10, 20],
@@ -65,7 +66,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "study-cafe-full-session",
     goalDomains: ["study_school"],
-    title: "카페나 도서관에서 20분 공부하기",
+    title: "Study for twenty minutes at a cafe or library",
     minCapacity: 3,
     maxSocialLoad: 1,
     durationRange: [20, 40],
@@ -81,7 +82,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "movement-window",
     goalDomains: ["movement_health", "stress_recovery"],
-    title: "창문 열고 바깥 공기 쐬기",
+    title: "Open a window and take in the outside air",
     minCapacity: 0,
     maxSocialLoad: 0,
     durationRange: [1, 5],
@@ -95,7 +96,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "movement-doorstep-walk",
     goalDomains: ["movement_health", "stress_recovery"],
-    title: "집 앞에서 5분 걷기",
+    title: "Take a five-minute walk outside your door",
     minCapacity: 1,
     maxSocialLoad: 0,
     durationRange: [5, 10],
@@ -109,7 +110,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "movement-park-visit",
     goalDomains: ["movement_health", "stress_recovery"],
-    title: "가까운 공원 벤치에 10분 앉아있기",
+    title: "Sit on a nearby park bench for ten minutes",
     minCapacity: 1,
     maxSocialLoad: 1,
     durationRange: [10, 20],
@@ -123,7 +124,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "movement-park-walk",
     goalDomains: ["movement_health", "stress_recovery"],
-    title: "공원에서 15분 산책하기",
+    title: "Walk in the park for fifteen minutes",
     minCapacity: 2,
     maxSocialLoad: 1,
     durationRange: [15, 30],
@@ -139,7 +140,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "social-message",
     goalDomains: ["relationships"],
-    title: "친구에게 짧은 메시지 보내기",
+    title: "Send one short message to a friend",
     minCapacity: 0,
     maxSocialLoad: 1,
     durationRange: [1, 5],
@@ -153,7 +154,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "social-same-space",
     goalDomains: ["relationships"],
-    title: "가족과 같은 공간에서 각자 시간 보내기",
+    title: "Spend time in the same room as family",
     minCapacity: 1,
     maxSocialLoad: 1,
     durationRange: [10, 30],
@@ -167,7 +168,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "social-online-cofocus",
     goalDomains: ["relationships", "study_school"],
-    title: "대화 없는 온라인 공동 집중 활동 참여하기",
+    title: "Join a quiet online focus room",
     minCapacity: 1,
     maxSocialLoad: 1,
     durationRange: [15, 30],
@@ -181,7 +182,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "social-short-walk-with-friend",
     goalDomains: ["relationships", "movement_health"],
-    title: "친구와 짧게 산책하기",
+    title: "Take a short walk with a friend",
     minCapacity: 2,
     maxSocialLoad: 2,
     durationRange: [15, 30],
@@ -197,7 +198,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "life-water",
     goalDomains: ["daily_independence", "sleep_energy"],
-    title: "물 한 잔 마시기",
+    title: "Drink one glass of water",
     minCapacity: 0,
     maxSocialLoad: 0,
     durationRange: [1, 3],
@@ -211,7 +212,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "life-tidy-desk",
     goalDomains: ["daily_independence"],
-    title: "책상 5분 정리하기",
+    title: "Tidy your desk for five minutes",
     minCapacity: 1,
     maxSocialLoad: 0,
     durationRange: [5, 10],
@@ -225,7 +226,7 @@ export const actionTemplateSeeds: ActionTemplate[] = [
   {
     id: "life-simple-meal",
     goalDomains: ["daily_independence", "sleep_energy"],
-    title: "간단한 식사 준비해서 먹기",
+    title: "Prepare and eat one simple meal",
     minCapacity: 1,
     maxSocialLoad: 0,
     durationRange: [10, 20],

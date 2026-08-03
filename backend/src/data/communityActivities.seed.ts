@@ -4,12 +4,13 @@ import type { CommunityActivity } from "@renew/shared";
  * Reviewed Community Steps only — small, structured, low-pressure shared
  * actions, not an open social feed. socialLoad mirrors the same 0-4 scale
  * used elsewhere: 0-1 = "being present together" without conversation,
- * up to 3-4 = taking on a role or organizing.
+ * up to 3-4 = taking on a role or organizing. Copy is written in the app's
+ * UI language (English).
  */
 export const communityActivitySeeds: CommunityActivity[] = [
   {
     id: "community-silent-cofocus-online",
-    title: "대화 없는 온라인 공동 집중 25분",
+    title: "Silent online focus block",
     domain: "study_school",
     startsAt: null,
     isOnline: true,
@@ -21,7 +22,7 @@ export const communityActivitySeeds: CommunityActivity[] = [
   },
   {
     id: "community-library-silent-study",
-    title: "도서관 Silent Study",
+    title: "Library silent study",
     domain: "study_school",
     startsAt: null,
     isOnline: false,
@@ -29,11 +30,11 @@ export const communityActivitySeeds: CommunityActivity[] = [
     durationMinutes: 40,
     socialLoad: 1,
     maxParticipants: 8,
-    requiredItems: "노트나 책 한 권"
+    requiredItems: "A notebook or a book"
   },
   {
     id: "community-short-park-walk",
-    title: "동네 짧은 산책 (10분)",
+    title: "Short neighborhood walk",
     domain: "movement_health",
     startsAt: null,
     isOnline: false,
@@ -45,7 +46,7 @@ export const communityActivitySeeds: CommunityActivity[] = [
   },
   {
     id: "community-cafe-parallel-study",
-    title: "카페에서 각자 공부하기",
+    title: "Study side by side at a cafe",
     domain: "study_school",
     startsAt: null,
     isOnline: false,
@@ -53,11 +54,11 @@ export const communityActivitySeeds: CommunityActivity[] = [
     durationMinutes: 30,
     socialLoad: 2,
     maxParticipants: 6,
-    requiredItems: "음료 값"
+    requiredItems: "Money for a drink"
   },
   {
     id: "community-weekly-planning",
-    title: "일요일 저녁 주간 계획 함께 작성하기",
+    title: "Sunday evening weekly planning",
     domain: "daily_independence",
     startsAt: null,
     isOnline: true,
@@ -69,7 +70,7 @@ export const communityActivitySeeds: CommunityActivity[] = [
   },
   {
     id: "community-studio-dropin",
-    title: "그림/공예 드롭인 스튜디오 모임",
+    title: "Drop-in sketch and craft table",
     domain: "creativity",
     startsAt: null,
     isOnline: false,

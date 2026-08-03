@@ -8,6 +8,15 @@ import { resolveProfile } from "../middleware/resolveProfile.js";
 
 const router = Router();
 
+router.get("/check-ins", resolveProfile, async (req, res, next) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 100, 500);
+    res.json(await listRecentCheckIns(req.profileId!, limit));
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post("/check-ins", resolveProfile, async (req, res, next) => {
   try {
     const parsed = checkInInputSchema.safeParse(req.body);
@@ -55,7 +64,7 @@ router.get("/state/summary", resolveProfile, async (req, res, next) => {
   try {
     const recent = await listRecentCheckIns(req.profileId!, 30);
     if (recent.length === 0) {
-      return res.json({ hasEnoughData: false, message: "아직 기록이 없습니다.", stateTags: [] });
+      return res.json({ hasEnoughData: false, message: "No Check-Ins recorded yet.", stateTags: [] });
     }
 
     const latest = recent[0];
@@ -64,7 +73,7 @@ router.get("/state/summary", resolveProfile, async (req, res, next) => {
     if (recent.length < 3) {
       return res.json({
         hasEnoughData: false,
-        message: "아직 최근 패턴과 비교할 만큼 기록이 충분하지 않습니다.",
+        message: "There is not enough recorded history yet to compare against your own recent pattern.",
         latestCheckIn: latest,
         stateTags
       });

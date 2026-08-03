@@ -1,12 +1,20 @@
 import { Router } from "express";
 import { getPreferences } from "../repositories/preferences.js";
 import { getActionTemplateById } from "../repositories/actionTemplates.js";
-import { listPlacesByCategories } from "../repositories/places.js";
+import { listAllPlaces, listPlacesByCategories } from "../repositories/places.js";
 import { buildRuleBasedPlaceRecommendation } from "../services/placeRuleEngine.js";
 import { rerankPlaceWithGemini } from "../services/geminiPlaceAdapter.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
 
 const router = Router();
+
+router.get("/places", async (_req, res, next) => {
+  try {
+    res.json(await listAllPlaces());
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.get("/places/search", resolveProfile, async (req, res, next) => {
   try {

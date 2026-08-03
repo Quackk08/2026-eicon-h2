@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, Edit3, Pause, Play, Save, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { LifeDomain } from "../data/appData";
+import { updateVision as updateVisionOnServer } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 const visionDomains: LifeDomain[] = [
@@ -22,13 +23,20 @@ export function VisionPage() {
   const [description, setDescription] = useState(data.vision.description);
   const [domain, setDomain] = useState<LifeDomain>(data.vision.domain);
 
-  const saveVision = (event: FormEvent<HTMLFormElement>) => {
+  const saveVision = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const visionId = data.vision.id;
     updateData((current) => ({
       ...current,
       vision: { ...current.vision, title: title.trim(), description: description.trim(), domain }
     }));
     setEditing(false);
+
+    try {
+      await updateVisionOnServer(visionId, { summary: title.trim(), domain });
+    } catch {
+      // Saved locally; it syncs on the next successful load.
+    }
   };
 
   const cancelEditing = () => {
@@ -38,14 +46,19 @@ export function VisionPage() {
     setEditing(false);
   };
 
-  const toggleStatus = () => {
+  const toggleStatus = async () => {
+    const visionId = data.vision.id;
+    const nextStatus = data.vision.status === "active" ? "paused" : "active";
     updateData((current) => ({
       ...current,
-      vision: {
-        ...current.vision,
-        status: current.vision.status === "active" ? "paused" : "active"
-      }
+      vision: { ...current.vision, status: nextStatus }
     }));
+
+    try {
+      await updateVisionOnServer(visionId, { status: nextStatus });
+    } catch {
+      // Saved locally; it syncs on the next successful load.
+    }
   };
 
   return (

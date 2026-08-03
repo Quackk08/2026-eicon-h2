@@ -33,6 +33,17 @@ export async function createMission(
   return data;
 }
 
+export async function listMissionsForProfile(profileId: string, limit = 100): Promise<MissionRow[]> {
+  const { data, error } = await supabase
+    .from("missions")
+    .select()
+    .eq("profile_id", profileId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data;
+}
+
 export async function getTodayMission(profileId: string): Promise<MissionRow | null> {
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase

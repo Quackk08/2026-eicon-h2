@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Clock3, MapPin, SlidersHorizontal } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createMissionFromOption, type MissionVariant, type RecommendationOption } from "../data/appData";
@@ -7,6 +8,8 @@ import {
   getRecommendationReasons,
   getRecommendedMissionOption
 } from "../data/missionLogic";
+import { requestDailyRecommendation, selectRecommendation } from "../api/backend";
+import type { ApiRecommendation } from "../api/types";
 import { useAppState } from "../state/AppState";
 
 const variantLabels: Record<MissionVariant, string> = {
@@ -19,22 +22,59 @@ const variantLabels: Record<MissionVariant, string> = {
 
 export function RecommendationPage() {
   const navigate = useNavigate();
-  const { data, ready, updateData } = useAppState();
-  const recommended = getRecommendedMissionOption(data);
+  const { data, ready, updateData, refresh } = useAppState();
+  const [serverPick, setServerPick] = useState<ApiRecommendation | null>(null);
+  const [loadingPick, setLoadingPick] = useState(true);
+
+  // The backend rule engine (optionally re-ranked by Gemini) decides today's
+  // step. The local logic below stays as the offline fallback.
+  useEffect(() => {
+    let active = true;
+    requestDailyRecommendation()
+      .then((recommendation) => {
+        if (active) setServerPick(recommendation);
+      })
+      .catch(() => {
+        // No Vision/Check-In yet, or backend unreachable — fall back locally.
+      })
+      .finally(() => {
+        if (active) setLoadingPick(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const localRecommended = getRecommendedMissionOption(data);
   const eligibleOptions = getEligibleMissionOptions(data);
+  const recommended =
+    (serverPick && data.recommendations.find((option) => option.id === serverPick.selected_template_id)) ??
+    localRecommended;
   const alternatives = eligibleOptions.filter((option) => option.id !== recommended.id).slice(0, 4);
   const recommendedPlace = getMissionPlace(data, recommended);
-  const reasons = getRecommendationReasons(data, recommended);
+  const reasons = serverPick
+    ? [serverPick.user_facing_reason, ...getRecommendationReasons(data, recommended)].slice(0, 4)
+    : getRecommendationReasons(data, recommended);
 
-  const chooseMission = (option: RecommendationOption) => {
+  const chooseMission = async (option: RecommendationOption) => {
     updateData((current) => ({
       ...current,
       mission: createMissionFromOption(option)
     }));
+
+    if (serverPick) {
+      try {
+        await selectRecommendation(serverPick.id, option.id, option.routeStepId ?? null);
+        await refresh();
+      } catch {
+        // The choice is already stored locally; it syncs on the next load.
+      }
+    }
+
     navigate("/app/mission");
   };
 
-  if (!ready) {
+  if (!ready || loadingPick) {
     return (
       <main className="app-page dashboard-loading" aria-live="polite">
         <span />
@@ -61,7 +101,7 @@ export function RecommendationPage() {
         <div className="recommendation-copy">
           <p className="app-kicker">Suggested for today</p>
           <h2 id="recommendation-title">{recommended.title}</h2>
-          <p>{recommended.description}</p>
+          <p>{serverPick?.summary ?? recommended.description}</p>
           <div className="recommendation-meta">
             <span><Clock3 aria-hidden="true" /> {recommended.durationMinutes} min</span>
             <span><MapPin aria-hidden="true" /> {recommendedPlace?.name ?? recommended.placeType}</span>

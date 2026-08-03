@@ -12,10 +12,12 @@ import {
   SlidersHorizontal,
   X
 } from "lucide-react";
-import { useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import type { CheckInRecord, Mission, Reflection } from "../data/appData";
 import { getMissionPlace } from "../data/missionLogic";
+import { fetchWeeklyInsight } from "../api/backend";
+import type { ApiWeeklyInsight } from "../api/types";
 import { useAppState } from "../state/AppState";
 
 type InsightView = "overview" | "activity" | "patterns";
@@ -101,6 +103,21 @@ export function InsightsPage() {
   const [view, setView] = useState<InsightView>("overview");
   const [range, setRange] = useState<InsightRange>(7);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
+  const [weekly, setWeekly] = useState<ApiWeeklyInsight | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchWeeklyInsight()
+      .then((insight) => {
+        if (active) setWeekly(insight);
+      })
+      .catch(() => {
+        // Backend unavailable — the locally computed panels below still render.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const now = Date.now();
   const cutoff = range === "all" ? null : now - range * dayMs;
@@ -507,6 +524,18 @@ export function InsightsPage() {
             <h2>Patterns from your records</h2>
             <p>These comparisons describe your activity only. They do not score or diagnose you.</p>
           </header>
+
+          {weekly && (
+            <section className="pattern-section" aria-labelledby="weekly-summary-title">
+              <div className="pattern-section-title">
+                <span>00</span>
+                <div><p>Last 7 days</p><h3 id="weekly-summary-title">Weekly review</h3></div>
+              </div>
+              <p className="pattern-empty">{weekly.summary}</p>
+              {weekly.maintainedNote && <p className="pattern-empty">{weekly.maintainedNote}</p>}
+              {weekly.adjustmentSuggestion && <p className="pattern-empty">{weekly.adjustmentSuggestion}</p>}
+            </section>
+          )}
 
           <section className="pattern-section" aria-labelledby="outcomes-title">
             <div className="pattern-section-title">

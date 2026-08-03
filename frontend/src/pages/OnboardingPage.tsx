@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createVisionWithRoute, savePreferences } from "../api/backend";
 import {
   ArrowLeft,
   ArrowRight,
@@ -103,8 +104,9 @@ function createRoute(domain: LifeDomain): RouteStep[] {
 
 export function OnboardingPage() {
   const navigate = useNavigate();
-  const { data, updateData } = useAppState();
+  const { data, updateData, refresh } = useAppState();
   const [step, setStep] = useState(0);
+  const [saving, setSaving] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences>(data.preferences);
   const [visionTitle, setVisionTitle] = useState(data.vision.title);
   const [visionDescription, setVisionDescription] = useState(data.vision.description);
@@ -133,7 +135,8 @@ export function OnboardingPage() {
     }));
   };
 
-  const completeOnboarding = () => {
+  const completeOnboarding = async () => {
+    setSaving(true);
     updateData((current) => ({
       ...current,
       profile: {
@@ -151,6 +154,17 @@ export function OnboardingPage() {
       },
       route
     }));
+
+    try {
+      await savePreferences(preferences);
+      await createVisionWithRoute(primaryDomain, visionTitle);
+      await refresh();
+    } catch {
+      // Saved locally already — the Vision syncs on the next successful load.
+    } finally {
+      setSaving(false);
+    }
+
     navigate("/app/today");
   };
 
@@ -361,7 +375,7 @@ export function OnboardingPage() {
             Continue <ArrowRight aria-hidden="true" />
           </button>
         ) : (
-          <button className="primary-command" type="button" onClick={completeOnboarding}>
+          <button className="primary-command" type="button" onClick={completeOnboarding} disabled={saving}>
             Enter ReNew <ArrowRight aria-hidden="true" />
           </button>
         )}

@@ -11,11 +11,12 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { createMissionFromOption } from "../data/appData";
 import { getMissionPlace } from "../data/missionLogic";
+import { adaptMission } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 export function MissionPage() {
   const navigate = useNavigate();
-  const { data, updateData } = useAppState();
+  const { data, updateData, refresh } = useAppState();
   const mission = data.mission;
   const matchingPlace = mission ? getMissionPlace(data, mission) : null;
 
@@ -45,7 +46,20 @@ export function MissionPage() {
     }));
   };
 
-  const makeSmaller = () => {
+  /**
+   * Steps down one level within the same reviewed Activity Ladder. The
+   * backend owns that ladder, so it decides the smaller step; the local
+   * "lighter" option is only used when the backend is unreachable.
+   */
+  const makeSmaller = async () => {
+    try {
+      await adaptMission(mission.id, "smaller");
+      await refresh();
+      return;
+    } catch {
+      // Fall through to the locally known lighter option.
+    }
+
     const smaller = data.recommendations.find((option) => option.variant === "lighter");
     if (!smaller) return;
     updateData((current) => ({

@@ -39,7 +39,7 @@ export async function createVision(profileId: string, domain: LifeDomain, summar
 
 export async function updateVision(
   id: string,
-  patch: Partial<Pick<VisionRow, "summary" | "status">>
+  patch: Partial<Pick<VisionRow, "summary" | "status" | "domain">>
 ): Promise<VisionRow> {
   const { data, error } = await supabase
     .from("life_visions")

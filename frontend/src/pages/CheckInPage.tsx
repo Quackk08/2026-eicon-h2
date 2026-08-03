@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, CloudOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import type { EffortLevel } from "../data/appData";
+import type { CheckInRecord, EffortLevel } from "../data/appData";
+import { submitCheckIn } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 const responseLabels = ["Very low", "Low", "In between", "Good", "Strong"] as const;
@@ -58,6 +59,7 @@ function SignalField({
 export function CheckInPage() {
   const navigate = useNavigate();
   const { updateData } = useAppState();
+  const [submitting, setSubmitting] = useState(false);
   const [mode, setMode] = useState<"quick" | "standard">("quick");
   const [values, setValues] = useState<CheckInValues>({
     mood: 3,
@@ -73,9 +75,11 @@ export function CheckInPage() {
     setValues((current) => ({ ...current, [key]: value }));
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const record = {
+    setSubmitting(true);
+
+    const record: CheckInRecord = {
       id: crypto.randomUUID(),
       type: mode,
       createdAt: new Date().toISOString(),
@@ -88,7 +92,17 @@ export function CheckInPage() {
       ...(note.trim() ? { note: note.trim() } : {})
     };
 
+    // Written locally first so a Check-In is never lost to a failed request.
     updateData((current) => ({ ...current, checkIns: [...current.checkIns, record] }));
+
+    try {
+      await submitCheckIn(record);
+    } catch {
+      // Kept on this device; it syncs the next time the backend is reachable.
+    } finally {
+      setSubmitting(false);
+    }
+
     navigate("/app/recommendation");
   };
 
@@ -187,7 +201,7 @@ export function CheckInPage() {
           <p><strong>Saved on this device first.</strong> You can complete a Check-In without a connection.</p>
         </div>
 
-        <button className="primary-command flow-submit" type="submit">
+        <button className="primary-command flow-submit" type="submit" disabled={submitting}>
           Find a workable step <ArrowRight aria-hidden="true" />
         </button>
       </form>

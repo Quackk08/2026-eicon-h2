@@ -112,8 +112,9 @@ export function buildRuleBasedRecommendation(
   return {
     contractVersion: 1,
     selectedTemplateId: best.id,
-    summary: `${visionSummary} 방향에 맞춰 오늘은 "${best.title}" 정도가 현실적입니다.`,
-    userFacingReason: "현재 상태와 시간·비용·사회적 부담 조건에 맞춰 규칙 기반으로 선택했습니다.",
+    summary: `Toward "${visionSummary}", today's realistic size is "${best.title}".`,
+    userFacingReason:
+      "Chosen from your reviewed steps to fit today's capacity, time, cost, and social preference.",
     smallerOptionTemplateId: smaller?.id ?? null,
     extensionOptionTemplateId: bigger?.id ?? null,
     warnings: usedFallback ? ["no_exact_match_used_capacity_fallback"] : []

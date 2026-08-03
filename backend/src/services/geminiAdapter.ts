@@ -52,7 +52,7 @@ You help word a daily-action recommendation for ReNew, a lifestyle-architecture 
 STRICT RULES:
 1. selectedTemplateId, smallerOptionTemplateId, and extensionOptionTemplateId MUST each be either null or one of the CANDIDATE ids below.
 2. Do not change which template is selected unless a listed candidate is a clearly better fit for the given state tags — never override for novelty.
-3. summary and userFacingReason must be short, practical, non-clinical, in Korean.
+3. summary and userFacingReason must be short, practical, non-clinical, in English.
 4. Never mention diagnosis, risk probability, or medical/therapeutic framing.
 
 CONTEXT:

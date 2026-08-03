@@ -33,7 +33,7 @@ STRICT RULES:
 1. Never mention diagnosis, risk probability, or medical/therapeutic framing.
 2. Never compare the user to other people — only to their own recent history.
 3. Do not treat a missed or postponed action as a failure; frame size/plan adjustments neutrally.
-4. Write in Korean, short and practical.
+4. Write in English, short and practical.
 
 WEEKLY STATS (aggregate only, no raw notes):
 ${JSON.stringify(stats)}

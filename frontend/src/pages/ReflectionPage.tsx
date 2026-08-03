@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Check, CircleDot, Pause } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import type { EffortLevel, Reflection } from "../data/appData";
+import { submitReflection } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 const outcomes = [
@@ -14,12 +15,13 @@ const effortLabels = ["Very light", "Light", "Manageable", "Heavy", "Very heavy"
 
 export function ReflectionPage() {
   const navigate = useNavigate();
-  const { data, updateData } = useAppState();
+  const { data, updateData, refresh } = useAppState();
   const mission = data.mission;
   const initialOutcome = mission?.status === "not_today" ? "not_today" : "completed";
   const [outcome, setOutcome] = useState<Reflection["outcome"]>(initialOutcome);
   const [effort, setEffort] = useState<EffortLevel>(3);
   const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
 
   if (!mission) {
     return (
@@ -41,8 +43,9 @@ export function ReflectionPage() {
         ? "Keep the same direction and begin one level smaller next time."
         : "Pause this step without penalty. Your route will still be here when conditions change.";
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setSaving(true);
     const reflection: Reflection = {
       id: crypto.randomUUID(),
       missionId: mission.id,
@@ -74,6 +77,16 @@ export function ReflectionPage() {
         mission: null
       };
     });
+
+    try {
+      await submitReflection(mission.id, { outcome, effort, note: reflection.note });
+      await refresh();
+    } catch {
+      // Recorded locally; it syncs the next time the backend is reachable.
+    } finally {
+      setSaving(false);
+    }
+
     navigate("/app/today");
   };
 
@@ -154,7 +167,7 @@ export function ReflectionPage() {
           <p>{adaptationCopy}</p>
         </aside>
 
-        <button className="primary-command flow-submit" type="submit">
+        <button className="primary-command flow-submit" type="submit" disabled={saving}>
           Save reflection <ArrowRight aria-hidden="true" />
         </button>
       </form>
