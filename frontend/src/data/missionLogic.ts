@@ -37,9 +37,15 @@ export function getEligibleMissionOptions(data: AppData): RecommendationOption[]
   });
 }
 
-export function getRecommendedMissionOption(data: AppData): RecommendationOption {
+/**
+ * Null until the backend has supplied this Vision's reviewed steps — there
+ * is nothing local to fall back on, and inventing one would show an action
+ * ReNew never actually recommended.
+ */
+export function getRecommendedMissionOption(data: AppData): RecommendationOption | null {
   const eligible = getEligibleMissionOptions(data);
   const options = eligible.length > 0 ? eligible : data.recommendations;
+  if (options.length === 0) return null;
   const latestCheckIn = getLatestCheckIn(data);
   const latestReflection = [...data.reflections].sort(
     (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()

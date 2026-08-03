@@ -4,7 +4,9 @@ import type { RecommendationResult, StateVector } from "@renew/shared";
 import { listVisions } from "../repositories/visions.js";
 import { getPreferences } from "../repositories/preferences.js";
 import { listRecentCheckIns, type CheckInRow } from "../repositories/checkIns.js";
-import { listActionTemplatesByDomain } from "../repositories/actionTemplates.js";
+import { getActionTemplateById, listActionTemplatesByDomain } from "../repositories/actionTemplates.js";
+import { getPlaceById } from "../repositories/places.js";
+import { selectPlaceForTemplate } from "../services/placeSelection.js";
 import { createRecommendation, getRecommendationById } from "../repositories/recommendations.js";
 import { createMission } from "../repositories/missions.js";
 import { buildRuleBasedRecommendation, computeStateTags } from "../services/ruleEngine.js";
@@ -129,8 +131,21 @@ router.post("/recommendations/:id/select", resolveProfile, async (req, res, next
       return res.status(400).json({ error: "templateId must be one of the recommendation's own options" });
     }
 
-    const mission = await createMission(req.profileId!, templateId, recommendation.id, parsed.data.routeStepId ?? null);
-    res.status(201).json(mission);
+    // Resolve the place at selection time so the Mission arrives with a real
+    // location instead of a bare category name.
+    const template = await getActionTemplateById(templateId);
+    const selection = template ? await selectPlaceForTemplate(req.profileId!, template) : null;
+
+    const mission = await createMission(
+      req.profileId!,
+      templateId,
+      recommendation.id,
+      parsed.data.routeStepId ?? null,
+      selection?.result.selectedPlaceId ?? null
+    );
+
+    const place = selection ? await getPlaceById(selection.result.selectedPlaceId) : null;
+    res.status(201).json({ ...mission, template, place, placeReason: selection?.result.userFacingReason ?? null });
   } catch (err) {
     next(err);
   }

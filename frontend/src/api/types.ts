@@ -121,11 +121,13 @@ export interface ApiMission {
   recommendation_id: string | null;
   template_id: string;
   route_step_id: string | null;
+  place_id: string | null;
   status: ApiMissionStatus;
   scheduled_for: string;
   created_at: string;
   updated_at: string;
   template?: ApiActionTemplate | null;
+  place?: ApiPlace | null;
 }
 
 export interface ApiReflection {

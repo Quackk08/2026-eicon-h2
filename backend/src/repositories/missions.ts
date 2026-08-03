@@ -7,6 +7,7 @@ export interface MissionRow {
   recommendation_id: string | null;
   template_id: string;
   route_step_id: string | null;
+  place_id: string | null;
   status: MissionStatus;
   scheduled_for: string;
   created_at: string;
@@ -17,7 +18,8 @@ export async function createMission(
   profileId: string,
   templateId: string,
   recommendationId: string | null,
-  routeStepId: string | null
+  routeStepId: string | null,
+  placeId: string | null = null
 ): Promise<MissionRow> {
   const { data, error } = await supabase
     .from("missions")
@@ -25,8 +27,20 @@ export async function createMission(
       profile_id: profileId,
       template_id: templateId,
       recommendation_id: recommendationId,
-      route_step_id: routeStepId
+      route_step_id: routeStepId,
+      place_id: placeId
     })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateMissionPlace(id: string, placeId: string | null): Promise<MissionRow> {
+  const { data, error } = await supabase
+    .from("missions")
+    .update({ place_id: placeId, updated_at: new Date().toISOString() })
+    .eq("id", id)
     .select()
     .single();
   if (error) throw error;

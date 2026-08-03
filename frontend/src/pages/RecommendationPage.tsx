@@ -8,8 +8,8 @@ import {
   getRecommendationReasons,
   getRecommendedMissionOption
 } from "../data/missionLogic";
-import { requestDailyRecommendation, selectRecommendation } from "../api/backend";
-import type { ApiRecommendation } from "../api/types";
+import { fetchPlaceForTemplate, requestDailyRecommendation, selectRecommendation } from "../api/backend";
+import type { ApiPlaceSearchResult, ApiRecommendation } from "../api/types";
 import { useAppState } from "../state/AppState";
 
 const variantLabels: Record<MissionVariant, string> = {
@@ -25,14 +25,20 @@ export function RecommendationPage() {
   const { data, ready, updateData, refresh } = useAppState();
   const [serverPick, setServerPick] = useState<ApiRecommendation | null>(null);
   const [loadingPick, setLoadingPick] = useState(true);
+  const [placePick, setPlacePick] = useState<ApiPlaceSearchResult | null>(null);
 
   // The backend rule engine (optionally re-ranked by Gemini) decides today's
   // step. The local logic below stays as the offline fallback.
   useEffect(() => {
     let active = true;
     requestDailyRecommendation()
-      .then((recommendation) => {
-        if (active) setServerPick(recommendation);
+      .then(async (recommendation) => {
+        if (!active) return;
+        setServerPick(recommendation);
+        // Ask the backend where this action would happen, so the suggestion
+        // names a real reviewed place instead of a bare category.
+        const place = await fetchPlaceForTemplate(recommendation.selected_template_id);
+        if (active) setPlacePick(place);
       })
       .catch(() => {
         // No Vision/Check-In yet, or backend unreachable — fall back locally.
@@ -45,16 +51,9 @@ export function RecommendationPage() {
     };
   }, []);
 
-  const localRecommended = getRecommendedMissionOption(data);
-  const eligibleOptions = getEligibleMissionOptions(data);
   const recommended =
     (serverPick && data.recommendations.find((option) => option.id === serverPick.selected_template_id)) ??
-    localRecommended;
-  const alternatives = eligibleOptions.filter((option) => option.id !== recommended.id).slice(0, 4);
-  const recommendedPlace = getMissionPlace(data, recommended);
-  const reasons = serverPick
-    ? [serverPick.user_facing_reason, ...getRecommendationReasons(data, recommended)].slice(0, 4)
-    : getRecommendationReasons(data, recommended);
+    getRecommendedMissionOption(data);
 
   const chooseMission = async (option: RecommendationOption) => {
     updateData((current) => ({
@@ -74,7 +73,7 @@ export function RecommendationPage() {
     navigate("/app/mission");
   };
 
-  if (!ready || loadingPick) {
+  if (!ready || loadingPick || !recommended) {
     return (
       <main className="app-page dashboard-loading" aria-live="polite">
         <span />
@@ -82,6 +81,18 @@ export function RecommendationPage() {
       </main>
     );
   }
+
+  const alternatives = getEligibleMissionOptions(data)
+    .filter((option) => option.id !== recommended.id)
+    .slice(0, 4);
+  const backendPlace = placePick
+    ? placePick.candidates.find((candidate) => candidate.id === placePick.selectedPlaceId) ?? null
+    : null;
+  const recommendedPlace = getMissionPlace(data, recommended);
+  const placeName = backendPlace?.name ?? recommendedPlace?.name ?? recommended.placeType;
+  const reasons = serverPick
+    ? [serverPick.user_facing_reason, ...getRecommendationReasons(data, recommended)].slice(0, 4)
+    : getRecommendationReasons(data, recommended);
 
   return (
     <main className="app-page flow-page recommendation-page">
@@ -104,7 +115,7 @@ export function RecommendationPage() {
           <p>{serverPick?.summary ?? recommended.description}</p>
           <div className="recommendation-meta">
             <span><Clock3 aria-hidden="true" /> {recommended.durationMinutes} min</span>
-            <span><MapPin aria-hidden="true" /> {recommendedPlace?.name ?? recommended.placeType}</span>
+            <span><MapPin aria-hidden="true" /> {placeName}</span>
           </div>
           <button className="primary-command" type="button" onClick={() => chooseMission(recommended)}>
             Choose this step <ArrowRight aria-hidden="true" />

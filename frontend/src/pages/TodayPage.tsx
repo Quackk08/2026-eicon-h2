@@ -136,8 +136,8 @@ export function TodayPage() {
   const eligibleOptions = useMemo(() => getEligibleMissionOptions(data), [data]);
   const scheduleDays = useMemo(buildScheduleDays, []);
   const [selectedDay, setSelectedDay] = useState(scheduleDays[0].value);
-  const [selectedOptionId, setSelectedOptionId] = useState(
-    data.mission?.optionId ?? recommendedOption.id
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(
+    data.mission?.optionId ?? recommendedOption?.id ?? null
   );
   const [scheduleTargetId, setScheduleTargetId] = useState<string | null>(null);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
@@ -148,13 +148,24 @@ export function TodayPage() {
   useEffect(() => {
     if (data.mission) {
       setSelectedOptionId(data.mission.optionId);
-    } else {
+    } else if (recommendedOption) {
       setSelectedOptionId(recommendedOption.id);
     }
-  }, [data.mission?.optionId, recommendedOption.id]);
+  }, [data.mission?.optionId, recommendedOption?.id]);
 
   const selectedOption =
     data.recommendations.find((option) => option.id === selectedOptionId) ?? recommendedOption;
+
+  // Nothing to plan until the backend has supplied this Vision's steps.
+  if (!ready || !selectedOption) {
+    return (
+      <main className="app-page dashboard-loading" aria-live="polite">
+        <span />
+        <p>Loading Missions stored on this device...</p>
+      </main>
+    );
+  }
+
   const selectedPlace = getMissionPlace(data, selectedOption);
   const selectedIsActive = data.mission?.optionId === selectedOption.id;
   const activeStatus = selectedIsActive ? data.mission?.status : null;
@@ -190,15 +201,6 @@ export function TodayPage() {
   const recordedResult = latestResult
     ? `${outcomeLabels[latestResult.reflection.outcome]} on ${formatResultDate(latestResult.reflection.createdAt)}`
     : "No result yet";
-
-  if (!ready) {
-    return (
-      <main className="app-page dashboard-loading" aria-live="polite">
-        <span />
-        <p>Loading Missions stored on this device...</p>
-      </main>
-    );
-  }
 
   const chooseOption = (option: RecommendationOption, scrollToFocus = true) => {
     setSelectedOptionId(option.id);
@@ -467,7 +469,7 @@ export function TodayPage() {
             )}
 
             {selectedDayPlans.map((mission) => {
-              const option = data.recommendations.find((item) => item.id === mission.optionId) ?? recommendedOption;
+              const option = data.recommendations.find((item) => item.id === mission.optionId) ?? selectedOption;
               const place = getMissionPlace(data, mission);
               return (
                 <article className="planner-agenda-item" key={mission.id}>
@@ -549,7 +551,7 @@ export function TodayPage() {
               <article className={isSelected ? "is-selected" : ""} key={option.id}>
                 <div className="planner-library-label">
                   <span>{variantLabels[option.variant]}</span>
-                  {option.id === recommendedOption.id && <small>Best fit</small>}
+                  {option.id === recommendedOption?.id && <small>Best fit</small>}
                 </div>
                 <div className="planner-library-copy">
                   <h3>{option.title}</h3>

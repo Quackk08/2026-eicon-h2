@@ -270,18 +270,16 @@ export function toApiReflectionResult(outcome: Reflection["outcome"]) {
   return UI_STATUS_TO_API[outcome];
 }
 
-export function fromApiMission(
-  mission: ApiMission,
-  visionId: string,
-  placeId: string | null = null
-): Mission | null {
+export function fromApiMission(mission: ApiMission, visionId: string): Mission | null {
   if (!mission.template) return null;
   const option = fromApiTemplate(
     mission.template,
     visionId,
     "recommended",
     mission.route_step_id ?? undefined,
-    placeId
+    // The backend resolved this against reviewed places and the user's
+    // constraints, so it is the Mission's actual location.
+    mission.place_id
   );
 
   return {

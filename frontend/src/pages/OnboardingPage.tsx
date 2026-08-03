@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { createVisionWithRoute, savePreferences } from "../api/backend";
+import { useEffect, useState } from "react";
+import { createVisionWithRoute, fetchRoutePreview, savePreferences } from "../api/backend";
 import {
   ArrowLeft,
   ArrowRight,
@@ -32,75 +32,6 @@ const stepMeta = [
   { label: "Route", icon: RouteIcon }
 ];
 
-const routeTemplates: Record<LifeDomain, string[]> = {
-  "Study & focus": [
-    "Put one notebook in your bag",
-    "Take a five-minute walk outside",
-    "Walk to a nearby study place",
-    "Open your notebook and stay for ten minutes",
-    "Complete one short focus block outside"
-  ],
-  "Sleep & energy": [
-    "Place a glass of water by the bed",
-    "Open the curtains after waking",
-    "Step outside for five minutes before noon",
-    "Set one gentle wind-down cue",
-    "Follow a consistent sleep window"
-  ],
-  Relationships: [
-    "Write down one person you trust",
-    "Save a message draft without sending it",
-    "Send one low-pressure check-in",
-    "Share a short activity in a public place",
-    "Keep one recurring connection each week"
-  ],
-  "Movement & health": [
-    "Set out comfortable shoes",
-    "Stand outside for two minutes",
-    "Walk to the nearest corner and back",
-    "Take a ten-minute route with one pause",
-    "Repeat a comfortable movement routine"
-  ],
-  Creativity: [
-    "Place one creative tool within reach",
-    "Make one mark or write one line",
-    "Spend five minutes on a small idea",
-    "Work in a different setting for ten minutes",
-    "Protect one regular creative session"
-  ],
-  "Daily independence": [
-    "Choose one task for tomorrow",
-    "Prepare the first item you need",
-    "Complete the first two minutes",
-    "Finish one small household task",
-    "Repeat a simple independent routine"
-  ],
-  Community: [
-    "Save one reviewed local activity",
-    "Read the venue and access details",
-    "Walk past the public meeting place",
-    "Join for the first ten minutes",
-    "Return to one structured activity"
-  ],
-  "Stress recovery": [
-    "Name one place that feels steady",
-    "Pause there for two quiet minutes",
-    "Take a short low-stimulation break",
-    "Protect ten minutes without demands",
-    "Build a repeatable recovery rhythm"
-  ]
-};
-
-function createRoute(domain: LifeDomain): RouteStep[] {
-  return routeTemplates[domain].map((title, index) => ({
-    id: `route-${index + 1}`,
-    level: index + 1,
-    title,
-    durationMinutes: [2, 5, 10, 10, 20][index],
-    placeType: index < 2 ? "Flexible" : "Nearby",
-    completed: false
-  }));
-}
 
 export function OnboardingPage() {
   const navigate = useNavigate();
@@ -111,8 +42,24 @@ export function OnboardingPage() {
   const [visionTitle, setVisionTitle] = useState(data.vision.title);
   const [visionDescription, setVisionDescription] = useState(data.vision.description);
   const primaryDomain = preferences.domains[0] ?? "Study & focus";
-  const route = useMemo(() => createRoute(primaryDomain), [primaryDomain]);
+  const [route, setRoute] = useState<RouteStep[]>([]);
   const progress = ((step + 1) / stepMeta.length) * 100;
+
+  // Preview the Route this Vision will actually get, straight from the
+  // backend's reviewed Activity Ladder — not a local sample of one.
+  useEffect(() => {
+    let active = true;
+    fetchRoutePreview(primaryDomain)
+      .then((steps) => {
+        if (active) setRoute(steps);
+      })
+      .catch(() => {
+        if (active) setRoute([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [primaryDomain]);
 
   const toggleDomain = (domain: LifeDomain) => {
     setPreferences((current) => {

@@ -10,21 +10,31 @@ import {
   getTodayMission,
   listMissionsForProfile,
   switchMissionTemplate,
-  updateMissionStatus
+  updateMissionPlace,
+  updateMissionStatus,
+  type MissionRow
 } from "../repositories/missions.js";
 import { getActionTemplateById, listActionTemplatesInLadderGroup } from "../repositories/actionTemplates.js";
+import { getPlaceById } from "../repositories/places.js";
+import { selectPlaceForTemplate } from "../services/placeSelection.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
 
 const router = Router();
+
+/** Missions travel with their action and their place, so the UI never has to guess either. */
+async function withDetails(mission: MissionRow) {
+  const [template, place] = await Promise.all([
+    getActionTemplateById(mission.template_id),
+    mission.place_id ? getPlaceById(mission.place_id) : Promise.resolve(null)
+  ]);
+  return { ...mission, template, place };
+}
 
 router.get("/missions", resolveProfile, async (req, res, next) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 100, 500);
     const missions = await listMissionsForProfile(req.profileId!, limit);
-    const withTemplates = await Promise.all(
-      missions.map(async (mission) => ({ ...mission, template: await getActionTemplateById(mission.template_id) }))
-    );
-    res.json(withTemplates);
+    res.json(await Promise.all(missions.map(withDetails)));
   } catch (err) {
     next(err);
   }
@@ -43,8 +53,30 @@ router.get("/missions/today", resolveProfile, async (req, res, next) => {
   try {
     const mission = await getTodayMission(req.profileId!);
     if (!mission) return res.json(null);
-    const template = await getActionTemplateById(mission.template_id);
-    res.json({ ...mission, template });
+    res.json(await withDetails(mission));
+  } catch (err) {
+    next(err);
+  }
+});
+
+const placeSchema = z.object({ placeId: z.string().min(1).nullable() });
+
+/** Lets someone move a Mission to a different reviewed place. */
+router.patch("/missions/:id/place", resolveProfile, async (req, res, next) => {
+  try {
+    const mission = await getMissionById(req.params.id as string);
+    if (!mission || mission.profile_id !== req.profileId) return res.status(404).json({ error: "not found" });
+
+    const parsed = placeSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    if (parsed.data.placeId) {
+      const place = await getPlaceById(parsed.data.placeId);
+      if (!place) return res.status(404).json({ error: "place not found" });
+    }
+
+    const updated = await updateMissionPlace(mission.id, parsed.data.placeId);
+    res.json(await withDetails(updated));
   } catch (err) {
     next(err);
   }
@@ -94,8 +126,16 @@ router.post("/missions/:id/adapt", resolveProfile, async (req, res, next) => {
       return res.status(400).json({ error: "direction or templateId required" });
     }
 
-    const updated = await switchMissionTemplate(mission.id, targetTemplateId);
-    res.json(updated);
+    let updated = await switchMissionTemplate(mission.id, targetTemplateId);
+
+    // The new step may belong somewhere else entirely — a smaller version of
+    // "study at a cafe" is often "prepare a notebook at home". Re-resolve the
+    // place so a Mission never keeps a location its action no longer needs.
+    const targetTemplate = siblings.find((s) => s.id === targetTemplateId)!;
+    const selection = await selectPlaceForTemplate(req.profileId!, targetTemplate);
+    updated = await updateMissionPlace(updated.id, selection?.result.selectedPlaceId ?? null);
+
+    res.json(await withDetails(updated));
   } catch (err) {
     next(err);
   }

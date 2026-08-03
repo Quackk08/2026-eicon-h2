@@ -4,6 +4,7 @@ import type {
   LifeDomain,
   Mission,
   Reflection,
+  RouteStep,
   UserPreferences
 } from "../data/appData";
 import { api, ensureProfile, getProfileId } from "./client";
@@ -28,6 +29,7 @@ import type {
   ApiCommunityActivity,
   ApiMission,
   ApiPlace,
+  ApiPlaceSearchResult,
   ApiProfile,
   ApiRecommendation,
   ApiReflection,
@@ -55,6 +57,44 @@ export async function fetchRouteForVision(visionId: string): Promise<ApiRoute | 
 
 export async function fetchPlaces(): Promise<ApiPlace[]> {
   return api.get<ApiPlace[]>("/places");
+}
+
+export async function fetchActionTemplates(): Promise<ApiActionTemplate[]> {
+  return api.get<ApiActionTemplate[]>("/action-templates");
+}
+
+/**
+ * The reviewed Activity Ladder a Vision in this domain would actually get,
+ * ordered easiest first — the same selection generate-route makes, so
+ * onboarding previews the real Route rather than a sample of it.
+ */
+export async function fetchLadderForDomain(domain: LifeDomain): Promise<ApiActionTemplate[]> {
+  const apiDomain = toApiDomain(domain);
+  const templates = await fetchActionTemplates();
+  const inDomain = templates.filter((template) => template.goalDomains.includes(apiDomain));
+
+  const groups = new Map<string, ApiActionTemplate[]>();
+  for (const template of inDomain) {
+    const group = groups.get(template.ladderGroupId) ?? [];
+    group.push(template);
+    groups.set(template.ladderGroupId, group);
+  }
+
+  const richest = [...groups.values()].sort((a, b) => b.length - a.length)[0] ?? [];
+  return [...richest].sort((a, b) => a.ladderLevel - b.ladderLevel);
+}
+
+/** The same ladder, shaped for the Route list the onboarding preview renders. */
+export async function fetchRoutePreview(domain: LifeDomain): Promise<RouteStep[]> {
+  const ladder = await fetchLadderForDomain(domain);
+  return ladder.map((template, index) => ({
+    id: template.id,
+    level: index + 1,
+    title: template.title,
+    durationMinutes: template.durationRange[1],
+    placeType: template.placeTypes[0] ?? "Flexible",
+    completed: false
+  }));
 }
 
 export async function fetchCommunityActivities(): Promise<ApiCommunityActivity[]> {
@@ -143,6 +183,21 @@ export async function adaptMission(
   direction: "smaller" | "bigger"
 ): Promise<ApiMission> {
   return api.post<ApiMission>(`/missions/${missionId}/adapt`, { direction });
+}
+
+/** Where the backend would hold this action, given the user's constraints. */
+export async function fetchPlaceForTemplate(templateId: string): Promise<ApiPlaceSearchResult | null> {
+  try {
+    return await api.get<ApiPlaceSearchResult>(`/places/search?templateId=${encodeURIComponent(templateId)}`);
+  } catch {
+    // A home or online step has no place, and an unreachable backend is not
+    // a reason to show a location that was never chosen.
+    return null;
+  }
+}
+
+export async function setMissionPlace(missionId: string, placeId: string | null): Promise<ApiMission> {
+  return api.patch<ApiMission>(`/missions/${missionId}/place`, { placeId });
 }
 
 export async function submitReflection(

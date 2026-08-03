@@ -1,11 +1,12 @@
 import { ArrowLeft, ArrowRight, Bookmark, Check, Clock3, MapPin, Route as RouteIcon } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { setMissionPlace } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 export function PlaceDetailPage() {
   const navigate = useNavigate();
   const { placeId } = useParams();
-  const { data, updateData } = useAppState();
+  const { data, updateData, refresh } = useAppState();
   const place = data.places.find((item) => item.id === placeId);
 
   if (!place) {
@@ -32,15 +33,24 @@ export function PlaceDetailPage() {
     }));
   };
 
-  const useForMission = () => {
-    if (!data.mission) {
+  const useForMission = async () => {
+    const mission = data.mission;
+    if (!mission) {
       navigate("/app/check-in");
       return;
     }
     updateData((current) => ({
       ...current,
-      mission: current.mission ? { ...current.mission, placeType: place.name } : null
+      mission: current.mission ? { ...current.mission, placeId: place.id, placeType: place.name } : null
     }));
+
+    try {
+      await setMissionPlace(mission.id, place.id);
+      await refresh();
+    } catch {
+      // Kept locally; it syncs the next time the backend is reachable.
+    }
+
     navigate("/app/mission");
   };
 

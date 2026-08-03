@@ -169,11 +169,17 @@ export interface AppData {
   } | null;
 }
 
+/**
+ * An empty shell, not sample content. Visions, Routes, Missions, Places, and
+ * Community activities all come from the backend (reviewed seed data plus the
+ * rule engine and Gemini); anything hardcoded here would show up as real
+ * recommendations the user never actually generated.
+ */
 export function createDefaultAppData(): AppData {
   return {
     profile: {
-      name: "Alex",
-      email: "alex@example.com",
+      name: "",
+      email: "",
       signedIn: false,
       onboardingComplete: false
     },
@@ -187,206 +193,22 @@ export function createDefaultAppData(): AppData {
       accessibilityNeeds: []
     },
     vision: {
-      id: "vision-study",
+      id: "",
       domain: "Study & focus",
-      title: "A steady life beyond my room",
-      description: "Build a gentle routine of studying outside the home several times each week.",
+      title: "",
+      description: "",
       status: "active"
     },
-    route: [
-      { id: "route-1", level: 1, title: "Put one notebook in your bag", durationMinutes: 2, placeType: "Home", completed: true },
-      { id: "route-2", level: 2, title: "Take a five-minute walk outside", durationMinutes: 5, placeType: "Nearby", completed: true },
-      { id: "route-3", level: 3, title: "Walk to a nearby cafe entrance", durationMinutes: 10, placeType: "Cafe", completed: false },
-      { id: "route-4", level: 4, title: "Open your notebook and stay for ten minutes", durationMinutes: 10, placeType: "Cafe", completed: false },
-      { id: "route-5", level: 5, title: "Study outside for twenty minutes", durationMinutes: 20, placeType: "Library", completed: false }
-    ],
+    route: [],
     checkIns: [],
-    recommendations: [
-      {
-        id: "recommendation-balanced",
-        visionId: "vision-study",
-        routeStepId: "route-4",
-        variant: "recommended",
-        title: "Open your notebook at Greenwich Library for 10 minutes",
-        description: "Choose a quiet desk, open one page, and stop after ten minutes if that is enough for today.",
-        durationMinutes: 10,
-        placeType: "Library",
-        placeId: "place-library",
-        estimatedCost: "Free",
-        format: "In person",
-        supplies: ["Notebook", "Pen"],
-        socialMode: "Solo"
-      },
-      {
-        id: "recommendation-light",
-        visionId: "vision-study",
-        routeStepId: "route-3",
-        variant: "lighter",
-        title: "Walk to the Greenwich Library entrance and return",
-        description: "Reach the entrance without needing to go inside. The trip itself is the whole mission.",
-        durationMinutes: 8,
-        placeType: "Library",
-        placeId: "place-library",
-        estimatedCost: "Free",
-        format: "In person",
-        supplies: [],
-        socialMode: "Solo"
-      },
-      {
-        id: "recommendation-different",
-        visionId: "vision-study",
-        routeStepId: "route-1",
-        variant: "different",
-        title: "Put your workbook and pen in your bag at home",
-        description: "Prepare everything for a later study trip without needing to leave home today.",
-        durationMinutes: 2,
-        placeType: "Home",
-        placeId: null,
-        estimatedCost: "Free",
-        format: "At home",
-        supplies: ["Workbook", "Pen", "Bag"],
-        socialMode: "Solo"
-      },
-      {
-        id: "recommendation-stretch",
-        visionId: "vision-study",
-        routeStepId: "route-5",
-        variant: "more",
-        title: "Solve three workbook pages at Greenwich Library",
-        description: "Use one focused block, stop after three pages, and leave the rest for another day.",
-        durationMinutes: 20,
-        placeType: "Library",
-        placeId: "place-library",
-        estimatedCost: "Free",
-        format: "In person",
-        supplies: ["Workbook", "Pen"],
-        socialMode: "Solo"
-      },
-      {
-        id: "recommendation-online-focus",
-        visionId: "vision-study",
-        routeStepId: "route-4",
-        variant: "alternative",
-        title: "Join a quiet online focus room for 15 minutes",
-        description: "Work alongside others with cameras and conversation optional, then leave after one short block.",
-        durationMinutes: 15,
-        placeType: "Online",
-        placeId: null,
-        estimatedCost: "Free",
-        format: "Online",
-        supplies: ["Workbook", "Device"],
-        socialMode: "Alongside others"
-      },
-      {
-        id: "recommendation-home-page",
-        visionId: "vision-study",
-        routeStepId: "route-2",
-        variant: "alternative",
-        title: "Complete one workbook page at your desk",
-        description: "Open to the next page, complete only that page, and put the book away when it is done.",
-        durationMinutes: 10,
-        placeType: "Home",
-        placeId: null,
-        estimatedCost: "Free",
-        format: "At home",
-        supplies: ["Workbook", "Pen"],
-        socialMode: "Solo"
-      }
-    ],
+    recommendations: [],
     mission: null,
     plannedMissions: [],
     missionHistory: [],
     reflections: [],
-    savedPlaceIds: ["place-library"],
-    places: [
-      {
-        id: "place-library",
-        name: "Greenwich Library",
-        type: "Library",
-        distanceKm: 0.8,
-        cost: "Free",
-        socialLoad: "Low",
-        accessibility: ["Step-free access", "Accessible restroom", "Quiet seating"],
-        description: "A calm public library with individual desks, natural light, and flexible stay time.",
-        address: "18 Garden Street",
-        hours: "09:00 - 20:00",
-        color: "sky"
-      },
-      {
-        id: "place-cafe",
-        name: "Common Ground Cafe",
-        type: "Cafe",
-        distanceKm: 1.2,
-        cost: "Low cost",
-        socialLoad: "Medium",
-        accessibility: ["Step-free access", "Outdoor seating"],
-        description: "A neighborhood cafe with a quiet morning window and tables suited to short visits.",
-        address: "42 Willow Road",
-        hours: "08:00 - 18:00",
-        color: "clay"
-      },
-      {
-        id: "place-park",
-        name: "Riverside Pocket Park",
-        type: "Park",
-        distanceKm: 0.5,
-        cost: "Free",
-        socialLoad: "Low",
-        accessibility: ["Paved paths", "Benches"],
-        description: "A small open park for a short walk, a pause outdoors, or a low-pressure reset.",
-        address: "Riverside Walk",
-        hours: "Open all day",
-        color: "leaf"
-      },
-      {
-        id: "place-community",
-        name: "Northside Community Room",
-        type: "Community",
-        distanceKm: 1.8,
-        cost: "Free",
-        socialLoad: "Medium",
-        accessibility: ["Step-free access", "Quiet waiting area"],
-        description: "A reviewed public venue hosting small, structured activities with clear start and end times.",
-        address: "7 Northside Lane",
-        hours: "10:00 - 19:00",
-        color: "plum"
-      }
-    ],
-    community: [
-      {
-        id: "community-reading",
-        title: "Quiet reading hour",
-        host: "Greenwich Library",
-        dateLabel: "Thursday, 18:00",
-        place: "Greenwich Library",
-        capacity: "8 of 12 places",
-        socialLoad: "Low",
-        description: "Read alongside others for forty minutes. Conversation is optional and there is no group discussion.",
-        joined: false
-      },
-      {
-        id: "community-walk",
-        title: "Slow neighborhood walk",
-        host: "Northside Community Team",
-        dateLabel: "Saturday, 10:30",
-        place: "Riverside Pocket Park",
-        capacity: "5 of 10 places",
-        socialLoad: "Medium",
-        description: "A reviewed, step-free thirty-minute group walk with a clear route and two pause points.",
-        joined: false
-      },
-      {
-        id: "community-create",
-        title: "Open sketch table",
-        host: "Common Ground Cafe",
-        dateLabel: "Sunday, 14:00",
-        place: "Common Ground Cafe",
-        capacity: "6 of 8 places",
-        socialLoad: "Low",
-        description: "Bring any small creative task and work quietly at a shared table. Materials are available.",
-        joined: false
-      }
-    ],
+    savedPlaceIds: [],
+    places: [],
+    community: [],
     settings: {
       checkInTime: "18:00",
       reminders: true,
@@ -445,37 +267,48 @@ export function createMissionFromOption(
   };
 }
 
+/**
+ * Missions are stored whole, so a stored one is already complete. Options
+ * are only consulted to refresh a Mission whose action still exists — there
+ * is no option list to fall back on before the backend has loaded.
+ */
 function normalizeMission(
   mission: Partial<Mission>,
   recommendations: RecommendationOption[]
 ): Mission {
   const matchingOption = recommendations.find((option) => option.id === mission.optionId);
-  const fallbackOption = matchingOption ?? recommendations[0];
-  const normalizedFromOption = createMissionFromOption(fallbackOption, {
-    id: mission.id,
-    status: mission.status,
-    selectedAt: mission.selectedAt,
-    scheduledFor: mission.scheduledFor,
-    startedAt: mission.startedAt,
-    completedAt: mission.completedAt
-  });
 
   if (matchingOption) {
-    return normalizedFromOption;
+    return createMissionFromOption(matchingOption, {
+      id: mission.id,
+      status: mission.status,
+      selectedAt: mission.selectedAt,
+      scheduledFor: mission.scheduledFor,
+      startedAt: mission.startedAt,
+      completedAt: mission.completedAt
+    });
   }
 
   return {
-    ...normalizedFromOption,
-    ...mission,
-    visionId: mission.visionId ?? fallbackOption.visionId,
-    routeStepId: mission.routeStepId ?? fallbackOption.routeStepId,
-    variant: mission.variant ?? fallbackOption.variant,
-    placeId: mission.placeId ?? fallbackOption.placeId,
-    estimatedCost: mission.estimatedCost ?? fallbackOption.estimatedCost,
-    format: mission.format ?? fallbackOption.format,
-    supplies: mission.supplies ?? fallbackOption.supplies,
-    socialMode: mission.socialMode ?? fallbackOption.socialMode,
-    scheduledFor: mission.scheduledFor ?? null
+    id: mission.id ?? crypto.randomUUID(),
+    optionId: mission.optionId ?? "",
+    visionId: mission.visionId ?? "",
+    ...(mission.routeStepId ? { routeStepId: mission.routeStepId } : {}),
+    variant: mission.variant ?? "recommended",
+    title: mission.title ?? "",
+    description: mission.description ?? "",
+    durationMinutes: mission.durationMinutes ?? 10,
+    placeType: mission.placeType ?? "Flexible",
+    placeId: mission.placeId ?? null,
+    estimatedCost: mission.estimatedCost ?? "Free",
+    format: mission.format ?? "At home",
+    supplies: mission.supplies ?? [],
+    socialMode: mission.socialMode ?? "Solo",
+    status: mission.status ?? "planned",
+    selectedAt: mission.selectedAt ?? new Date().toISOString(),
+    scheduledFor: mission.scheduledFor ?? null,
+    ...(mission.startedAt ? { startedAt: mission.startedAt } : {}),
+    ...(mission.completedAt ? { completedAt: mission.completedAt } : {})
   };
 }
 
@@ -497,19 +330,23 @@ export async function loadAppData(): Promise<AppData> {
     missionHistory?: Partial<Mission>[];
   };
 
+  // Options come from the backend now, so the stored copy is the freshest
+  // one available until the next hydration overwrites it.
+  const storedRecommendations = storedData.recommendations ?? [];
+
   return {
     ...defaults,
     ...storedData,
     profile: { ...defaults.profile, ...storedData.profile },
     preferences: { ...defaults.preferences, ...storedData.preferences },
     vision: { ...defaults.vision, ...storedData.vision },
-    recommendations: defaults.recommendations,
-    mission: storedData.mission ? normalizeMission(storedData.mission, defaults.recommendations) : null,
+    recommendations: storedRecommendations,
+    mission: storedData.mission ? normalizeMission(storedData.mission, storedRecommendations) : null,
     plannedMissions: (storedMissionData.plannedMissions ?? []).map((mission) =>
-      normalizeMission(mission, defaults.recommendations)
+      normalizeMission(mission, storedRecommendations)
     ),
     missionHistory: (storedMissionData.missionHistory ?? []).map((mission) =>
-      normalizeMission(mission, defaults.recommendations)
+      normalizeMission(mission, storedRecommendations)
     ),
     settings: {
       ...defaults.settings,
