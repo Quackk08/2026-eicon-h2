@@ -7,6 +7,9 @@
     "backend",
     "shared"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "npm run build --workspace @renew/shared && concurrently \"npm run dev --workspace @renew/shared\" \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\"",
     "dev:frontend": "npm run dev --workspace frontend",
