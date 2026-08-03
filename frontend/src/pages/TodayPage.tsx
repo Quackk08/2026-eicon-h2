@@ -345,6 +345,15 @@ export function TodayPage() {
         </Link>
       </header>
 
+      <div className="planner-header-actions">
+        <Link className="primary-command" to="/app/check-in">
+          <RefreshCcw aria-hidden="true" />
+          <span>Update today's conditions</span>
+          <ArrowRight aria-hidden="true" />
+        </Link>
+      </div>
+
+
       <section className="planner-flow" aria-label="Plan, do, and review status">
         <div className={upcomingMissions.length ? "is-complete" : "is-current"}>
           <span>01 / Plan</span>
@@ -358,6 +367,12 @@ export function TodayPage() {
           <span>03 / Review</span>
           <strong>{recordedResult}</strong>
         </div>
+        {latestResult && (
+          <p className="planner-result-line">
+            {resultAdjustment}
+            <Link to="/app/insights">View full history <ArrowRight aria-hidden="true" /></Link>
+          </p>
+        )}
       </section>
 
       <section className="planner-calendar" aria-labelledby="planner-calendar-title">
@@ -530,71 +545,6 @@ export function TodayPage() {
           </div>
         </form>
       )}
-
-      <section className="planner-library" id="mission-library" aria-labelledby="mission-library-title">
-        <div className="mission-section-heading">
-          <div>
-            <p className="app-kicker">Mission library</p>
-            <h2 id="mission-library-title">Build the day around what is possible.</h2>
-          </div>
-          <p>Select an action to preview it, or place it directly on {selectedDayInfo.weekday}.</p>
-        </div>
-
-        <div className="planner-library-list">
-          {plannerOptions.map((option) => {
-            const place = getMissionPlace(data, option);
-            const isSelected = option.id === selectedOption.id;
-            const isEligible = eligibleOptions.some((item) => item.id === option.id);
-            return (
-              <article className={isSelected ? "is-selected" : ""} key={option.id}>
-                <div className="planner-library-label">
-                  <span>{variantLabels[option.variant]}</span>
-                  {option.id === recommendedOption.id && <small>Best fit</small>}
-                </div>
-                <div className="planner-library-copy">
-                  <h3>{option.title}</h3>
-                  <p>{option.durationMinutes} min / {place?.name ?? option.placeType} / {place?.cost ?? option.estimatedCost} / {option.socialMode}</p>
-                  {!isEligible && <small>Outside one or more current preferences</small>}
-                </div>
-                <div className="planner-library-actions">
-                  <button className="secondary-command" type="button" onClick={() => chooseOption(option)}>
-                    {isSelected ? "Selected" : "Preview"}
-                  </button>
-                  <button className="icon-button" type="button" aria-label={`Add ${option.title} to ${selectedDayInfo.label}`} title="Add to calendar" onClick={() => openSchedule(option, undefined, selectedDay)}>
-                    <CalendarPlus aria-hidden="true" />
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="planner-fit" aria-labelledby="planner-fit-title">
-        <div>
-          <p className="app-kicker">Plan context</p>
-          <h2 id="planner-fit-title">Why this mission fits now</h2>
-        </div>
-        <ul>
-          {reasons.map((reason) => <li key={reason}><Check aria-hidden="true" /> {reason}</li>)}
-        </ul>
-        <p>Changing the size, place, or day keeps the action connected to <strong>{data.vision.title}</strong>.</p>
-      </section>
-
-      <section className="mission-result-section planner-result" aria-labelledby="mission-result-title">
-        <div>
-          <p className="app-kicker">Review and adjust</p>
-          <h2 id="mission-result-title">The next plan uses what happened.</h2>
-        </div>
-        <div className="mission-result-copy">
-          {latestResult ? (
-            <p><span>{recordedResult}</span><strong>{latestResult.mission?.title ?? "Previous Mission"}</strong></p>
-          ) : (
-            <p><span>No reflection yet</span><strong>Your first completed Mission will appear here.</strong></p>
-          )}
-          <p>{resultAdjustment}</p>
-        </div>
-      </section>
 
       <nav className="mission-supporting-links" aria-label="Supporting ReNew tools">
         <Link to="/app/route"><RouteIcon aria-hidden="true" /><span>Life Route<strong>{completedRouteSteps} of {data.route.length} explored</strong></span><ChevronRight aria-hidden="true" /></Link>

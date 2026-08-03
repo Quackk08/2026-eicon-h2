@@ -119,6 +119,16 @@ export function MissionPage() {
           <button className="mission-text-action" type="button" onClick={() => finishMission("not_today")}>
             <Pause aria-hidden="true" /> Not today
           </button>
+
+          <details className="mission-boundaries">
+            <summary>Any part of this still counts</summary>
+            <div>
+              <p>Stopping after arrival</p>
+              <p>Changing the place</p>
+              <p>Trying only the first two minutes</p>
+              <p>Choosing not to continue today</p>
+            </div>
+          </details>
         </section>
 
         <section className="mission-place" aria-labelledby="mission-place-title">
@@ -142,15 +152,6 @@ export function MissionPage() {
         </section>
       </div>
 
-      <section className="mission-boundaries">
-        <p className="app-kicker">Still counts</p>
-        <div>
-          <p>Stopping after arrival</p>
-          <p>Changing the place</p>
-          <p>Trying only the first two minutes</p>
-          <p>Choosing not to continue today</p>
-        </div>
-      </section>
     </main>
   );
 }

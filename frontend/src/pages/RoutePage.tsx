@@ -106,10 +106,18 @@ export function RoutePage() {
           <h1>One direction, many workable sizes.</h1>
           <p>Reorder, rewrite, or pause any step. The Route belongs to you.</p>
         </div>
-        <Link className="secondary-command" to="/app/vision">
-          View Vision <ArrowRight aria-hidden="true" />
-        </Link>
       </header>
+
+      <section className="vision-summary-card" aria-labelledby="vision-summary-title">
+        <div className="vision-summary-content">
+          <p className="app-kicker">Current direction</p>
+          <h2 id="vision-summary-title">{data.vision.title}</h2>
+          <p>{data.vision.description}</p>
+        </div>
+        <Link className="secondary-command" to="/app/vision">
+          View / edit Vision <ArrowRight aria-hidden="true" />
+        </Link>
+      </section>
 
       <section className="route-overview">
         <div>

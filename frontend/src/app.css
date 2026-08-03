@@ -6243,6 +6243,127 @@
   border-top: 1px solid var(--color-line);
 }
 
+.checkin-step {
+  display: grid;
+  gap: 1.5rem;
+  padding: 2rem 0;
+}
+
+.checkin-step h1 {
+  max-width: 48rem;
+  margin-top: 0.75rem;
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.checkin-step > p:last-child {
+  max-width: 38rem;
+  font-family: var(--font-editorial);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.checkin-mode-cards {
+  display: grid;
+  gap: 1px;
+  margin-top: 2rem;
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+}
+
+.checkin-mode-card {
+  display: grid;
+  min-height: 6rem;
+  align-content: center;
+  gap: 0.5rem;
+  border: 0;
+  background: var(--color-paper);
+  color: inherit;
+  padding: 1.25rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  grid-template-columns: 1fr auto;
+}
+
+.checkin-mode-card strong {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.checkin-mode-card span {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.checkin-mode-card small {
+  grid-column: 1 / -1;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.checkin-mode-card.is-selected {
+  background: var(--color-citron);
+}
+
+.checkin-review {
+  padding: 2rem 0;
+}
+
+.checkin-review h2 {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 400;
+}
+
+.checkin-review-list {
+  display: grid;
+  gap: 1px;
+  margin-top: 1.5rem;
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+}
+
+.checkin-review-list > div {
+  display: grid;
+  min-height: 4rem;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+  padding: 1rem 1.25rem;
+  grid-template-columns: 1fr auto;
+}
+
+.checkin-review-list > div:last-child {
+  border-bottom: 0;
+}
+
+.checkin-review-list span {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.checkin-review-list strong {
+  font-family: var(--font-editorial);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.checkin-review-list button {
+  min-height: 2.75rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.68rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .signal-field {
   min-width: 0;
   border: 0;
@@ -6477,6 +6598,29 @@
 
 .onboarding-principles p {
   font-family: var(--font-editorial);
+}
+
+.planner-header-actions {
+  margin-top: 0.5rem;
+}
+
+.planner-header-actions .primary-command {
+  width: 100%;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.planner-header-actions .primary-command svg:first-child {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+@media (min-width: 48rem) {
+  .planner-header-actions .primary-command {
+    width: auto;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+  }
 }
 
 .choice-grid {
