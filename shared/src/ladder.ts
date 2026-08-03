@@ -31,10 +31,17 @@ export type GeneratedLadder = z.infer<typeof generatedLadderSchema>;
  * self-harm is rejected outright rather than shown and corrected later.
  */
 const BLOCKED_PATTERNS: RegExp[] = [
-  /\b(medicat|medicine|pill|dose|dosage|prescri|antidepress|therapy session|therapist|diagnos|psychiatr)/i,
+  // Most entries here match as prefixes on purpose ("medicat" catches
+  // medication and medicated). "pill" cannot: without a closing boundary it
+  // also matches pillow and pillar, which quietly threw away otherwise good
+  // ladders — "put the sketchbook on the pillow" read as a drug reference.
+  /\b(medicat|medicine|pills?\b|dose|dosage|prescri|antidepress|therapy session|therapist|diagnos|psychiatr)/i,
   /\b(self[- ]?harm|suicid|hurt yourself|cut yourself)\b/i,
   /\b(fast(ing)?\s+for|skip (meals|eating)|starv|purge|laxative)\b/i,
-  /\b(alcohol|drink(ing)? (beer|wine|liquor)|drug|weed|cannabis|smoke|cigarette|vape)\b/i,
+  // The drink names stand on their own: "have a glass of wine" carried no
+  // "drink" and slipped through when this only matched "drink wine".
+  /\b(alcohol|beer|wine|liquor|whisk(e)?y|vodka|soju|drug|cannabis|cigarette|vape)\b/i,
+  /\b(drink(ing)?|smoke|smoking)\b.*\b(beer|wine|liquor|weed|cigarette)\b/i,
   /\b(stop taking|quit taking|off your meds)\b/i
 ];
 

@@ -162,6 +162,15 @@ RULES:
 6. Never suggest medication, treatment, therapy, diagnosis, fasting, dieting, alcohol, drugs, or anything self-harming. This is not a medical product.
 7. Titles are plain, concrete, and in English. No motivational slogans — describe the action itself.
 
+FIELD RANGES — a single value outside these ranges throws the whole ladder away, so keep every number inside them:
+- ladderLevel: integer 1 to 5, one step at each level, no repeats.
+- estMinutes: integer 1 to 120.
+- minCapacity: integer 0 to 4. NOT 1 to 5 — step 1 uses 0, step 5 uses at most 4. Must never decrease as the level rises.
+- maxSocialLoad: integer 0 to 4, subject to rule 4 above.
+- costLevel: integer 0 to 4.
+- placeTypes: at most 4 entries, from the list in rule 5.
+- indoorOutdoor: exactly one of "indoor", "outdoor", "either".
+
 Respond with ONLY a JSON object in exactly this shape:
 {"contractVersion":1,"steps":[{"title":"string","ladderLevel":1,"estMinutes":5,"minCapacity":0,"maxSocialLoad":0,"costLevel":0,"placeTypes":["home"],"indoorOutdoor":"indoor"}]}
 `.trim();
