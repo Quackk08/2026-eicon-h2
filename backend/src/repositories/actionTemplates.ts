@@ -35,9 +35,71 @@ function toDomain(row: ActionTemplateRow): ActionTemplate {
 }
 
 export async function listActionTemplatesByDomain(domain: string): Promise<ActionTemplate[]> {
-  const { data, error } = await supabase.from("action_templates").select().contains("goal_domains", [domain]);
+  const { data, error } = await supabase
+    .from("action_templates")
+    .select()
+    .contains("goal_domains", [domain])
+    .is("profile_id", null);
   if (error) throw error;
   return (data as ActionTemplateRow[]).map(toDomain);
+}
+
+/**
+ * A person's own generated ladder when they have one, and the reviewed seed
+ * steps otherwise. Generated steps belong to a single profile, so they are
+ * never offered to anyone else.
+ */
+export async function listActionTemplatesForProfile(
+  profileId: string,
+  domain: string
+): Promise<ActionTemplate[]> {
+  const { data, error } = await supabase
+    .from("action_templates")
+    .select()
+    .eq("profile_id", profileId)
+    .contains("goal_domains", [domain]);
+  if (error) throw error;
+
+  const generated = (data as ActionTemplateRow[]).map(toDomain);
+  return generated.length > 0 ? generated : listActionTemplatesByDomain(domain);
+}
+
+export async function replaceGeneratedTemplates(
+  profileId: string,
+  domain: string,
+  templates: ActionTemplate[]
+): Promise<void> {
+  // One generated ladder per domain per person — regenerating replaces the
+  // previous attempt instead of piling unused steps up in the library.
+  const { error: deleteError } = await supabase
+    .from("action_templates")
+    .delete()
+    .eq("profile_id", profileId)
+    .contains("goal_domains", [domain]);
+  if (deleteError) throw deleteError;
+
+  if (templates.length === 0) return;
+
+  const rows = templates.map((t) => ({
+    id: t.id,
+    profile_id: profileId,
+    source: "ai",
+    goal_domains: t.goalDomains,
+    title: t.title,
+    min_capacity: t.minCapacity,
+    max_social_load: t.maxSocialLoad,
+    duration_min_minutes: t.durationRange[0],
+    duration_max_minutes: t.durationRange[1],
+    cost_level: t.costLevel,
+    place_types: t.placeTypes,
+    indoor_outdoor: t.indoorOutdoor,
+    ladder_group_id: t.ladderGroupId,
+    ladder_level: t.ladderLevel,
+    safety_tags: t.safetyTags
+  }));
+
+  const { error } = await supabase.from("action_templates").insert(rows);
+  if (error) throw error;
 }
 
 export async function getActionTemplateById(id: string): Promise<ActionTemplate | null> {

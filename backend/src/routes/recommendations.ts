@@ -4,7 +4,10 @@ import type { RecommendationResult, StateVector } from "@renew/shared";
 import { listVisions } from "../repositories/visions.js";
 import { getPreferences } from "../repositories/preferences.js";
 import { listRecentCheckIns, type CheckInRow } from "../repositories/checkIns.js";
-import { getActionTemplateById, listActionTemplatesByDomain } from "../repositories/actionTemplates.js";
+import {
+  getActionTemplateById,
+  listActionTemplatesForProfile
+} from "../repositories/actionTemplates.js";
 import { getPlaceById } from "../repositories/places.js";
 import { selectPlaceForTemplate } from "../services/placeSelection.js";
 import {
@@ -51,7 +54,7 @@ router.post("/recommendations/daily", resolveProfile, async (req, res, next) => 
     const [preferences, recentCheckIns, candidates] = await Promise.all([
       getPreferences(req.profileId!),
       listRecentCheckIns(req.profileId!, 1),
-      listActionTemplatesByDomain(vision.domain)
+      listActionTemplatesForProfile(req.profileId!, vision.domain)
     ]);
 
     if (recentCheckIns.length === 0) {

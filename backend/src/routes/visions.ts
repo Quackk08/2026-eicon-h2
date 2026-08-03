@@ -3,7 +3,12 @@ import { z } from "zod";
 import { LIFE_DOMAINS } from "@renew/shared";
 import { createVision, getVisionById, listVisions, updateVision } from "../repositories/visions.js";
 import { createRoute, getLatestRouteForVision } from "../repositories/routes.js";
-import { listActionTemplatesByDomain } from "../repositories/actionTemplates.js";
+import {
+  listActionTemplatesByDomain,
+  replaceGeneratedTemplates
+} from "../repositories/actionTemplates.js";
+import { getPreferences } from "../repositories/preferences.js";
+import { generateLadderForVision } from "../services/ladderGenerator.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
 
 const router = Router();
@@ -51,32 +56,45 @@ router.patch("/visions/:id", resolveProfile, async (req, res, next) => {
 });
 
 /**
- * Builds a Life Route from the richest reviewed Activity Ladder available
- * for the vision's domain — the whole ladder becomes the route's ordered
- * steps, with the first step marked "current".
+ * Builds a Life Route for this Vision. The ladder is generated from the
+ * person's own words when the model returns something that passes schema,
+ * safety, and coherence checks; otherwise it falls back to the reviewed
+ * seed ladder for the domain, so a Route always exists.
  */
 router.post("/visions/:id/generate-route", resolveProfile, async (req, res, next) => {
   try {
     const vision = await getVisionById((req.params.id as string));
     if (!vision || vision.profile_id !== req.profileId) return res.status(404).json({ error: "not found" });
 
-    const candidates = await listActionTemplatesByDomain(vision.domain);
-    if (candidates.length === 0) {
-      return res.status(422).json({ error: "no reviewed action templates for this domain yet" });
+    const preferences = (await getPreferences(req.profileId!)) ?? {};
+
+    let ladder = await generateLadderForVision({
+      profileId: req.profileId!,
+      visionSummary: vision.summary,
+      domain: vision.domain,
+      preferences
+    });
+
+    if (ladder) {
+      await replaceGeneratedTemplates(req.profileId!, vision.domain, ladder);
+    } else {
+      const candidates = await listActionTemplatesByDomain(vision.domain);
+      if (candidates.length === 0) {
+        return res.status(422).json({ error: "no reviewed action templates for this domain yet" });
+      }
+      const groups = new Map<string, typeof candidates>();
+      for (const candidate of candidates) {
+        const group = groups.get(candidate.ladderGroupId) ?? [];
+        group.push(candidate);
+        groups.set(candidate.ladderGroupId, group);
+      }
+      ladder = [...groups.values()].sort((a, b) => b.length - a.length)[0];
     }
 
-    const groups = new Map<string, typeof candidates>();
-    for (const candidate of candidates) {
-      const group = groups.get(candidate.ladderGroupId) ?? [];
-      group.push(candidate);
-      groups.set(candidate.ladderGroupId, group);
-    }
-    const bestGroup = [...groups.values()].sort((a, b) => b.length - a.length)[0];
-    bestGroup.sort((a, b) => a.ladderLevel - b.ladderLevel);
-
+    const ordered = [...ladder].sort((a, b) => a.ladderLevel - b.ladderLevel);
     const route = await createRoute(
       vision.id,
-      bestGroup.map((t) => ({ templateId: t.id, ladderLevel: t.ladderLevel }))
+      ordered.map((t) => ({ templateId: t.id, ladderLevel: t.ladderLevel }))
     );
     res.status(201).json(route);
   } catch (err) {
