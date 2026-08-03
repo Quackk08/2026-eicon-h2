@@ -102,6 +102,47 @@ export async function replaceGeneratedTemplates(
   if (error) throw error;
 }
 
+/** `source` travels with the template so the UI can say which steps were generated. */
+export type ActionTemplateWithSource = ActionTemplate & { source: "seed" | "ai" };
+
+function toDomainWithSource(row: ActionTemplateRow & { source?: "seed" | "ai" }): ActionTemplateWithSource {
+  return { ...toDomain(row), source: row.source ?? "seed" };
+}
+
+/**
+ * Everything this person is allowed to see: the reviewed seed library, plus
+ * the ladder generated for them.
+ *
+ * Generated steps are written from someone's own Vision and can carry the
+ * shape of their situation, so another profile's rows must never appear
+ * here — the seed library is shared, generated ladders are not.
+ */
+export async function listVisibleActionTemplates(
+  profileId: string
+): Promise<ActionTemplateWithSource[]> {
+  const { data, error } = await supabase
+    .from("action_templates")
+    .select()
+    .or(`profile_id.is.null,profile_id.eq.${profileId}`);
+  if (error) throw error;
+  return (data as Array<ActionTemplateRow & { source?: "seed" | "ai" }>).map(toDomainWithSource);
+}
+
+/** Same visibility rule as the list above, for a single template. */
+export async function getVisibleActionTemplate(
+  profileId: string,
+  id: string
+): Promise<ActionTemplateWithSource | null> {
+  const { data, error } = await supabase
+    .from("action_templates")
+    .select()
+    .eq("id", id)
+    .or(`profile_id.is.null,profile_id.eq.${profileId}`)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toDomainWithSource(data as ActionTemplateRow & { source?: "seed" | "ai" }) : null;
+}
+
 export async function getActionTemplateById(id: string): Promise<ActionTemplate | null> {
   const { data, error } = await supabase.from("action_templates").select().eq("id", id).maybeSingle();
   if (error) throw error;
