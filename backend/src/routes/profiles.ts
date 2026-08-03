@@ -21,7 +21,7 @@ router.get("/me", resolveProfile, async (req, res, next) => {
   try {
     const profile = await getProfileById(req.profileId!);
     const preferences = await getPreferences(req.profileId!);
-    res.json({ ...profile, preferences });
+    res.json({ ...profile, preferences, signedIn: Boolean(req.authUserId) });
   } catch (err) {
     next(err);
   }
