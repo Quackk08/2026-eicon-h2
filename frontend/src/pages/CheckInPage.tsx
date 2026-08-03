@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, CloudOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import type { CheckInRecord, EffortLevel } from "../data/appData";
-import { submitCheckIn } from "../api/backend";
+import { requestDailyRecommendation, submitCheckIn } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 const responseLabels = ["Very low", "Low", "In between", "Good", "Strong"] as const;
@@ -58,7 +58,7 @@ function SignalField({
 
 export function CheckInPage() {
   const navigate = useNavigate();
-  const { updateData } = useAppState();
+  const { updateData, refresh } = useAppState();
   const [submitting, setSubmitting] = useState(false);
   const [mode, setMode] = useState<"quick" | "standard">("quick");
   const [values, setValues] = useState<CheckInValues>({
@@ -97,6 +97,10 @@ export function CheckInPage() {
 
     try {
       await submitCheckIn(record);
+      // A Check-In is what today's suggestion is based on, so ask for a new
+      // one now rather than leaving the previous pick on screen.
+      await requestDailyRecommendation();
+      await refresh();
     } catch {
       // Kept on this device; it syncs the next time the backend is reachable.
     } finally {

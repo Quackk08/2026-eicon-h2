@@ -15,12 +15,18 @@ import {
   type AppData
 } from "../data/appData";
 import { hydrateFromBackend } from "../api/backend";
+import type { ApiRecommendation } from "../api/types";
 
 interface AppStateValue {
   data: AppData;
   ready: boolean;
   /** False when the backend is unreachable; the UI still runs from local data. */
   online: boolean;
+  /**
+   * The backend's current pick, shared so Today and Recommendation cannot
+   * disagree about which step is today's.
+   */
+  recommendation: ApiRecommendation | null;
   updateData: (updater: (current: AppData) => AppData) => void;
   /** Re-pulls server state after a write. Safe to call when offline. */
   refresh: () => Promise<void>;
@@ -33,6 +39,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(() => createDefaultAppData());
   const [ready, setReady] = useState(false);
   const [online, setOnline] = useState(true);
+  const [recommendation, setRecommendation] = useState<ApiRecommendation | null>(null);
 
   /**
    * Local IndexedDB stays the immediate source of truth so Check-In and
@@ -42,8 +49,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       const snapshot = await loadAppData();
-      const { patch } = await hydrateFromBackend(snapshot);
+      const { patch, recommendation: latest } = await hydrateFromBackend(snapshot);
       setData((current) => ({ ...current, ...patch }));
+      setRecommendation(latest);
       setOnline(true);
     } catch {
       setOnline(false);
@@ -80,14 +88,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       data,
       ready,
       online,
+      recommendation,
       updateData: setData,
       refresh,
       resetDemo: async () => {
         await clearAppData();
         setData(createDefaultAppData());
+        setRecommendation(null);
       }
     }),
-    [data, ready, online, refresh]
+    [data, ready, online, recommendation, refresh]
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

@@ -131,8 +131,17 @@ function missionDateKey(mission: Mission): string | null {
 
 export function TodayPage() {
   const navigate = useNavigate();
-  const { data, ready, updateData } = useAppState();
-  const recommendedOption = useMemo(() => getRecommendedMissionOption(data), [data]);
+  const { data, ready, recommendation, updateData } = useAppState();
+  // The backend decides today's step from the latest Check-In; the local
+  // heuristic is only the offline fallback. Without this the "Best fit" badge
+  // sat on the Route's first step no matter what the Check-In said.
+  const recommendedOption = useMemo(
+    () =>
+      (recommendation &&
+        data.recommendations.find((option) => option.id === recommendation.selected_template_id)) ??
+      getRecommendedMissionOption(data),
+    [data, recommendation]
+  );
   const eligibleOptions = useMemo(() => getEligibleMissionOptions(data), [data]);
   const scheduleDays = useMemo(buildScheduleDays, []);
   const [selectedDay, setSelectedDay] = useState(scheduleDays[0].value);

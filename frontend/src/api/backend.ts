@@ -3,6 +3,7 @@ import type {
   CheckInRecord,
   LifeDomain,
   Mission,
+  MissionVariant,
   Reflection,
   RouteStep,
   UserPreferences
@@ -167,6 +168,11 @@ export async function requestDailyRecommendation(visionId?: string): Promise<Api
   return api.post<ApiRecommendation>("/recommendations/daily", visionId ? { visionId } : {});
 }
 
+/** Reads the existing recommendation without generating a new one. */
+export async function fetchLatestRecommendation(): Promise<ApiRecommendation | null> {
+  return api.get<ApiRecommendation | null>("/recommendations/latest");
+}
+
 export async function selectRecommendation(
   recommendationId: string,
   templateId: string,
@@ -227,7 +233,8 @@ export async function reportCommunityActivity(activityId: string, reason: string
 
 export interface HydrationResult {
   patch: Partial<AppData>;
-  recommendationId: string | null;
+  /** The backend's current pick, so every screen agrees on today's step. */
+  recommendation: ApiRecommendation | null;
 }
 
 /**
@@ -238,7 +245,7 @@ export interface HydrationResult {
 export async function hydrateFromBackend(current: AppData): Promise<HydrationResult> {
   await ensureProfile();
 
-  const [profile, visions, places, community, missions, checkIns, reflections, templates] =
+  const [profile, visions, places, community, missions, checkIns, reflections, templates, recommendation] =
     await Promise.all([
       fetchProfile(),
       fetchVisions(),
@@ -247,7 +254,8 @@ export async function hydrateFromBackend(current: AppData): Promise<HydrationRes
       api.get<ApiMission[]>("/missions").catch(() => [] as ApiMission[]),
       api.get<ApiCheckIn[]>("/check-ins").catch(() => [] as ApiCheckIn[]),
       api.get<ApiReflection[]>("/reflections").catch(() => [] as ApiReflection[]),
-      api.get<ApiActionTemplate[]>("/action-templates").catch(() => [] as ApiActionTemplate[])
+      api.get<ApiActionTemplate[]>("/action-templates").catch(() => [] as ApiActionTemplate[]),
+      fetchLatestRecommendation().catch(() => null)
     ]);
 
   const templatesById = new Map(templates.map((template) => [template.id, template]));
@@ -277,24 +285,21 @@ export async function hydrateFromBackend(current: AppData): Promise<HydrationRes
         fromApiRouteStep(step, templatesById.get(step.template_id))
       );
 
-      // The UI's "options" are the reviewed ladder steps for this Route:
-      // smaller steps read as lighter alternatives, larger ones as stretches.
-      const currentIndex = Math.max(
-        0,
-        route.steps.findIndex((step) => step.status === "current")
-      );
+      // Variants describe each step relative to the one the backend actually
+      // recommended — not its position in the Route. Without this, "Best fit"
+      // would always be the Route's first step no matter what the Check-In said.
       patch.recommendations = route.steps
-        .map((step, index) => {
+        .map((step) => {
           const template = templatesById.get(step.template_id);
           if (!template) return null;
-          const variant =
-            index === currentIndex
-              ? "recommended"
-              : index < currentIndex
-                ? "lighter"
-                : index === currentIndex + 1
-                  ? "more"
-                  : "alternative";
+
+          let variant: MissionVariant = "alternative";
+          if (recommendation) {
+            if (template.id === recommendation.selected_template_id) variant = "recommended";
+            else if (template.id === recommendation.smaller_template_id) variant = "lighter";
+            else if (template.id === recommendation.extension_template_id) variant = "more";
+          }
+
           return fromApiTemplate(template, activeVision.id, variant, step.id);
         })
         .filter((option): option is NonNullable<typeof option> => option !== null);
@@ -314,7 +319,7 @@ export async function hydrateFromBackend(current: AppData): Promise<HydrationRes
     (mission) => mission.status !== "planned" && mission.status !== "in_progress"
   );
 
-  return { patch, recommendationId: null };
+  return { patch, recommendation };
 }
 
 export function hasProfile(): boolean {

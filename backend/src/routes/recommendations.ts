@@ -7,7 +7,11 @@ import { listRecentCheckIns, type CheckInRow } from "../repositories/checkIns.js
 import { getActionTemplateById, listActionTemplatesByDomain } from "../repositories/actionTemplates.js";
 import { getPlaceById } from "../repositories/places.js";
 import { selectPlaceForTemplate } from "../services/placeSelection.js";
-import { createRecommendation, getRecommendationById } from "../repositories/recommendations.js";
+import {
+  createRecommendation,
+  getLatestRecommendation,
+  getRecommendationById
+} from "../repositories/recommendations.js";
 import { createMission } from "../repositories/missions.js";
 import { buildRuleBasedRecommendation, computeStateTags } from "../services/ruleEngine.js";
 import { rerankWithGemini } from "../services/geminiAdapter.js";
@@ -99,6 +103,19 @@ router.post("/recommendations/daily", resolveProfile, async (req, res, next) => 
 
     const saved = await createRecommendation(req.profileId!, latestCheckIn.id, finalResult, source);
     res.status(201).json({ ...saved, stateTags });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * The recommendation already produced for this profile. Reading is separate
+ * from POST /recommendations/daily so that simply opening a page does not
+ * mint a new recommendation row on every load.
+ */
+router.get("/recommendations/latest", resolveProfile, async (req, res, next) => {
+  try {
+    res.json(await getLatestRecommendation(req.profileId!));
   } catch (err) {
     next(err);
   }

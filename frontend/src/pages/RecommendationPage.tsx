@@ -9,7 +9,7 @@ import {
   getRecommendedMissionOption
 } from "../data/missionLogic";
 import { fetchPlaceForTemplate, requestDailyRecommendation, selectRecommendation } from "../api/backend";
-import type { ApiPlaceSearchResult, ApiRecommendation } from "../api/types";
+import type { ApiPlaceSearchResult } from "../api/types";
 import { useAppState } from "../state/AppState";
 
 const variantLabels: Record<MissionVariant, string> = {
@@ -22,34 +22,32 @@ const variantLabels: Record<MissionVariant, string> = {
 
 export function RecommendationPage() {
   const navigate = useNavigate();
-  const { data, ready, updateData, refresh } = useAppState();
-  const [serverPick, setServerPick] = useState<ApiRecommendation | null>(null);
+  const { data, ready, recommendation: serverPick, updateData, refresh } = useAppState();
   const [loadingPick, setLoadingPick] = useState(true);
   const [placePick, setPlacePick] = useState<ApiPlaceSearchResult | null>(null);
 
-  // The backend rule engine (optionally re-ranked by Gemini) decides today's
-  // step. The local logic below stays as the offline fallback.
+  // Today's step comes from the shared backend pick. Only ask for a new one
+  // if there is none yet — arriving here from a Check-In already generated it.
   useEffect(() => {
     let active = true;
-    requestDailyRecommendation()
-      .then(async (recommendation) => {
-        if (!active) return;
-        setServerPick(recommendation);
+    (async () => {
+      try {
+        const pick = serverPick ?? (await requestDailyRecommendation().then((r) => (refresh(), r)));
+        if (!active || !pick) return;
         // Ask the backend where this action would happen, so the suggestion
         // names a real reviewed place instead of a bare category.
-        const place = await fetchPlaceForTemplate(recommendation.selected_template_id);
+        const place = await fetchPlaceForTemplate(pick.selected_template_id);
         if (active) setPlacePick(place);
-      })
-      .catch(() => {
+      } catch {
         // No Vision/Check-In yet, or backend unreachable — fall back locally.
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoadingPick(false);
-      });
+      }
+    })();
     return () => {
       active = false;
     };
-  }, []);
+  }, [serverPick?.id]);
 
   const recommended =
     (serverPick && data.recommendations.find((option) => option.id === serverPick.selected_template_id)) ??

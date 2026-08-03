@@ -42,6 +42,18 @@ export async function createRecommendation(
   return data;
 }
 
+export async function getLatestRecommendation(profileId: string): Promise<RecommendationRow | null> {
+  const { data, error } = await supabase
+    .from("recommendations")
+    .select()
+    .eq("profile_id", profileId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 export async function getRecommendationById(id: string): Promise<RecommendationRow | null> {
   const { data, error } = await supabase.from("recommendations").select().eq("id", id).maybeSingle();
   if (error) throw error;
