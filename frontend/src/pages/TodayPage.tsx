@@ -561,6 +561,7 @@ export function TodayPage() {
                 <div className="planner-library-label">
                   <span>{variantLabels[option.variant]}</span>
                   {option.id === recommendedOption?.id && <small>Best fit</small>}
+                  {option.source === "ai" && <small>AI suggested</small>}
                 </div>
                 <div className="planner-library-copy">
                   <h3>{option.title}</h3>

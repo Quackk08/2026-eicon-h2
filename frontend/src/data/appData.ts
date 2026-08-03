@@ -61,6 +61,8 @@ export interface RecommendationOption {
   visionId: string;
   routeStepId?: string;
   variant: MissionVariant;
+  /** "ai" steps were generated for this user and had no prior human review. */
+  source?: "seed" | "ai";
   title: string;
   description: string;
   durationMinutes: number;

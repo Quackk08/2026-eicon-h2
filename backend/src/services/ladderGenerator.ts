@@ -6,6 +6,11 @@ import {
   type GeneratedLadderStep
 } from "@renew/shared";
 import { env, isAIEnabled } from "../config/env.js";
+import { classifyLadderSafety } from "./ladderSafetyClassifier.js";
+import {
+  logLadderGeneration,
+  type LadderVerdict
+} from "../repositories/generatedLadderLog.js";
 import type { PreferencesRow } from "../repositories/preferences.js";
 
 type Preferences = Partial<PreferencesRow>;
@@ -46,32 +51,60 @@ interface GenerateArgs {
 export async function generateLadderForVision(args: GenerateArgs): Promise<ActionTemplate[] | null> {
   if (!isAIEnabled()) return null;
 
+  const log = (verdict: LadderVerdict, raw: string | null, reason?: string) =>
+    logLadderGeneration({
+      profileId: args.profileId,
+      domain: args.domain,
+      visionSummary: args.visionSummary,
+      rawResponse: raw,
+      verdict,
+      rejectReason: reason
+    });
+
   const raw = await callGemini(buildPrompt(args));
-  if (!raw) return null;
+  if (!raw) {
+    await log("rejected_unreachable", null, "no response from model");
+    return null;
+  }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
+    await log("rejected_schema", raw, "response was not valid JSON");
     return null;
   }
 
   const result = generatedLadderSchema.safeParse(parsed);
   if (!result.success) {
-    console.error("[ladder] generated ladder failed schema validation");
+    await log("rejected_schema", raw, "failed shared schema");
     return null;
   }
 
   const steps = result.data.steps;
 
-  if (!steps.every((step) => isSafeLadderStepTitle(step.title))) {
-    console.error("[ladder] generated ladder rejected by safety check");
+  // Gate 1 — cheap wordlist. Catches the blunt cases without a model call.
+  const flagged = steps.filter((step) => !isSafeLadderStepTitle(step.title));
+  if (flagged.length > 0) {
+    await log("rejected_wordlist", raw, flagged.map((s) => s.title).join("; ").slice(0, 400));
     return null;
   }
+
+  // Gate 2 — the ladder has to climb, or "make it smaller" means nothing.
   if (!isCoherentLadder(steps)) {
-    console.error("[ladder] generated ladder does not increase in difficulty");
+    await log("rejected_incoherent", raw, "steps do not increase in effort");
     return null;
   }
+
+  // Gate 3 — independent model review. The wordlist only knows the words it
+  // was given; this is what catches an action that is unsafe in context.
+  const verdict = await classifyLadderSafety(steps);
+  if (!verdict.safe) {
+    await log("rejected_classifier", raw, verdict.reason);
+    return null;
+  }
+
+  await log("accepted", raw);
 
   return steps
     .slice()

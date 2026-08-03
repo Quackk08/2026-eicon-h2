@@ -224,6 +224,7 @@ export function fromApiTemplate(
     visionId,
     ...(routeStepId ? { routeStepId } : {}),
     variant,
+    source: template.source ?? "seed",
     title: template.title,
     description: templateDescription(template),
     durationMinutes: template.durationRange[1],

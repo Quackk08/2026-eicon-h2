@@ -108,7 +108,9 @@ export function RecommendationPage() {
       <section className="recommendation-primary" aria-labelledby="recommendation-title">
         <div className="recommendation-index" aria-hidden="true">01</div>
         <div className="recommendation-copy">
-          <p className="app-kicker">Suggested for today</p>
+          <p className="app-kicker">
+            Suggested for today{recommended.source === "ai" ? " / AI suggested" : ""}
+          </p>
           <h2 id="recommendation-title">{recommended.title}</h2>
           <p>{serverPick?.summary ?? recommended.description}</p>
           <div className="recommendation-meta">

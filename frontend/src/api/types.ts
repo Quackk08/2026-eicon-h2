@@ -40,6 +40,8 @@ export interface ApiVision {
 
 export interface ApiActionTemplate {
   id: string;
+  /** "ai" steps were generated for this user and had no prior human review. */
+  source?: "seed" | "ai";
   goalDomains: ApiLifeDomain[];
   title: string;
   minCapacity: number;

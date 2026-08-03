@@ -1,6 +1,9 @@
 import { Router } from "express";
+import { z } from "zod";
 import { supabase } from "../supabase/client.js";
 import { getActionTemplateById } from "../repositories/actionTemplates.js";
+import { reportActionTemplate } from "../repositories/generatedLadderLog.js";
+import { resolveProfile } from "../middleware/resolveProfile.js";
 import type { ActionTemplate } from "@renew/shared";
 
 const router = Router();
@@ -19,9 +22,11 @@ interface ActionTemplateRow {
   ladder_group_id: string;
   ladder_level: number;
   safety_tags: string[];
+  source?: "seed" | "ai";
 }
 
-function toDomain(row: ActionTemplateRow): ActionTemplate {
+/** `source` travels with the template so the UI can say which steps were generated. */
+function toDomain(row: ActionTemplateRow): ActionTemplate & { source: "seed" | "ai" } {
   return {
     id: row.id,
     goalDomains: row.goal_domains as ActionTemplate["goalDomains"],
@@ -34,7 +39,8 @@ function toDomain(row: ActionTemplateRow): ActionTemplate {
     indoorOutdoor: row.indoor_outdoor,
     ladderGroupId: row.ladder_group_id,
     ladderLevel: row.ladder_level,
-    safetyTags: row.safety_tags
+    safetyTags: row.safety_tags,
+    source: row.source ?? "seed"
   };
 }
 
@@ -55,6 +61,29 @@ router.get("/action-templates/:id", async (req, res, next) => {
     const template = await getActionTemplateById(req.params.id as string);
     if (!template) return res.status(404).json({ error: "not found" });
     res.json(template);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const reportSchema = z.object({ reason: z.string().min(1).max(1000) });
+
+/**
+ * Lets someone flag a step that should not have been suggested. Generated
+ * steps ship without prior human review, so this is the path by which a bad
+ * one gets seen by a person.
+ */
+router.post("/action-templates/:id/report", resolveProfile, async (req, res, next) => {
+  try {
+    const templateId = req.params.id as string;
+    const template = await getActionTemplateById(templateId);
+    if (!template) return res.status(404).json({ error: "not found" });
+
+    const parsed = reportSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    const report = await reportActionTemplate(templateId, req.profileId!, parsed.data.reason);
+    res.status(201).json(report);
   } catch (err) {
     next(err);
   }

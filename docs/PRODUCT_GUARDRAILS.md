@@ -13,8 +13,9 @@ These rules are implementation invariants. Feature code, AI prompts, analytics, 
 
 ## Recommendation Rules
 
-- Generate candidates only from reviewed ActionTemplate data.
-- Run deterministic safety and constraint filters before any AI request.
+- Candidates come from reviewed ActionTemplate data, or from a generated
+  Activity Ladder that satisfies every condition in "Generated Ladder Rules".
+- Run deterministic constraint filters over the candidate set before ranking.
 - Treat missing values as `null`; never convert them to zero.
 - Use a user's own baseline and recent history, never another user's score or rank.
 - Preserve the long-term goal while adapting action size, time, place, cost, distance, and social load.
@@ -28,9 +29,32 @@ These rules are implementation invariants. Feature code, AI prompts, analytics, 
 - AI receives the minimum data needed for the current task.
 - Names, phone numbers, exact addresses, and raw sensitive notes are excluded from AI input.
 - AI may rank reviewed candidates and write explanations.
-- AI may not invent an unreviewed action, make a diagnosis, suggest medication or treatment, calculate a risk probability, or decide that contact is required.
-- AI output must pass a shared schema and candidate-ID check.
+- AI may propose an Activity Ladder for a user's own Life Vision, subject to
+  "Generated Ladder Rules" below.
+- AI may not make a diagnosis, suggest medication or treatment, calculate a risk probability, or decide that contact is required.
+- AI output must pass a shared schema. Where a candidate list exists, it must also pass a candidate-ID check.
 - Invalid or unavailable AI output falls back to the rule engine.
+
+## Generated Ladder Rules
+
+A generated ladder reaches users without prior human review. These conditions
+are what stands in for that review, and none of them is optional.
+
+- A generated ladder is scoped to the profile it was generated for. It is
+  never offered to another user.
+- Every step must pass, in order: the shared schema with all numeric fields
+  bounded, a blocked-wording check, a coherence check that effort increases
+  with level, and an independent model safety review.
+- The safety review is given the steps alone — not the Vision, not the goal,
+  not the reason they were generated. A reviewer that knows the intended
+  answer is not a reviewer.
+- The safety review fails closed. If it cannot run, the ladder is rejected.
+- Failing any gate rejects the whole ladder, not the offending step. The
+  fallback is reviewed seed data, so a Route always exists.
+- Every generation attempt is logged with its verdict, including rejections.
+  Rejected output is the record of what the model tried to ship.
+- Generated steps are labelled as such wherever they appear.
+- Users can report a generated step, and reports are stored for human review.
 
 ## Privacy and Logging Rules
 
