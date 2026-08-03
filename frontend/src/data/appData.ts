@@ -225,10 +225,22 @@ export function createDefaultAppData(): AppData {
   };
 }
 
+/**
+ * Bumped whenever locally cached content stops being trustworthy. Version 2
+ * drops the demo Vision, Route, Places, and Community activities that used
+ * to ship as hardcoded defaults: emptying those defaults does not remove
+ * what a browser already persisted, so without this an existing user would
+ * keep seeing "Greenwich Library" forever while the backend served
+ * something else entirely.
+ */
+const DATA_VERSION = 2;
+
+type StoredAppData = AppData & { dataVersion?: number };
+
 interface ReNewDatabase extends DBSchema {
   state: {
     key: "app";
-    value: AppData;
+    value: StoredAppData;
   };
 }
 
@@ -314,13 +326,33 @@ function normalizeMission(
 
 export async function loadAppData(): Promise<AppData> {
   const database = await databasePromise;
-  const storedData = await database.get("state", "app");
+  const rawStored = await database.get("state", "app");
 
-  if (!storedData) {
+  if (!rawStored) {
     return createDefaultAppData();
   }
 
   const defaults = createDefaultAppData();
+
+  // Content the backend owns is dropped when the cache predates the current
+  // version, so stale demo data cannot outlive the release that removed it.
+  // Settings, the week planner, and saved places are kept — they are the
+  // user's own and have no server copy yet.
+  const storedData: StoredAppData =
+    (rawStored.dataVersion ?? 1) < DATA_VERSION
+      ? {
+          ...rawStored,
+          vision: defaults.vision,
+          route: [],
+          recommendations: [],
+          places: [],
+          community: [],
+          mission: null,
+          missionHistory: [],
+          checkIns: [],
+          reflections: []
+        }
+      : rawStored;
   const storedSettings = storedData.settings as Partial<AppData["settings"]>;
   const storedRhythm = storedSettings.checkInRhythm;
   const rhythmTime = storedRhythm?.time ?? storedSettings.checkInTime ?? defaults.settings.checkInTime;
@@ -365,7 +397,7 @@ export async function loadAppData(): Promise<AppData> {
 
 export async function saveAppData(data: AppData): Promise<void> {
   const database = await databasePromise;
-  await database.put("state", data, "app");
+  await database.put("state", { ...data, dataVersion: DATA_VERSION }, "app");
 }
 
 export async function clearAppData(): Promise<void> {
