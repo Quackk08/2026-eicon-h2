@@ -29,7 +29,7 @@ Server-side (used by the API function):
 | `SUPABASE_URL` | Required. |
 | `SUPABASE_SECRET_KEY` | Required. **Secret** — bypasses RLS. Never expose to the browser. |
 | `GEMINI_API_KEY` | Optional. Without it the rule engine still works, but AI ladder generation is disabled, and the safety classifier fails closed so no generated ladder is ever served. |
-| `GEMINI_MODEL` | Optional, defaults to `gemini-2.0-flash`. |
+| `GEMINI_MODEL` | Optional, defaults to `gemini-flash-lite-latest`. |
 
 Build-time, baked into the JavaScript bundle (`VITE_` prefix means public):
 
