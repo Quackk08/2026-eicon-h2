@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ArrowRight,
   CalendarClock,
@@ -6,8 +6,11 @@ import {
   CalendarPlus,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Clock3,
+  Info,
   MapPin,
   Navigation,
   PackageCheck,
@@ -29,7 +32,6 @@ import {
 } from "../data/appData";
 import {
   describeResultAdjustment,
-  getEligibleMissionOptions,
   getLatestResult,
   getMissionPlace,
   getRecommendationReasons,
@@ -142,7 +144,6 @@ export function TodayPage() {
       getRecommendedMissionOption(data),
     [data, recommendation]
   );
-  const eligibleOptions = useMemo(() => getEligibleMissionOptions(data), [data]);
   const scheduleDays = useMemo(buildScheduleDays, []);
   const [selectedDay, setSelectedDay] = useState(scheduleDays[0].value);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(
@@ -153,6 +154,49 @@ export function TodayPage() {
   const [scheduleDate, setScheduleDate] = useState(scheduleDays[0].value);
   const [scheduleTime, setScheduleTime] = useState(data.settings.checkInRhythm.time);
   const [scheduleNotice, setScheduleNotice] = useState("");
+
+  /* ─── Collapsible "This Week" section ─── */
+  const [weekOpen, setWeekOpen] = useState(false);
+
+  /* ─── Walkthrough state ─── */
+  const [activeTooltip, setActiveTooltip] = useState<number | null>(
+    data.settings.walkthroughSeen ? null : 0
+  );
+  const [walkthroughDone, setWalkthroughDone] = useState(data.settings.walkthroughSeen);
+
+  /* Info disclosure state — "(i)" affordances */
+  const [visionInfoOpen, setVisionInfoOpen] = useState(false);
+  const [routeInfoOpen, setRouteInfoOpen] = useState(false);
+
+  const dismissWalkthrough = () => {
+    setActiveTooltip(null);
+    setWalkthroughDone(true);
+    updateData((current) => ({
+      ...current,
+      settings: { ...current.settings, walkthroughSeen: true }
+    }));
+  };
+
+  const advanceTooltip = () => {
+    if (activeTooltip === null) return;
+    if (activeTooltip >= 2) {
+      dismissWalkthrough();
+    } else {
+      setActiveTooltip(activeTooltip + 1);
+    }
+  };
+
+  /* Escape key dismisses walkthrough */
+  useEffect(() => {
+    if (walkthroughDone) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dismissWalkthrough();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [walkthroughDone]);
+
+  const tooltipRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
 
   useEffect(() => {
     if (data.mission) {
@@ -213,7 +257,7 @@ export function TodayPage() {
   const unscheduledCurrentMission =
     isTodaySelected && data.mission && !data.mission.scheduledFor ? data.mission : null;
   const selectedDayCount = selectedDayPlans.length + (unscheduledCurrentMission ? 1 : 0);
-  const plannerOptions = data.recommendations.filter((option) => option.visionId === data.vision.id);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const locationName =
     selectedPlace?.name ?? (selectedOption.format === "At home" ? "Home" : "Online");
   const focusTiming =
@@ -357,21 +401,113 @@ export function TodayPage() {
 
   return (
     <main className="app-page mission-home planner-dashboard">
+
+      {/* ── First-visit coach-marks (spotlight pattern, one element each) ── */}
+      {!walkthroughDone && activeTooltip !== null && (() => {
+        const tips = [
+          {
+            ref: tooltipRefs[0],
+            label: "Plan · Do · Review",
+            copy: "These three cells show where you are in today's flow.",
+            step: "01 / 03"
+          },
+          {
+            ref: tooltipRefs[1],
+            label: "Your Life Vision",
+            copy: "Tap here anytime to read or update your direction.",
+            step: "02 / 03"
+          },
+          {
+            ref: tooltipRefs[2],
+            label: "Why this fits today",
+            copy: "These reasons explain exactly why this Mission size was matched to your Check-In.",
+            step: "03 / 03"
+          }
+        ];
+        const tip = tips[activeTooltip];
+        return (
+          <>
+            {/* Dim overlay — pointer-events off so spotlight area is clickable */}
+            <div className="coach-mark-overlay" aria-hidden="true" />
+            {/* Tip bubble with pointer arrow */}
+            <div
+              className="coach-mark-tip"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Walkthrough step ${activeTooltip + 1} of 3`}
+            >
+              <div className="coach-mark-text">
+                <strong>{tip.label}</strong>
+                <p>{tip.copy}</p>
+              </div>
+              <button
+                className="coach-mark-close"
+                type="button"
+                aria-label="Dismiss walkthrough"
+                onClick={dismissWalkthrough}
+              >
+                <X aria-hidden="true" />
+              </button>
+              <div className="coach-mark-actions">
+                <span className="app-kicker" style={{ marginRight: "auto" }}>{tip.step}</span>
+                {activeTooltip < 2 ? (
+                  <button className="primary-command" type="button" onClick={advanceTooltip}>
+                    Next <ArrowRight aria-hidden="true" />
+                  </button>
+                ) : (
+                  <button className="primary-command" type="button" onClick={dismissWalkthrough}>
+                    Got it <Check aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* ── Header ── */}
       <header className="planner-heading">
         <div>
           <p className="app-kicker">Week of {scheduleDays[0].month} {scheduleDays[0].day}</p>
           <h1>Plan the week. Do one thing today.</h1>
           <p>Give a possible action a real day and time, then adjust the plan when life changes.</p>
         </div>
-        <Link className="planner-direction" to="/app/vision">
-          <span>Current direction</span>
-          <strong>{data.vision.title}</strong>
-          <small>{currentRouteStep ? `Route step ${currentRouteStep.level} of ${data.route.length}` : `${completedRouteSteps} steps explored`}</small>
-          <ChevronRight aria-hidden="true" />
-        </Link>
+        {/* Life Vision link with (i) affordance */}
+        <div className="planner-direction-wrap">
+          <Link className="planner-direction" to="/app/vision" aria-label="View your Life Vision" ref={tooltipRefs[1] as React.Ref<HTMLAnchorElement>}>
+            <span>
+              Life Vision
+              <button
+                className="info-affordance"
+                type="button"
+                aria-label="What is a Life Vision?"
+                aria-expanded={visionInfoOpen}
+                onClick={(e) => { e.preventDefault(); setVisionInfoOpen((v) => !v); }}
+              ><Info aria-hidden="true" /></button>
+            </span>
+            <strong>{data.vision.title}</strong>
+            <small>{currentRouteStep ? `Route Level ${currentRouteStep.level} of ${data.route.length}` : `${completedRouteSteps} levels explored`}</small>
+            <ChevronRight aria-hidden="true" />
+          </Link>
+          {visionInfoOpen && (
+            <aside className="info-disclosure" role="note">
+              <p>Your Life Vision is the direction you want to move toward — not a deadline or diagnosis. Every Mission is a small step along that route.</p>
+              <button type="button" className="text-button" onClick={() => setVisionInfoOpen(false)}>Close</button>
+            </aside>
+          )}
+        </div>
       </header>
 
-      <section className="planner-flow" aria-label="Plan, do, and review status">
+      <div className="planner-header-actions">
+        <Link className="primary-command" to="/app/check-in">
+          <RefreshCcw aria-hidden="true" />
+          <span>Update today's conditions</span>
+          <ArrowRight aria-hidden="true" />
+        </Link>
+      </div>
+
+      {/* ── Plan / Do / Review status row ── */}
+      <section className="planner-flow" aria-label="Plan, do, and review status" ref={tooltipRefs[0]}>
         <div className={upcomingMissions.length ? "is-complete" : "is-current"}>
           <span>01 / Plan</span>
           <strong>{upcomingMissions.length ? `${upcomingMissions.length} on the calendar` : "Choose a day"}</strong>
@@ -384,152 +520,203 @@ export function TodayPage() {
           <span>03 / Review</span>
           <strong>{recordedResult}</strong>
         </div>
+        {latestResult && (
+          <p className="planner-result-line">
+            {resultAdjustment}
+            <Link to="/app/insights">View full history <ArrowRight aria-hidden="true" /></Link>
+          </p>
+        )}
       </section>
 
-      <section className="planner-calendar" aria-labelledby="planner-calendar-title">
-        <div className="planner-calendar-heading">
-          <div>
-            <p className="app-kicker">Your next seven days</p>
-            <h2 id="planner-calendar-title">This week</h2>
-          </div>
+      {/* ── Mission hero — always visible ── */}
+      <section
+        className="planner-focus today-hero-focus"
+        id="planner-focus"
+        aria-labelledby="planner-focus-title"
+      >
+        <div className="planner-focus-topline">
+          <span>{selectedIsActive && activeStatus ? statusLabels[activeStatus] : variantLabels[selectedOption.variant]}</span>
+          <small>Today's Mission</small>
+        </div>
+        <h2 id="planner-focus-title">{selectedOption.title}</h2>
+        <p className="planner-focus-description">{selectedOption.description}</p>
+
+        <div className="planner-focus-actions">
+          <button className="primary-command" type="button" onClick={handlePrimaryAction}>
+            <Play aria-hidden="true" />
+            {primaryLabel}
+          </button>
+          <Link
+            className="secondary-command"
+            to="/app/recommendation"
+            aria-label="See other Mission sizes"
+          >
+            <RefreshCcw aria-hidden="true" /> See other sizes →
+          </Link>
+          {isTodaySelected && (
+            <button className="text-button" type="button" onClick={() => openSchedule(selectedOption)}>
+              <CalendarPlus aria-hidden="true" /> Add to calendar
+            </button>
+          )}
+          {selectedIsActive && activeStatus !== "completed" && activeStatus !== "not_today" && (
+            <button className="text-button planner-defer-action" type="button" onClick={markNotToday}>
+              <Pause aria-hidden="true" /> Not today
+            </button>
+          )}
+        </div>
+
+        <dl className="planner-facts">
+          <div><dt><CalendarClock aria-hidden="true" /> When</dt><dd>{focusTiming}</dd></div>
+          <div><dt><Clock3 aria-hidden="true" /> Duration</dt><dd>{selectedOption.durationMinutes} minutes</dd></div>
+          <div><dt><MapPin aria-hidden="true" /> Place</dt><dd>{locationName}</dd></div>
+          <div><dt><Navigation aria-hidden="true" /> Travel</dt><dd>{selectedPlace ? `${selectedPlace.distanceKm} km` : "No travel"}</dd></div>
+          <div><dt><WalletCards aria-hidden="true" /> Cost</dt><dd>{selectedPlace?.cost ?? selectedOption.estimatedCost}</dd></div>
+          <div><dt><PackageCheck aria-hidden="true" /> Bring</dt><dd>{selectedOption.supplies.length ? selectedOption.supplies.join(", ") : "Nothing extra"}</dd></div>
+        </dl>
+
+        {/* ── Why this fits — always visible, never collapsed ── */}
+        {reasons.length > 0 && (
+          <aside className="mission-fit" aria-label="Why this Mission fits today" ref={tooltipRefs[2] as React.Ref<HTMLElement>}>
+            <p className="app-kicker">Why this fits today</p>
+            <ul>
+              {reasons.map((reason) => (
+                <li key={reason}><Check aria-hidden="true" /> {reason}</li>
+              ))}
+            </ul>
+          </aside>
+        )}
+      </section>
+
+      {/* ── Collapsible "This Week" section ── */}
+      <div className="today-week-section">
+        <button
+          className="today-week-toggle"
+          type="button"
+          aria-expanded={weekOpen}
+          onClick={() => setWeekOpen((v) => !v)}
+        >
           <CalendarDays aria-hidden="true" />
-        </div>
-        <div className="planner-day-strip" role="tablist" aria-label="Choose a day">
-          {scheduleDays.map((day, index) => {
-            const planCount = upcomingMissions.filter((mission) => missionDateKey(mission) === day.value).length;
-            const count = planCount + (index === 0 && data.mission && !data.mission.scheduledFor ? 1 : 0);
-            return (
-              <button
-                className={`${selectedDay === day.value ? "is-selected" : ""}${index === 0 ? " is-today" : ""}`}
-                type="button"
-                role="tab"
-                aria-selected={selectedDay === day.value}
-                onClick={() => setSelectedDay(day.value)}
-                key={day.value}
-              >
-                <span>{index === 0 ? "Today" : day.weekday}</span>
-                <strong>{day.day}</strong>
-                <small>{count ? `${count} planned` : "Open"}</small>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+          This week
+          {weekOpen ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
+        </button>
 
-      <div className="planner-workspace">
-        <section className="planner-focus" id="planner-focus" aria-labelledby="planner-focus-title">
-          <div className="planner-focus-topline">
-            <span>{selectedIsActive && activeStatus ? statusLabels[activeStatus] : variantLabels[selectedOption.variant]}</span>
-            <small>{isTodaySelected ? "Today's action" : `For ${selectedDayInfo.label}`}</small>
-          </div>
-          <h2 id="planner-focus-title">{selectedOption.title}</h2>
-          <p className="planner-focus-description">{selectedOption.description}</p>
+        {weekOpen && (
+          <div className="today-week-body">
 
-          <div className="planner-focus-actions">
-            <button className="primary-command" type="button" onClick={handlePrimaryAction}>
-              {isTodaySelected ? <Play aria-hidden="true" /> : <CalendarPlus aria-hidden="true" />}
-              {primaryLabel}
-            </button>
-            <button
-              className="secondary-command"
-              type="button"
-              onClick={() => document.getElementById("mission-library")?.scrollIntoView({ behavior: data.settings.reducedMotion ? "auto" : "smooth" })}
-            >
-              <RefreshCcw aria-hidden="true" /> Change
-            </button>
-            {isTodaySelected && (
-              <button className="text-button" type="button" onClick={() => openSchedule(selectedOption)}>
-                <CalendarPlus aria-hidden="true" /> Add to calendar
-              </button>
-            )}
-            {selectedIsActive && activeStatus !== "completed" && activeStatus !== "not_today" && (
-              <button className="text-button planner-defer-action" type="button" onClick={markNotToday}>
-                <Pause aria-hidden="true" /> Not today
-              </button>
-            )}
-          </div>
-
-          <dl className="planner-facts">
-            <div><dt><CalendarClock aria-hidden="true" /> When</dt><dd>{focusTiming}</dd></div>
-            <div><dt><Clock3 aria-hidden="true" /> Duration</dt><dd>{selectedOption.durationMinutes} minutes</dd></div>
-            <div><dt><MapPin aria-hidden="true" /> Place</dt><dd>{locationName}</dd></div>
-            <div><dt><Navigation aria-hidden="true" /> Travel</dt><dd>{selectedPlace ? `${selectedPlace.distanceKm} km` : "No travel"}</dd></div>
-            <div><dt><WalletCards aria-hidden="true" /> Cost</dt><dd>{selectedPlace?.cost ?? selectedOption.estimatedCost}</dd></div>
-            <div><dt><PackageCheck aria-hidden="true" /> Bring</dt><dd>{selectedOption.supplies.length ? selectedOption.supplies.join(", ") : "Nothing extra"}</dd></div>
-          </dl>
-        </section>
-
-        <aside className="planner-day-agenda" aria-labelledby="planner-day-title">
-          <header>
-            <div>
-              <p className="app-kicker">{selectedDayInfo.label}</p>
-              <h2 id="planner-day-title">Day plan</h2>
-            </div>
-            <span>{selectedDayCount} {selectedDayCount === 1 ? "mission" : "missions"}</span>
-          </header>
-
-          <div className="planner-agenda-list">
-            {unscheduledCurrentMission && (
-              <article className="planner-agenda-item is-current">
-                <time>Anytime</time>
+            {/* 7-day calendar strip */}
+            <section className="planner-calendar" aria-labelledby="planner-calendar-title">
+              <div className="planner-calendar-heading">
                 <div>
-                  <span>{statusLabels[unscheduledCurrentMission.status]}</span>
-                  <h3>{unscheduledCurrentMission.title}</h3>
-                  <p>{unscheduledCurrentMission.durationMinutes} min / {unscheduledCurrentMission.placeType}</p>
+                  <p className="app-kicker">Your next seven days</p>
+                  <h2 id="planner-calendar-title">This week</h2>
                 </div>
-                <button
-                  className="icon-button"
-                  type="button"
-                  aria-label={`Open ${unscheduledCurrentMission.title}`}
-                  title="Open mission"
-                  onClick={() => {
-                    const option = data.recommendations.find((item) => item.id === unscheduledCurrentMission.optionId);
-                    if (option) chooseOption(option, false);
-                  }}
-                >
-                  <ChevronRight aria-hidden="true" />
-                </button>
-              </article>
-            )}
-
-            {selectedDayPlans.map((mission) => {
-              const option = data.recommendations.find((item) => item.id === mission.optionId) ?? selectedOption;
-              const place = getMissionPlace(data, mission);
-              return (
-                <article className="planner-agenda-item" key={mission.id}>
-                  <time dateTime={mission.scheduledFor ?? undefined}>{mission.scheduledFor ? formatTime(mission.scheduledFor) : "Anytime"}</time>
-                  <div>
-                    <span>Planned</span>
-                    <h3>{mission.title}</h3>
-                    <p>{mission.durationMinutes} min / {place?.name ?? mission.placeType}</p>
-                  </div>
-                  <div className="planner-agenda-actions">
-                    {isTodaySelected && (
-                      <button className="planner-small-command" type="button" onClick={() => startPlannedMissionNow(mission)}>Start</button>
-                    )}
-                    <button className="icon-button" type="button" aria-label={`Move ${mission.title}`} title="Move" onClick={() => openSchedule(option, mission)}><CalendarClock aria-hidden="true" /></button>
-                    <button className="icon-button" type="button" aria-label={`Remove ${mission.title}`} title="Remove" onClick={() => removePlannedMission(mission.id)}><X aria-hidden="true" /></button>
-                  </div>
-                </article>
-              );
-            })}
-
-            {selectedDayCount === 0 && (
-              <div className="planner-open-slot">
-                <span>{data.settings.checkInRhythm.time}</span>
-                <div><strong>Open time</strong><p>Add one realistic action to this day.</p></div>
-                <button className="icon-button" type="button" aria-label={`Add a mission to ${selectedDayInfo.label}`} title="Add mission" onClick={() => openSchedule(selectedOption, undefined, selectedDay)}><Plus aria-hidden="true" /></button>
+                <CalendarDays aria-hidden="true" />
               </div>
-            )}
-          </div>
+              <div className="planner-day-strip" role="tablist" aria-label="Choose a day">
+                {scheduleDays.map((day, index) => {
+                  const planCount = upcomingMissions.filter((mission) => missionDateKey(mission) === day.value).length;
+                  const count = planCount + (index === 0 && data.mission && !data.mission.scheduledFor ? 1 : 0);
+                  return (
+                    <button
+                      className={`${selectedDay === day.value ? "is-selected" : ""}${index === 0 ? " is-today" : ""}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={selectedDay === day.value}
+                      onClick={() => setSelectedDay(day.value)}
+                      key={day.value}
+                    >
+                      <span>{index === 0 ? "Today" : day.weekday}</span>
+                      <strong>{day.day}</strong>
+                      <small>{count ? `${count} planned` : "Open"}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
-          <div className="planner-day-footer">
-            <Link to="/app/check-in">Update today's conditions <ArrowRight aria-hidden="true" /></Link>
-            {scheduleNotice && <span aria-live="polite">{scheduleNotice}</span>}
+            {/* Day agenda panel */}
+            <aside className="planner-day-agenda" aria-labelledby="planner-day-title">
+              <header>
+                <div>
+                  <p className="app-kicker">{selectedDayInfo.label}</p>
+                  <h2 id="planner-day-title">Day plan</h2>
+                </div>
+                <span>{selectedDayCount} {selectedDayCount === 1 ? "mission" : "missions"}</span>
+              </header>
+
+              <div className="planner-agenda-list">
+                {unscheduledCurrentMission && (
+                  <article className="planner-agenda-item is-current">
+                    <time>Anytime</time>
+                    <div>
+                      <span>{statusLabels[unscheduledCurrentMission.status]}</span>
+                      <h3>{unscheduledCurrentMission.title}</h3>
+                      <p>{unscheduledCurrentMission.durationMinutes} min / {unscheduledCurrentMission.placeType}</p>
+                    </div>
+                    <button
+                      className="icon-button"
+                      type="button"
+                      aria-label={`Open ${unscheduledCurrentMission.title}`}
+                      title="Open mission"
+                      onClick={() => {
+                        const option = data.recommendations.find((item) => item.id === unscheduledCurrentMission.optionId);
+                        if (option) chooseOption(option, false);
+                      }}
+                    >
+                      <ChevronRight aria-hidden="true" />
+                    </button>
+                  </article>
+                )}
+
+                {selectedDayPlans.map((mission) => {
+                  const option = data.recommendations.find((item) => item.id === mission.optionId) ?? selectedOption;
+                  const place = getMissionPlace(data, mission);
+                  return (
+                    <article className="planner-agenda-item" key={mission.id}>
+                      <time dateTime={mission.scheduledFor ?? undefined}>{mission.scheduledFor ? formatTime(mission.scheduledFor) : "Anytime"}</time>
+                      <div>
+                        <span>Planned</span>
+                        <h3>{mission.title}</h3>
+                        <p>{mission.durationMinutes} min / {place?.name ?? mission.placeType}</p>
+                      </div>
+                      <div className="planner-agenda-actions">
+                        {isTodaySelected && (
+                          <button className="planner-small-command" type="button" onClick={() => startPlannedMissionNow(mission)}>Start</button>
+                        )}
+                        <button className="icon-button" type="button" aria-label={`Move ${mission.title}`} title="Move" onClick={() => openSchedule(option, mission)}><CalendarClock aria-hidden="true" /></button>
+                        <button className="icon-button" type="button" aria-label={`Remove ${mission.title}`} title="Remove" onClick={() => removePlannedMission(mission.id)}><X aria-hidden="true" /></button>
+                      </div>
+                    </article>
+                  );
+                })}
+
+                {selectedDayCount === 0 && (
+                  <div className="planner-open-slot">
+                    <span>{data.settings.checkInRhythm.time}</span>
+                    <div><strong>Open time</strong><p>Add one realistic action to this day.</p></div>
+                    <button className="icon-button" type="button" aria-label={`Add a mission to ${selectedDayInfo.label}`} title="Add mission" onClick={() => openSchedule(selectedOption, undefined, selectedDay)}><Plus aria-hidden="true" /></button>
+                  </div>
+                )}
+              </div>
+
+              <div className="planner-day-footer">
+                <Link to="/app/check-in">Update today's conditions <ArrowRight aria-hidden="true" /></Link>
+                {scheduleNotice && <span aria-live="polite">{scheduleNotice}</span>}
+              </div>
+            </aside>
+
+            {/* See other Mission options link */}
+            <div className="today-week-mission-link">
+              <Link to="/app/recommendation">
+                See other Mission sizes <ArrowRight aria-hidden="true" />
+              </Link>
+            </div>
+
           </div>
-        </aside>
+        )}
       </div>
 
+      {/* ── Schedule editor (shown when scheduling) ── */}
       {scheduleTarget && (
         <form className="mission-schedule-editor planner-schedule-editor" onSubmit={saveSchedule}>
           <div>
@@ -557,78 +744,34 @@ export function TodayPage() {
         </form>
       )}
 
-      <section className="planner-library" id="mission-library" aria-labelledby="mission-library-title">
-        <div className="mission-section-heading">
-          <div>
-            <p className="app-kicker">Mission library</p>
-            <h2 id="mission-library-title">Build the day around what is possible.</h2>
-          </div>
-          <p>Select an action to preview it, or place it directly on {selectedDayInfo.weekday}.</p>
-        </div>
-
-        <div className="planner-library-list">
-          {plannerOptions.map((option) => {
-            const place = getMissionPlace(data, option);
-            const isSelected = option.id === selectedOption.id;
-            const isEligible = eligibleOptions.some((item) => item.id === option.id);
-            return (
-              <article className={isSelected ? "is-selected" : ""} key={option.id}>
-                <div className="planner-library-label">
-                  <span>{variantLabels[option.variant]}</span>
-                  {option.id === recommendedOption?.id && <small>Best fit</small>}
-                  {option.source === "ai" && <small>AI suggested</small>}
-                </div>
-                <div className="planner-library-copy">
-                  <h3>{option.title}</h3>
-                  <p>{option.durationMinutes} min / {place?.name ?? option.placeType} / {place?.cost ?? option.estimatedCost} / {option.socialMode}</p>
-                  {!isEligible && <small>Outside one or more current preferences</small>}
-                </div>
-                <div className="planner-library-actions">
-                  <button className="secondary-command" type="button" onClick={() => chooseOption(option)}>
-                    {isSelected ? "Selected" : "Preview"}
-                  </button>
-                  <button className="icon-button" type="button" aria-label={`Add ${option.title} to ${selectedDayInfo.label}`} title="Add to calendar" onClick={() => openSchedule(option, undefined, selectedDay)}>
-                    <CalendarPlus aria-hidden="true" />
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="planner-fit" aria-labelledby="planner-fit-title">
-        <div>
-          <p className="app-kicker">Plan context</p>
-          <h2 id="planner-fit-title">Why this mission fits now</h2>
-        </div>
-        <ul>
-          {reasons.map((reason) => <li key={reason}><Check aria-hidden="true" /> {reason}</li>)}
-        </ul>
-        <p>Changing the size, place, or day keeps the action connected to <strong>{data.vision.title}</strong>.</p>
-      </section>
-
-      <section className="mission-result-section planner-result" aria-labelledby="mission-result-title">
-        <div>
-          <p className="app-kicker">Review and adjust</p>
-          <h2 id="mission-result-title">The next plan uses what happened.</h2>
-        </div>
-        <div className="mission-result-copy">
-          {latestResult ? (
-            <p><span>{recordedResult}</span><strong>{latestResult.mission?.title ?? "Previous Mission"}</strong></p>
-          ) : (
-            <p><span>No reflection yet</span><strong>Your first completed Mission will appear here.</strong></p>
-          )}
-          <p>{resultAdjustment}</p>
-        </div>
-      </section>
-
+      {/* ── Supporting nav links — unchanged ── */}
       <nav className="mission-supporting-links" aria-label="Supporting ReNew tools">
-        <Link to="/app/route"><RouteIcon aria-hidden="true" /><span>Life Route<strong>{completedRouteSteps} of {data.route.length} explored</strong></span><ChevronRight aria-hidden="true" /></Link>
+        <Link to="/app/route">
+          <RouteIcon aria-hidden="true" />
+          <span>
+            Route
+            <button
+              className="info-affordance"
+              type="button"
+              aria-label="What is the Route?"
+              aria-expanded={routeInfoOpen}
+              onClick={(e) => { e.preventDefault(); setRouteInfoOpen((v) => !v); }}
+            ><Info aria-hidden="true" /></button>
+            <strong>{completedRouteSteps} of {data.route.length} levels explored</strong>
+          </span>
+          <ChevronRight aria-hidden="true" />
+        </Link>
         <Link to="/app/places"><MapPin aria-hidden="true" /><span>Places<strong>Review real-world conditions</strong></span><ChevronRight aria-hidden="true" /></Link>
-        <Link to="/app/insights"><CheckCircle2 aria-hidden="true" /><span>Activity records<strong>Monitor plans and results</strong></span><ChevronRight aria-hidden="true" /></Link>
+        <Link to="/app/insights"><CheckCircle2 aria-hidden="true" /><span>Insights<strong>Monitor plans and results</strong></span><ChevronRight aria-hidden="true" /></Link>
         <Link to="/app/support"><UsersRound aria-hidden="true" /><span>Support<strong>Available when you choose it</strong></span><ChevronRight aria-hidden="true" /></Link>
       </nav>
+
+      {routeInfoOpen && (
+        <aside className="info-disclosure info-disclosure-bottom" role="note">
+          <p>Your Route is a set of levels — from the smallest possible action up to your full goal. Each completed Mission advances you along it at your own pace.</p>
+          <button type="button" className="text-button" onClick={() => setRouteInfoOpen(false)}>Close</button>
+        </aside>
+      )}
     </main>
   );
 }

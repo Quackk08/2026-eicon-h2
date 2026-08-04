@@ -29,8 +29,8 @@ export function ReflectionPage() {
         <p className="app-kicker">Nothing to reflect on yet</p>
         <h1>Your record begins after a chosen Mission.</h1>
         <p>Start with a Check-In and choose a step that fits today.</p>
-        <Link className="primary-command" to="/app/check-in">
-          Start Check-In <ArrowRight aria-hidden="true" />
+        <Link className="primary-command" to="/app/today">
+          Back to Today <ArrowRight aria-hidden="true" />
         </Link>
       </main>
     );
@@ -77,7 +77,6 @@ export function ReflectionPage() {
         mission: null
       };
     });
-
     try {
       const { queued } = await submitReflectionOrQueue(mission.id, {
         outcome,
@@ -91,7 +90,7 @@ export function ReflectionPage() {
       setSaving(false);
     }
 
-    navigate("/app/today");
+    navigate("/app/today", { replace: true });
   };
 
   return (
@@ -133,9 +132,47 @@ export function ReflectionPage() {
           </div>
         </fieldset>
 
-        <fieldset className="effort-options">
+        <fieldset className="effort-options effort-fillbar">
           <legend>How much effort did it take?</legend>
-          <div>
+          {/* Fill-bar / dial — primary interactive element */}
+          <div className="effort-track" role="group" aria-label="Effort level">
+            <div
+              className="effort-fill"
+              aria-hidden="true"
+              style={{ width: `${((effort - 1) / 4) * 100}%` }}
+            />
+            {effortLabels.map((label, index) => {
+              const value = (index + 1) as EffortLevel;
+              const pct = (index / 4) * 100;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  className={`effort-stop${effort === value ? " is-active" : ""}`}
+                  style={{ left: `${pct}%` }}
+                  aria-pressed={effort === value}
+                  aria-label={label}
+                  onClick={() => setEffort(value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowRight") { e.preventDefault(); setEffort((v) => Math.min(5, v + 1) as EffortLevel); }
+                    if (e.key === "ArrowLeft") { e.preventDefault(); setEffort((v) => Math.max(1, v - 1) as EffortLevel); }
+                  }}
+                />
+              );
+            })}
+          </div>
+          {/* Axis labels */}
+          <div className="effort-axis" aria-hidden="true">
+            {effortLabels.map((label, index) => (
+              <span key={label} className={effort === (index + 1) as EffortLevel ? "is-active" : ""}>{label}</span>
+            ))}
+          </div>
+          {/* Screen-reader announced selection */}
+          <p className="effort-selection-label sr-only" aria-live="polite">
+            Effort: {effortLabels[effort - 1]}
+          </p>
+          {/* Hidden radio inputs for form semantics */}
+          <div style={{ display: "none" }}>
             {effortLabels.map((label, index) => {
               const value = (index + 1) as EffortLevel;
               return (
@@ -147,7 +184,6 @@ export function ReflectionPage() {
                     checked={effort === value}
                     onChange={() => setEffort(value)}
                   />
-                  <i aria-hidden="true" />
                   {label}
                 </label>
               );

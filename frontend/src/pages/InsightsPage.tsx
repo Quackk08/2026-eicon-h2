@@ -20,6 +20,73 @@ import { fetchWeeklyInsight } from "../api/backend";
 import type { ApiWeeklyInsight } from "../api/types";
 import { useAppState } from "../state/AppState";
 
+/* ─── Inline SVG bar chart (no external deps) ─── */
+interface BarChartProps {
+  bars: { label: string; value: number; maxValue: number }[];
+  color?: string;
+  height?: number;
+}
+
+function BarChart({ bars, color = "var(--color-forest)", height = 80 }: BarChartProps) {
+  if (!bars.length) return null;
+  const hasData = bars.some((b) => b.value > 0);
+  return (
+    <div className="insight-bar-chart" aria-hidden="true" style={{ height }}>
+      {bars.map((bar, i) => {
+        const pct = bar.maxValue > 0 ? (bar.value / bar.maxValue) * 100 : 0;
+        return (
+          <div key={i} className="insight-bar-col">
+            <div className="insight-bar-track">
+              <div
+                className="insight-bar-fill"
+                style={{ height: `${pct}%`, background: color }}
+              />
+            </div>
+            <span className="insight-bar-label">{bar.label}</span>
+          </div>
+        );
+      })}
+      {!hasData && <span className="insight-chart-empty">No data yet</span>}
+    </div>
+  );
+}
+
+/* ─── Inline SVG line chart ─── */
+interface LineChartProps {
+  points: number[];
+  labels?: string[];
+  color?: string;
+  height?: number;
+}
+
+function LineChart({ points, labels, color = "var(--color-forest)", height = 80 }: LineChartProps) {
+  if (points.length < 2) return null;
+  const max = Math.max(...points, 1);
+  const w = 100;
+  const h = height;
+  const step = w / (points.length - 1);
+  const coords = points.map((p, i) => ({
+    x: i * step,
+    y: h - (p / max) * (h - 8) - 4
+  }));
+  const pathD = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(" ");
+  return (
+    <div className="insight-line-chart" aria-hidden="true">
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ height }}>
+        <path d={pathD} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        {coords.map((c, i) => (
+          <circle key={i} cx={c.x} cy={c.y} r="2.5" fill={color} vectorEffect="non-scaling-stroke" />
+        ))}
+      </svg>
+      {labels && (
+        <div className="insight-line-labels">
+          {labels.map((l, i) => <span key={i}>{l}</span>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 type InsightView = "overview" | "activity" | "patterns";
 type InsightRange = 7 | 28 | "all";
 type ActivityFilter = "all" | "missions" | "checkins" | "plans";
@@ -381,6 +448,49 @@ export function InsightsPage() {
             </dl>
           </section>
 
+          {/* ── Weekly missions trend chart ── */}
+          {recentHistory.length >= 2 ? (() => {
+            // Build last-7-day buckets labelled Mon–Sun relative to today
+            const buckets: { label: string; value: number }[] = Array.from({ length: 7 }, (_, i) => {
+              const d = new Date();
+              d.setDate(d.getDate() - (6 - i));
+              const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+              const label = new Intl.DateTimeFormat("en", { weekday: "short" }).format(d);
+              const value = recentHistory.filter(m => {
+                const at = (m.completedAt ?? m.selectedAt).slice(0,10);
+                return at === key;
+              }).length;
+              return { label, value };
+            });
+            const maxVal = Math.max(...buckets.map(b => b.value), 1);
+            return (
+              <section className="insight-weekly-chart" aria-labelledby="weekly-chart-title">
+                <p className="app-kicker">Last 7 days</p>
+                <h2 id="weekly-chart-title">Mission activity</h2>
+                {recentHistory.length > 0 ? (
+                  <>
+                    <BarChart
+                      bars={buckets.map(b => ({ label: b.label, value: b.value, maxValue: maxVal }))}
+                      color="var(--color-sky)"
+                      height={72}
+                    />
+                    {/* Screen-reader table equivalent */}
+                    <table className="sr-only">
+                      <caption>Missions per day, last 7 days</caption>
+                      <tbody>
+                        {buckets.map(b => (
+                          <tr key={b.label}><th scope="row">{b.label}</th><td>{b.value}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                ) : (
+                  <p className="insight-chart-empty-text">Not enough data yet. Complete a Mission to see your first chart.</p>
+                )}
+              </section>
+            );
+          })() : null}
+
           <div className="insight-overview-layout">
             <section className="insight-recent" aria-labelledby="recent-activity-title">
               <div className="insight-section-heading">
@@ -456,7 +566,7 @@ export function InsightsPage() {
             <div>
               <p className="app-kicker">Connected direction</p>
               <h2 id="route-strip-title">{data.vision.title}</h2>
-              <p>{completedRoute} of {data.route.length} Route steps explored</p>
+              <p>{completedRoute} of {data.route.length} Route levels explored</p>
             </div>
             <div className="insight-route-progress" aria-label={`${routePercent}% of Route steps explored`}>
               <span><i style={{ width: `${routePercent}%` }} /></span>
@@ -543,19 +653,40 @@ export function InsightsPage() {
               <div><p>Mission results</p><h3 id="outcomes-title">How selected missions ended</h3></div>
             </div>
             {recentHistory.length ? (
-              <div className="pattern-bars">
-                {[
-                  { label: "Completed", count: outcomeCounts.completed, icon: Check },
-                  { label: "Partly completed", count: outcomeCounts.partly, icon: CircleDashed },
-                  { label: "Not today", count: outcomeCounts.notToday, icon: X }
-                ].map(({ label, count, icon: Icon }) => (
-                  <div key={label}>
-                    <span><Icon aria-hidden="true" /> {label}</span>
-                    <i aria-hidden="true"><b style={{ width: `${(count / maxOutcomeCount) * 100}%` }} /></i>
-                    <strong>{count}</strong>
-                  </div>
-                ))}
-              </div>
+              <>
+                <BarChart
+                  bars={[
+                    { label: "Completed", value: outcomeCounts.completed, maxValue: maxOutcomeCount },
+                    { label: "Partly", value: outcomeCounts.partly, maxValue: maxOutcomeCount },
+                    { label: "Not today", value: outcomeCounts.notToday, maxValue: maxOutcomeCount }
+                  ]}
+                  color="var(--color-sky)"
+                  height={88}
+                />
+                {/* Accessible text fallback */}
+                <table className="sr-only">
+                  <caption>Mission outcomes</caption>
+                  <tbody>
+                    <tr><th>Completed</th><td>{outcomeCounts.completed}</td></tr>
+                    <tr><th>Partly completed</th><td>{outcomeCounts.partly}</td></tr>
+                    <tr><th>Not today</th><td>{outcomeCounts.notToday}</td></tr>
+                  </tbody>
+                </table>
+                {/* Legacy bar rows kept visible for labelled counts */}
+                <div className="pattern-bars">
+                  {[
+                    { label: "Completed", count: outcomeCounts.completed, icon: Check },
+                    { label: "Partly completed", count: outcomeCounts.partly, icon: CircleDashed },
+                    { label: "Not today", count: outcomeCounts.notToday, icon: X }
+                  ].map(({ label, count, icon: Icon }) => (
+                    <div key={label}>
+                      <span><Icon aria-hidden="true" /> {label}</span>
+                      <i aria-hidden="true"><b style={{ width: `${(count / maxOutcomeCount) * 100}%` }} /></i>
+                      <strong>{count}</strong>
+                    </div>
+                  ))}
+                </div>
+              </>
             ) : (
               <p className="pattern-empty">Mission results will appear after a mission is reflected on.</p>
             )}
@@ -567,15 +698,26 @@ export function InsightsPage() {
               <div><p>Mission size</p><h3 id="mission-size-title">Planned length of completed records</h3></div>
             </div>
             {recentHistory.length ? (
-              <div className="pattern-bars is-compact">
-                {durationGroups.map((group) => (
-                  <div key={group.label}>
-                    <span>{group.label}</span>
-                    <i aria-hidden="true"><b style={{ width: `${(group.count / maxDurationCount) * 100}%` }} /></i>
-                    <strong>{group.count}</strong>
-                  </div>
-                ))}
-              </div>
+              <>
+                <BarChart
+                  bars={durationGroups.map(g => ({ label: g.label, value: g.count, maxValue: maxDurationCount }))}
+                  color="var(--color-sky)"
+                  height={88}
+                />
+                <table className="sr-only">
+                  <caption>Mission durations</caption>
+                  <tbody>{durationGroups.map(g => <tr key={g.label}><th>{g.label}</th><td>{g.count}</td></tr>)}</tbody>
+                </table>
+                <div className="pattern-bars is-compact">
+                  {durationGroups.map((group) => (
+                    <div key={group.label}>
+                      <span>{group.label}</span>
+                      <i aria-hidden="true"><b style={{ width: `${(group.count / maxDurationCount) * 100}%` }} /></i>
+                      <strong>{group.count}</strong>
+                    </div>
+                  ))}
+                </div>
+              </>
             ) : (
               <p className="pattern-empty">No mission sizes are available in this range.</p>
             )}
@@ -587,15 +729,26 @@ export function InsightsPage() {
               <div><p>Setting</p><h3 id="setting-title">Where missions took place</h3></div>
             </div>
             {recentHistory.length ? (
-              <div className="pattern-bars is-compact">
-                {settingGroups.map((group) => (
-                  <div key={group.label}>
-                    <span>{group.label}</span>
-                    <i aria-hidden="true"><b style={{ width: `${(group.count / maxSettingCount) * 100}%` }} /></i>
-                    <strong>{group.count}</strong>
-                  </div>
-                ))}
-              </div>
+              <>
+                <BarChart
+                  bars={settingGroups.map(g => ({ label: g.label, value: g.count, maxValue: maxSettingCount }))}
+                  color="var(--color-sky)"
+                  height={88}
+                />
+                <table className="sr-only">
+                  <caption>Mission settings</caption>
+                  <tbody>{settingGroups.map(g => <tr key={g.label}><th>{g.label}</th><td>{g.count}</td></tr>)}</tbody>
+                </table>
+                <div className="pattern-bars is-compact">
+                  {settingGroups.map((group) => (
+                    <div key={group.label}>
+                      <span>{group.label}</span>
+                      <i aria-hidden="true"><b style={{ width: `${(group.count / maxSettingCount) * 100}%` }} /></i>
+                      <strong>{group.count}</strong>
+                    </div>
+                  ))}
+                </div>
+              </>
             ) : (
               <p className="pattern-empty">Mission settings will appear once activity is recorded.</p>
             )}

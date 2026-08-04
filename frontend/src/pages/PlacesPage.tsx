@@ -11,6 +11,8 @@ export function PlacesPage() {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("All");
   const [savedOnly, setSavedOnly] = useState(false);
+  const [distanceFilter, setDistanceFilter] = useState<"all" | "near" | "close">("all");
+  const [costFilter, setCostFilter] = useState<"all" | "free" | "low">("all");
 
   const places = useMemo(
     () =>
@@ -20,10 +22,23 @@ export function PlacesPage() {
           .includes(query.toLowerCase());
         const matchesType = type === "All" || place.type === type;
         const matchesSaved = !savedOnly || data.savedPlaceIds.includes(place.id);
-        return matchesQuery && matchesType && matchesSaved;
+        const matchesDistance =
+          distanceFilter === "all" ? true :
+          distanceFilter === "near" ? place.distanceKm <= 1 :
+          place.distanceKm <= 0.5;
+        const matchesCost =
+          costFilter === "all" ? true :
+          costFilter === "free" ? place.cost === "Free" :
+          place.cost === "Free" || place.cost === "Low cost";
+        return matchesQuery && matchesType && matchesSaved && matchesDistance && matchesCost;
       }),
-    [data.places, data.savedPlaceIds, query, savedOnly, type]
+    [data.places, data.savedPlaceIds, query, savedOnly, type, distanceFilter, costFilter]
   );
+
+  const resetFilters = () => {
+    setQuery(""); setType("All"); setSavedOnly(false);
+    setDistanceFilter("all"); setCostFilter("all");
+  };
 
   const toggleSaved = (placeId: string) => {
     const nextSaved = !data.savedPlaceIds.includes(placeId);
@@ -75,6 +90,46 @@ export function PlacesPage() {
           <Bookmark aria-hidden="true" /> Saved
         </button>
       </section>
+
+      {/* Distance and cost filter chips */}
+      <div className="place-filter-chips" role="group" aria-label="Filter by distance and cost">
+        <button
+          type="button"
+          className={`place-filter-chip${distanceFilter === "all" ? " is-active" : ""}`}
+          aria-pressed={distanceFilter === "all"}
+          onClick={() => setDistanceFilter("all")}
+        >Any distance</button>
+        <button
+          type="button"
+          className={`place-filter-chip${distanceFilter === "near" ? " is-active" : ""}`}
+          aria-pressed={distanceFilter === "near"}
+          onClick={() => setDistanceFilter("near")}
+        >Within 1 km</button>
+        <button
+          type="button"
+          className={`place-filter-chip${distanceFilter === "close" ? " is-active" : ""}`}
+          aria-pressed={distanceFilter === "close"}
+          onClick={() => setDistanceFilter("close")}
+        >Within 0.5 km</button>
+        <button
+          type="button"
+          className={`place-filter-chip${costFilter === "all" ? " is-active" : ""}`}
+          aria-pressed={costFilter === "all"}
+          onClick={() => setCostFilter("all")}
+        >Any cost</button>
+        <button
+          type="button"
+          className={`place-filter-chip${costFilter === "free" ? " is-active" : ""}`}
+          aria-pressed={costFilter === "free"}
+          onClick={() => setCostFilter("free")}
+        >Free only</button>
+        <button
+          type="button"
+          className={`place-filter-chip${costFilter === "low" ? " is-active" : ""}`}
+          aria-pressed={costFilter === "low"}
+          onClick={() => setCostFilter("low")}
+        >Free / Low cost</button>
+      </div>
 
       <div className="place-type-tabs" role="tablist" aria-label="Place type">
         {placeTypes.map((item) => (
@@ -133,7 +188,7 @@ export function PlacesPage() {
         <section className="empty-results">
           <p className="app-kicker">No matching places</p>
           <h2>Try a broader type or remove the saved filter.</h2>
-          <button className="secondary-command" type="button" onClick={() => { setQuery(""); setType("All"); setSavedOnly(false); }}>
+          <button className="secondary-command" type="button" onClick={resetFilters}>
             Reset filters
           </button>
         </section>

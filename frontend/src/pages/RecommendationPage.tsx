@@ -26,9 +26,20 @@ export function RecommendationPage() {
   const [loadingPick, setLoadingPick] = useState(true);
   const [placePick, setPlacePick] = useState<ApiPlaceSearchResult | null>(null);
 
+  /* A1: Guard — need at least one check-in today to reach this page */
+  const today = new Date().toISOString().slice(0, 10);
+  const hasCheckInToday = data.checkIns.some((c) => c.createdAt.slice(0, 10) === today);
+
+
   // Today's step comes from the shared backend pick. Only ask for a new one
   // if there is none yet — arriving here from a Check-In already generated it.
   useEffect(() => {
+    if (!ready || !hasCheckInToday) {
+      setLoadingPick(false);
+      return;
+    }
+
+    setLoadingPick(true);
     let active = true;
     (async () => {
       try {
@@ -47,7 +58,7 @@ export function RecommendationPage() {
     return () => {
       active = false;
     };
-  }, [serverPick?.id]);
+  }, [hasCheckInToday, ready, refresh, serverPick?.id]);
 
   const recommended =
     (serverPick && data.recommendations.find((option) => option.id === serverPick.selected_template_id)) ??
@@ -82,6 +93,19 @@ export function RecommendationPage() {
 
   // Finished loading with nothing to offer — no Vision or no Check-In yet.
   // Saying so beats a spinner that never stops.
+  if (!hasCheckInToday) {
+    return (
+      <main className="app-page flow-page mission-empty">
+        <p className="app-kicker">Check-In first</p>
+        <h1>A recommendation needs today's conditions.</h1>
+        <p>Complete a quick Check-In and ReNew will match an action to what's available right now.</p>
+        <Link className="primary-command" to="/app/check-in">
+          Start Check-In <ArrowRight aria-hidden="true" />
+        </Link>
+      </main>
+    );
+  }
+
   if (!recommended) {
     return (
       <main className="app-page flow-page mission-empty">
@@ -133,7 +157,7 @@ export function RecommendationPage() {
             <span><MapPin aria-hidden="true" /> {placeName}</span>
           </div>
           <button className="primary-command" type="button" onClick={() => chooseMission(recommended)}>
-            Choose this step <ArrowRight aria-hidden="true" />
+            Choose this Mission <ArrowRight aria-hidden="true" />
           </button>
         </div>
       </section>

@@ -147,6 +147,7 @@ export interface AppData {
   };
   preferences: UserPreferences;
   vision: LifeVision;
+  pastVisions: LifeVision[];
   route: RouteStep[];
   checkIns: CheckInRecord[];
   recommendations: RecommendationOption[];
@@ -163,6 +164,7 @@ export interface AppData {
     checkInRhythm: CheckInRhythm;
     reducedMotion: boolean;
     theme: "system" | "light";
+    walkthroughSeen: boolean;
   };
   trustedContact: {
     /** Absent until the server has accepted the contact (e.g. saved offline). */
@@ -204,6 +206,7 @@ export function createDefaultAppData(): AppData {
       status: "active"
     },
     route: [],
+    pastVisions: [],
     checkIns: [],
     recommendations: [],
     mission: null,
@@ -223,7 +226,8 @@ export function createDefaultAppData(): AppData {
         enabled: true
       },
       reducedMotion: false,
-      theme: "system"
+      theme: "system",
+      walkthroughSeen: false
     },
     trustedContact: null
   };
@@ -398,6 +402,7 @@ export async function loadAppData(): Promise<AppData> {
     profile: { ...defaults.profile, ...storedData.profile },
     preferences: { ...defaults.preferences, ...storedData.preferences },
     vision: { ...defaults.vision, ...storedData.vision },
+    pastVisions: (storedData as AppData & { pastVisions?: LifeVision[] }).pastVisions ?? [],
     recommendations: storedRecommendations,
     mission: storedData.mission ? normalizeMission(storedData.mission, storedRecommendations) : null,
     plannedMissions: (storedMissionData.plannedMissions ?? []).map((mission) =>
@@ -416,7 +421,8 @@ export async function loadAppData(): Promise<AppData> {
         ...storedRhythm,
         time: rhythmTime,
         enabled: rhythmEnabled
-      }
+      },
+      walkthroughSeen: storedSettings.walkthroughSeen ?? defaults.settings.walkthroughSeen
     }
   };
 }
