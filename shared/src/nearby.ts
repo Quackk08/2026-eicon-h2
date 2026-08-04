@@ -29,7 +29,13 @@ export const suggestedNearbyPlaceSchema = z.object({
   category: z.string().trim().min(2).max(40),
   /** Why this setting suits the action — never why it suits the person. */
   whyItSuitsTheAction: z.string().trim().min(10).max(200),
-  approxWalkMinutes: z.number().int().min(1).max(60)
+  approxWalkMinutes: z.number().int().min(1).max(60),
+  /**
+   * What to do on arrival, carried in the same response rather than fetched
+   * per place: one call for four places instead of five, which matters on a
+   * daily request budget. Subject to the same tip rules.
+   */
+  arrivalTip: z.string().trim().min(10).max(200).nullable()
 });
 
 export const nearbySuggestionSchema = z.object({
@@ -77,5 +83,10 @@ export function isSafePlaceTip(tip: string): boolean {
 }
 
 export function isSafeNearbySuggestion(place: SuggestedNearbyPlace): boolean {
-  return !containsBlockedWording(`${place.name} ${place.category} ${place.whyItSuitsTheAction}`);
+  if (containsBlockedWording(`${place.name} ${place.category} ${place.whyItSuitsTheAction}`)) {
+    return false;
+  }
+  // The arrival tip is held to the tip rules, not merely the wordlist: it is
+  // the part most likely to drift into "this will help you feel...".
+  return place.arrivalTip === null || isSafePlaceTip(place.arrivalTip);
 }

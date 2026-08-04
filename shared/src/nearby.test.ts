@@ -42,7 +42,12 @@ describe("isSafePlaceTip", () => {
 });
 
 describe("isSafeNearbySuggestion", () => {
-  const base = { name: "Riverside Library", category: "library", approxWalkMinutes: 8 };
+  const base = {
+    name: "Riverside Library",
+    category: "library",
+    approxWalkMinutes: 8,
+    arrivalTip: null as string | null
+  };
 
   it("allows a venue described by its setting", () => {
     expect(
@@ -53,6 +58,19 @@ describe("isSafeNearbySuggestion", () => {
   it("rejects a venue whose description drifts into clinical wording", () => {
     expect(
       isSafeNearbySuggestion({ ...base, whyItSuitsTheAction: "Staff can refer you to a therapist." })
+    ).toBe(false);
+  });
+
+  it("holds the arrival tip to the tip rules, not just the wordlist", () => {
+    const suits = "Quiet upper floor with single desks.";
+    expect(
+      isSafeNearbySuggestion({ ...base, whyItSuitsTheAction: suits, arrivalTip: "Start at the short-story shelf by the window." })
+    ).toBe(true);
+    expect(
+      isSafeNearbySuggestion({ ...base, whyItSuitsTheAction: suits, arrivalTip: "A herbal tea here will calm your anxiety." })
+    ).toBe(false);
+    expect(
+      isSafeNearbySuggestion({ ...base, whyItSuitsTheAction: suits, arrivalTip: "Since you seem low on energy, grab a coffee." })
     ).toBe(false);
   });
 });

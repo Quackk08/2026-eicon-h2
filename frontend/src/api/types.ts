@@ -185,6 +185,8 @@ export interface ApiSuggestedNearbyPlace {
   category: string;
   whyItSuitsTheAction: string;
   approxWalkMinutes: number;
+  /** What to do on arrival; null when nothing useful fitted. */
+  arrivalTip: string | null;
 }
 
 export interface ApiNearbyPlaces {

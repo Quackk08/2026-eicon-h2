@@ -152,6 +152,9 @@ export function PlaceDetailPage() {
                 <strong>{suggestion.name}</strong>
                 <span className="ai-suggested-tag">AI suggested / not reviewed</span>
                 <p>{suggestion.whyItSuitsTheAction}</p>
+                {suggestion.arrivalTip && (
+                  <p className="place-arrival-tip"><strong>When you get there</strong> {suggestion.arrivalTip}</p>
+                )}
                 <span>{suggestion.category} / about {suggestion.approxWalkMinutes} min on foot</span>
               </li>
             ))}

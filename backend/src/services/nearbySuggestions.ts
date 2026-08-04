@@ -73,11 +73,12 @@ RULES:
 3. Everything must be reachable on foot in ${input.maxWalkMinutes} minutes or less.
 4. Cost level must be ${input.maxCostLevel} or lower on a 0-4 scale, where 0 means free to enter.
 5. whyItSuitsTheAction describes the PLACE and the ACTION only — quiet, seating, opening hours, how busy it gets. Never mention the person's feelings, energy, stress, or health.
-6. No bars, clubs, liquor stores, pharmacies, clinics, or hospitals.
-7. Plain English, no marketing language.
+6. arrivalTip is one concrete thing to do on arrival, suited to that kind of place: something to order at a cafe within budget, a shelf or section at a library, a bench or route at a park. Describe the thing itself — never claim an effect on the person ("this will calm you", "good for focus"), and never refer to how they feel. Use null if nothing useful fits.
+7. No bars, clubs, liquor stores, pharmacies, clinics, or hospitals. No alcohol, supplements, or medication in a tip.
+8. Plain English, no marketing language.
 
 Respond with ONLY a JSON object in exactly this shape:
-{"contractVersion":1,"places":[{"name":"string","category":"string","whyItSuitsTheAction":"string","approxWalkMinutes":10}]}
+{"contractVersion":1,"places":[{"name":"string","category":"string","whyItSuitsTheAction":"string","approxWalkMinutes":10,"arrivalTip":"string or null"}]}
 `.trim();
 }
 
