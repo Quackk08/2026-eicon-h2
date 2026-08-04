@@ -186,6 +186,40 @@ export async function savePreferences(preferences: UserPreferences): Promise<voi
   await api.patch("/me/preferences", toApiPreferences(preferences));
 }
 
+/**
+ * Creates (or updates) the Vision and returns the ladder it actually got,
+ * ready to display.
+ *
+ * Onboarding's last screen calls itself "your first Route", so it has to
+ * show the generated steps rather than the seed preview it used to — the
+ * seed list looked hardcoded precisely because it was not built from
+ * anything the person wrote.
+ *
+ * Passing an existing visionId rewrites that Vision instead of adding
+ * another, so going back and editing the wording does not leave a trail of
+ * abandoned Visions behind.
+ */
+export async function createVisionWithGeneratedRoute(
+  domain: LifeDomain,
+  summary: string,
+  existingVisionId?: string
+): Promise<{ visionId: string; steps: RouteStep[] }> {
+  await ensureProfile();
+
+  const vision = existingVisionId
+    ? await api.patch<ApiVision>(`/visions/${existingVisionId}`, { summary })
+    : await api.post<ApiVision>("/visions", { domain: toApiDomain(domain), summary });
+
+  const route = await api.post<ApiRoute>(`/visions/${vision.id}/generate-route`, {});
+  const templates = await fetchActionTemplates();
+  const templatesById = new Map(templates.map((template) => [template.id, template]));
+
+  return {
+    visionId: vision.id,
+    steps: route.steps.map((step) => fromApiRouteStep(step, templatesById.get(step.template_id)))
+  };
+}
+
 export async function createVisionWithRoute(
   domain: LifeDomain,
   summary: string

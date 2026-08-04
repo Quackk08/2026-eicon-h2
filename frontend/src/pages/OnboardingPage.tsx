@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { createVisionWithRoute, fetchRoutePreview, savePreferences } from "../api/backend";
+import {
+  createVisionWithGeneratedRoute,
+  createVisionWithRoute,
+  fetchRoutePreview,
+  savePreferences
+} from "../api/backend";
 import {
   ArrowLeft,
   ArrowRight,
@@ -43,23 +48,52 @@ export function OnboardingPage() {
   const [visionDescription, setVisionDescription] = useState(data.vision.description);
   const primaryDomain = preferences.domains[0] ?? "Study & focus";
   const [route, setRoute] = useState<RouteStep[]>([]);
+  const [buildingRoute, setBuildingRoute] = useState(false);
+  const [visionId, setVisionId] = useState<string | null>(null);
+  // The wording the shown ladder was built from, so going back without
+  // changing anything does not spend another generation.
+  const [routeBuiltFor, setRouteBuiltFor] = useState<string | null>(null);
   const progress = ((step + 1) / stepMeta.length) * 100;
 
-  // Preview the Route this Vision will actually get, straight from the
-  // backend's reviewed Activity Ladder — not a local sample of one.
+  // A stand-in for the domain, shown only until the real ladder is built on
+  // the review step. Skipped once that exists, so it cannot overwrite it.
   useEffect(() => {
+    if (routeBuiltFor) return;
     let active = true;
     fetchRoutePreview(primaryDomain)
       .then((steps) => {
-        if (active) setRoute(steps);
+        if (active && !routeBuiltFor) setRoute(steps);
       })
       .catch(() => {
-        if (active) setRoute([]);
+        if (active && !routeBuiltFor) setRoute([]);
       });
     return () => {
       active = false;
     };
-  }, [primaryDomain]);
+  }, [primaryDomain, routeBuiltFor]);
+
+  /**
+   * Builds the ladder before the review step renders, so "your first Route"
+   * shows what the person actually gets rather than a generic sample.
+   */
+  const buildRouteForVision = async () => {
+    const summary = visionTitle.trim();
+    if (!summary || routeBuiltFor === summary) return;
+
+    setBuildingRoute(true);
+    try {
+      await savePreferences(preferences);
+      const built = await createVisionWithGeneratedRoute(primaryDomain, summary, visionId ?? undefined);
+      setVisionId(built.visionId);
+      setRoute(built.steps);
+      setRouteBuiltFor(summary);
+    } catch {
+      // Generation is allowed to fail — the seed preview already on screen
+      // stays, and completeOnboarding will try again on the way out.
+    } finally {
+      setBuildingRoute(false);
+    }
+  };
 
   const toggleDomain = (domain: LifeDomain) => {
     setPreferences((current) => {
@@ -104,7 +138,11 @@ export function OnboardingPage() {
 
     try {
       await savePreferences(preferences);
-      await createVisionWithRoute(primaryDomain, visionTitle);
+      // Usually already done on the review step; this covers the case where
+      // that generation failed, so the Vision still reaches the server.
+      if (routeBuiltFor !== visionTitle.trim()) {
+        await createVisionWithRoute(primaryDomain, visionTitle);
+      }
       await refresh();
     } catch {
       // Saved locally already — the Vision syncs on the next successful load.
@@ -316,10 +354,15 @@ export function OnboardingPage() {
           <button
             className="primary-command"
             type="button"
-            onClick={() => setStep((current) => Math.min(stepMeta.length - 1, current + 1))}
-            disabled={!canContinue}
+            onClick={async () => {
+              // Leaving the Vision step is the moment the ladder can be
+              // built, so the next screen has something real to show.
+              if (step === 3) await buildRouteForVision();
+              setStep((current) => Math.min(stepMeta.length - 1, current + 1));
+            }}
+            disabled={!canContinue || buildingRoute}
           >
-            Continue <ArrowRight aria-hidden="true" />
+            {buildingRoute ? "Building your Route..." : "Continue"} <ArrowRight aria-hidden="true" />
           </button>
         ) : (
           <button className="primary-command" type="button" onClick={completeOnboarding} disabled={saving}>
