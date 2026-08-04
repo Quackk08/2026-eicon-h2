@@ -1,16 +1,4 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install",
-  "buildCommand": "npm run build --workspace @renew/shared && npm run build --workspace backend && npm run build --workspace frontend",
-  "outputDirectory": "frontend/dist",
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index?__vercelPath=:path*" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ]
-}
-
-
-{
     "services": {
         "frontend": {
             "root": "frontend",
