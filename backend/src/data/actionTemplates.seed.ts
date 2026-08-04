@@ -1,5 +1,8 @@
 import type { ActionTemplate } from "@renew/shared";
 
+/** Every domain, so the orienting ladder matches whichever one was picked. */
+const ALL_DOMAINS = ["study_school", "sleep_energy", "relationships", "movement_health", "creativity", "daily_independence", "community_participation", "stress_recovery"] as ActionTemplate["goalDomains"];
+
 /**
  * Reviewed Activity Ladder seed data. AI never invents entries here — it
  * can only select among them (docs/IMPLEMENTATION_PLAN.md section 7).
@@ -235,6 +238,86 @@ export const actionTemplateSeeds: ActionTemplate[] = [
     indoorOutdoor: "indoor",
     ladderGroupId: "daily-recovery",
     ladderLevel: 3,
+    safetyTags: []
+  },
+
+  /*
+   * Orienting ladder — for a Vision that names no direction yet.
+   *
+   * "I don't know what I want" is a real answer, and borrowing a goal-shaped
+   * ladder from whichever domain was selected would push someone toward
+   * something they never said they wanted. These steps look for a direction
+   * instead of pursuing one: notice, rule out, sample, observe, try. They
+   * carry every domain so whichever one was picked still matches.
+   */
+  {
+    id: "orient-notice-one-thing",
+    goalDomains: ALL_DOMAINS,
+    title: "Write down one thing today that you did not mind doing",
+    minCapacity: 0,
+    maxSocialLoad: 0,
+    durationRange: [1, 3],
+    costLevel: 0,
+    placeTypes: ["home"],
+    indoorOutdoor: "indoor",
+    ladderGroupId: "orienting-start",
+    ladderLevel: 1,
+    safetyTags: []
+  },
+  {
+    id: "orient-rule-something-out",
+    goalDomains: ALL_DOMAINS,
+    title: "List two things you would rather not spend a whole day on",
+    minCapacity: 1,
+    maxSocialLoad: 0,
+    durationRange: [3, 8],
+    costLevel: 0,
+    placeTypes: ["home"],
+    indoorOutdoor: "indoor",
+    ladderGroupId: "orienting-start",
+    ladderLevel: 2,
+    safetyTags: []
+  },
+  {
+    id: "orient-sample-a-curiosity",
+    goalDomains: ALL_DOMAINS,
+    title: "Spend ten minutes on something you were curious about, without deciding whether it matters",
+    minCapacity: 2,
+    maxSocialLoad: 0,
+    durationRange: [5, 12],
+    costLevel: 0,
+    placeTypes: ["home", "online"],
+    indoorOutdoor: "indoor",
+    ladderGroupId: "orienting-start",
+    ladderLevel: 3,
+    safetyTags: []
+  },
+  {
+    id: "orient-watch-in-public",
+    goalDomains: ALL_DOMAINS,
+    title: "Sit somewhere public for fifteen minutes and notice what people are doing",
+    minCapacity: 2,
+    maxSocialLoad: 1,
+    durationRange: [10, 18],
+    costLevel: 0,
+    placeTypes: ["park", "library", "cafe"],
+    indoorOutdoor: "either",
+    ladderGroupId: "orienting-start",
+    ladderLevel: 4,
+    safetyTags: []
+  },
+  {
+    id: "orient-try-something-once",
+    goalDomains: ALL_DOMAINS,
+    title: "Try one thing you have never tried, small enough to walk away from",
+    minCapacity: 3,
+    maxSocialLoad: 1,
+    durationRange: [15, 25],
+    costLevel: 1,
+    placeTypes: ["park", "library", "cafe", "community_center"],
+    indoorOutdoor: "either",
+    ladderGroupId: "orienting-start",
+    ladderLevel: 5,
     safetyTags: []
   }
 ];

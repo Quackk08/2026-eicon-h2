@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
-import { LIFE_DOMAINS } from "@renew/shared";
+import {
+  LIFE_DOMAINS,
+  looksDirectionless,
+  ORIENTING_LADDER_GROUP_ID,
+  type ActionTemplate
+} from "@renew/shared";
 import {
   createVision,
   getVisionById,
@@ -11,6 +16,7 @@ import {
 import { createRoute, getLatestRouteForVision, updateRouteStatus } from "../repositories/routes.js";
 import {
   listActionTemplatesByDomain,
+  listActionTemplatesInLadderGroup,
   replaceGeneratedTemplates
 } from "../repositories/actionTemplates.js";
 import { getPreferences } from "../repositories/preferences.js";
@@ -83,15 +89,32 @@ router.post("/visions/:id/generate-route", resolveProfile, async (req, res, next
 
     const preferences = (await getPreferences(req.profileId!)) ?? {};
 
-    let ladder = await generateLadderForVision({
+    // A Vision that names no direction gets the reviewed orienting ladder
+    // rather than a generated one. Asking a model to invent goals for
+    // someone who just said they have none produces exactly the invented
+    // purpose they did not ask for; these steps look for a direction
+    // instead of assuming one.
+    let ladder: ActionTemplate[] | null = null;
+    if (looksDirectionless(vision.summary)) {
+      const orienting = await listActionTemplatesInLadderGroup(ORIENTING_LADDER_GROUP_ID);
+      if (orienting.length > 0) ladder = orienting;
+    }
+
+    ladder ??= await generateLadderForVision({
       profileId: req.profileId!,
       visionSummary: vision.summary,
       domain: vision.domain,
       preferences
     });
 
+    // The orienting ladder is reviewed seed data and already stored, so only
+    // a generated one needs writing.
+    const isGenerated = ladder !== null && ladder.some((step) => step.id.startsWith("ai-"));
+    if (isGenerated) {
+      await replaceGeneratedTemplates(req.profileId!, vision.domain, ladder!);
+    }
+
     if (ladder) {
-      await replaceGeneratedTemplates(req.profileId!, vision.domain, ladder);
     } else {
       const candidates = await listActionTemplatesByDomain(vision.domain);
       if (candidates.length === 0) {
