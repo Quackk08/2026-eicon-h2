@@ -1,13 +1,20 @@
+import { useState } from "react";
 import { ArrowLeft, ArrowRight, Bookmark, Check, Clock3, MapPin, Route as RouteIcon } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { setMissionPlace, setPlaceSaved } from "../api/backend";
+import { fetchNearbyPlaces, requestCoarseLocation, setMissionPlace, setPlaceSaved } from "../api/backend";
+import type { ApiNearbyPlaces } from "../api/types";
 import { useAppState } from "../state/AppState";
 
 export function PlaceDetailPage() {
   const navigate = useNavigate();
   const { placeId } = useParams();
   const { data, updateData, refresh } = useAppState();
+  // Declared before the early return below so hook order stays stable.
+  const [nearby, setNearby] = useState<ApiNearbyPlaces | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationDenied, setLocationDenied] = useState(false);
   const place = data.places.find((item) => item.id === placeId);
+  const templateId = data.mission?.optionId ?? null;
 
   if (!place) {
     return (
@@ -67,6 +74,22 @@ export function PlaceDetailPage() {
     navigate("/app/mission");
   };
 
+  const findNearby = async () => {
+    if (!templateId) return;
+    setLocating(true);
+    setLocationDenied(false);
+    try {
+      const location = await requestCoarseLocation();
+      if (!location) {
+        setLocationDenied(true);
+        return;
+      }
+      setNearby(await fetchNearbyPlaces(templateId, location));
+    } finally {
+      setLocating(false);
+    }
+  };
+
   return (
     <main className="app-page discovery-page place-detail-page">
       <header className="detail-topbar">
@@ -99,6 +122,41 @@ export function PlaceDetailPage() {
         <article><Clock3 aria-hidden="true" /><span>Hours</span><p>{place.hours}</p></article>
         <article><span className="fact-symbol">$</span><span>Cost</span><p>{place.cost}</p></article>
         <article><span className="fact-symbol">S</span><span>Social load</span><p>{place.socialLoad}</p></article>
+      </section>
+
+      <section className="place-fit" aria-labelledby="nearby-title">
+        <p className="app-kicker">Somewhere closer</p>
+        <h2 id="nearby-title">Look for places near you right now.</h2>
+        <p>
+          ReNew rounds your location to about a kilometre before asking, and never stores it.
+          Reviewed places stay first — anything below them has not been checked by a person.
+        </p>
+
+        {!nearby && (
+          <button className="secondary-command" type="button" onClick={findNearby} disabled={locating || !templateId}>
+            <MapPin aria-hidden="true" />
+            {locating ? "Looking nearby..." : "Use my location once"}
+          </button>
+        )}
+        {!templateId && <p className="support-required">Choose a Mission first, so nearby places can match the step.</p>}
+        {locationDenied && <p className="support-required">No location available, so only reviewed places are shown.</p>}
+
+        {nearby && nearby.suggested.length === 0 && (
+          <p className="support-required">Nothing suggested nearby. The reviewed places above still apply.</p>
+        )}
+
+        {nearby && nearby.suggested.length > 0 && (
+          <ul className="nearby-suggestions">
+            {nearby.suggested.map((suggestion) => (
+              <li key={`${suggestion.name}-${suggestion.approxWalkMinutes}`}>
+                <strong>{suggestion.name}</strong>
+                <span className="ai-suggested-tag">AI suggested / not reviewed</span>
+                <p>{suggestion.whyItSuitsTheAction}</p>
+                <span>{suggestion.category} / about {suggestion.approxWalkMinutes} min on foot</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <div className="place-detail-grid">

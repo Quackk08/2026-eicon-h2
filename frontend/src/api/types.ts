@@ -160,6 +160,12 @@ export interface ApiPlace {
   notes: string | null;
 }
 
+/** One concrete thing to do on arrival. Absent whenever AI is unavailable. */
+export interface ApiPlaceTip {
+  kind: "order" | "browse" | "seat" | "general";
+  tip: string;
+}
+
 export interface ApiPlaceSearchResult {
   selectedPlaceId: string;
   summary: string;
@@ -168,6 +174,25 @@ export interface ApiPlaceSearchResult {
   warnings: string[];
   source: "rules" | "ai";
   candidates: ApiPlace[];
+  /** False for a home or online action — not a failure to find somewhere. */
+  needsPlace?: boolean;
+  tip?: ApiPlaceTip | null;
+}
+
+/** A venue the model believes is nearby. Never human-reviewed. */
+export interface ApiSuggestedNearbyPlace {
+  name: string;
+  category: string;
+  whyItSuitsTheAction: string;
+  approxWalkMinutes: number;
+}
+
+export interface ApiNearbyPlaces {
+  needsPlace: boolean;
+  reviewed: ApiPlace[];
+  reviewedPick: { selectedPlaceId: string; summary: string } | null;
+  suggested: ApiSuggestedNearbyPlace[];
+  suggestedAreUnreviewed: boolean;
 }
 
 export interface ApiCommunityActivity {

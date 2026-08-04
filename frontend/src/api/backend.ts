@@ -11,6 +11,7 @@ import type {
 import { ApiError, api, clearGuestProfileId, ensureProfile, getProfileId } from "./client";
 import { signIn, signUp, type AuthResult } from "./auth";
 import { flushQueue, writeOrQueue } from "./offlineQueue";
+import { coarsenCoordinate } from "@renew/shared";
 import {
   fromApiCheckIn,
   fromApiCommunityActivity,
@@ -32,6 +33,7 @@ import type {
   ApiCommunityActivity,
   ApiMission,
   ApiPlace,
+  ApiNearbyPlaces,
   ApiPlaceSearchResult,
   ApiProfile,
   ApiRecommendation,
@@ -320,6 +322,51 @@ export async function adaptMission(
 }
 
 /** Where the backend would hold this action, given the user's constraints. */
+/**
+ * Asks the browser for a location and rounds it before it goes anywhere.
+ *
+ * Resolves to null when permission is refused or unavailable — the reviewed
+ * places still work without it, so declining costs the person nothing.
+ */
+export function requestCoarseLocation(): Promise<{ latitude: number; longitude: number } | null> {
+  if (!("geolocation" in navigator)) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) =>
+        resolve({
+          latitude: coarsenCoordinate(position.coords.latitude),
+          longitude: coarsenCoordinate(position.coords.longitude)
+        }),
+      () => resolve(null),
+      // Low accuracy on purpose: the result is rounded to about a kilometre
+      // anyway, and a precise fix would only be extra data to discard.
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    );
+  });
+}
+
+/**
+ * Reviewed places near the person, plus venues the model believes are
+ * nearby. The two are kept apart by the API and must stay apart in the UI:
+ * the suggested ones have had no human check.
+ */
+export async function fetchNearbyPlaces(
+  templateId: string,
+  location: { latitude: number; longitude: number }
+): Promise<ApiNearbyPlaces | null> {
+  const query = new URLSearchParams({
+    templateId,
+    latitude: String(location.latitude),
+    longitude: String(location.longitude)
+  });
+  try {
+    return await api.get<ApiNearbyPlaces>(`/places/nearby?${query.toString()}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchPlaceForTemplate(templateId: string): Promise<ApiPlaceSearchResult | null> {
   try {
     return await api.get<ApiPlaceSearchResult>(`/places/search?templateId=${encodeURIComponent(templateId)}`);

@@ -45,8 +45,17 @@ const BLOCKED_PATTERNS: RegExp[] = [
   /\b(stop taking|quit taking|off your meds)\b/i
 ];
 
+/**
+ * The wordlist applies to any generated text shown to a user, not only
+ * ladder steps — a place suggestion or an in-place tip reaches people the
+ * same way and carries the same risk.
+ */
+export function containsBlockedWording(text: string): boolean {
+  return BLOCKED_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 export function isSafeLadderStepTitle(title: string): boolean {
-  return !BLOCKED_PATTERNS.some((pattern) => pattern.test(title));
+  return !containsBlockedWording(title);
 }
 
 /**

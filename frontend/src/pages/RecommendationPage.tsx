@@ -132,6 +132,12 @@ export function RecommendationPage() {
             <span><Clock3 aria-hidden="true" /> {recommended.durationMinutes} min</span>
             <span><MapPin aria-hidden="true" /> {placeName}</span>
           </div>
+          {placePick?.tip && (
+            // Describes the setting, never the person — see placeTips.ts.
+            <p className="place-arrival-tip">
+              <strong>When you get there</strong> {placePick.tip.tip}
+            </p>
+          )}
           <button className="primary-command" type="button" onClick={() => chooseMission(recommended)}>
             Choose this step <ArrowRight aria-hidden="true" />
           </button>
