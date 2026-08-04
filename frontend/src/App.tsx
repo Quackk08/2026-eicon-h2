@@ -78,25 +78,23 @@ function PlaceTile({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [ready, setReady] = useState(false);
-  const [active, setActive] = useState(false);
 
   /*
-   * preload="none" keeps the clips off the landing page until they are asked
-   * for, so the first hover is also the first byte. Pointer events rather than
-   * mouse events so a tap starts the same clip on touch screens.
+   * preload="metadata" buys the first frame and little else, so a tile rests on
+   * a still of its own clip instead of the flat colour, and the body of the file
+   * still waits for a pointer. Pointer events rather than mouse events so a tap
+   * starts the clip on touch screens.
    */
   const start = () => {
     const video = videoRef.current;
     if (!video) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    setActive(true);
     void video.play().catch(() => undefined);
   };
 
   const stop = () => {
     const video = videoRef.current;
     if (!video) return;
-    setActive(false);
     video.pause();
     video.currentTime = 0;
   };
@@ -111,13 +109,13 @@ function PlaceTile({
       <div className="place-visual" aria-hidden="true">
         <video
           ref={videoRef}
-          className={`place-video${active && ready ? " is-playing" : ""}`}
+          className={`place-video${ready ? " is-ready" : ""}`}
           src={`/places/${slug}.mp4`}
           loop
           muted
           playsInline
-          preload="none"
-          onCanPlay={() => setReady(true)}
+          preload="metadata"
+          onLoadedData={() => setReady(true)}
         />
         <span>{index}</span>
       </div>

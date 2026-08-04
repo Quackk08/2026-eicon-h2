@@ -691,14 +691,16 @@ ol {
   height: 100%;
   object-fit: cover;
   opacity: 0;
-  transform: scale(1.04);
   transition: opacity 480ms ease, transform 900ms ease;
 }
 
-/* Held back until the clip is both wanted and able to show a frame */
-.place-video.is-playing {
+/* Held back until a frame exists, so a tile never rests on black */
+.place-video.is-ready {
   opacity: 1;
-  transform: scale(1);
+}
+
+.place-tile:hover .place-video.is-ready {
+  transform: scale(1.04);
 }
 
 .place-tile-library .place-visual {
