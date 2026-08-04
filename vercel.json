@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "node -v && npm -v && echo NODE_ENV=$NODE_ENV workspaces=$(npm config get workspaces) omit=$(npm config get omit) && pwd && ls -a && npm ci --include-workspace-root --workspaces && echo '--- installed ---' && ls node_modules && (test -d node_modules/zod && echo ZOD_OK || echo ZOD_MISSING)",
+  "installCommand": "npm ci",
   "buildCommand": "npm run build --workspace @renew/shared && npm run build --workspace backend && npm run build --workspace frontend",
   "outputDirectory": "frontend/dist",
   "rewrites": [
