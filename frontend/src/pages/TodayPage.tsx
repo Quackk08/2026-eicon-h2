@@ -165,12 +165,27 @@ export function TodayPage() {
   const selectedOption =
     data.recommendations.find((option) => option.id === selectedOptionId) ?? recommendedOption;
 
-  // Nothing to plan until the backend has supplied this Vision's steps.
-  if (!ready || !selectedOption) {
+  if (!ready) {
     return (
       <main className="app-page dashboard-loading" aria-live="polite">
         <span />
         <p>Loading Missions stored on this device...</p>
+      </main>
+    );
+  }
+
+  // Loaded, but this Vision has no steps to plan yet — usually because there
+  // has been no Check-In. Spinning here forever read as a hang, when in fact
+  // nothing was on its way.
+  if (!selectedOption) {
+    return (
+      <main className="app-page flow-page mission-empty">
+        <p className="app-kicker">Nothing planned yet</p>
+        <h1>Today opens up after a Check-In.</h1>
+        <p>Tell ReNew what today is giving you, and it will suggest one workable size.</p>
+        <Link className="primary-command" to="/app/check-in">
+          Start Check-In <ArrowRight aria-hidden="true" />
+        </Link>
       </main>
     );
   }

@@ -71,11 +71,26 @@ export function RecommendationPage() {
     navigate("/app/mission");
   };
 
-  if (!ready || loadingPick || !recommended) {
+  if (!ready || loadingPick) {
     return (
       <main className="app-page dashboard-loading" aria-live="polite">
         <span />
         <p>Loading actions that fit your conditions...</p>
+      </main>
+    );
+  }
+
+  // Finished loading with nothing to offer — no Vision or no Check-In yet.
+  // Saying so beats a spinner that never stops.
+  if (!recommended) {
+    return (
+      <main className="app-page flow-page mission-empty">
+        <p className="app-kicker">No steps yet</p>
+        <h1>There is nothing to suggest until you check in.</h1>
+        <p>A Check-In is what decides today's size, so it comes first.</p>
+        <Link className="primary-command" to="/app/check-in">
+          Start Check-In <ArrowRight aria-hidden="true" />
+        </Link>
       </main>
     );
   }
