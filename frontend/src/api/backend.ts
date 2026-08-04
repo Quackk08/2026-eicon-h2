@@ -123,7 +123,15 @@ export async function fetchPlaces(): Promise<ApiPlace[]> {
   return api.get<ApiPlace[]>("/places");
 }
 
+/**
+ * Templates are scoped to a profile, so one has to exist before asking.
+ * Onboarding previews the ladder before anything else has established a
+ * profile — and right after a reset there is deliberately none — so this
+ * waits rather than sending an anonymous request that comes back 401 and
+ * shows an empty Route.
+ */
 export async function fetchActionTemplates(): Promise<ApiActionTemplate[]> {
+  await ensureProfile();
   return api.get<ApiActionTemplate[]>("/action-templates");
 }
 
@@ -172,6 +180,9 @@ export async function fetchWeeklyInsight(): Promise<ApiWeeklyInsight> {
 /* ── Writes ────────────────────────────────────────────────────────── */
 
 export async function savePreferences(preferences: UserPreferences): Promise<void> {
+  // Onboarding writes before anything has read, so the profile may not
+  // exist yet; without this the save 401s and the caller's catch loses it.
+  await ensureProfile();
   await api.patch("/me/preferences", toApiPreferences(preferences));
 }
 
@@ -179,6 +190,7 @@ export async function createVisionWithRoute(
   domain: LifeDomain,
   summary: string
 ): Promise<{ vision: ApiVision; route: ApiRoute | null }> {
+  await ensureProfile();
   const vision = await api.post<ApiVision>("/visions", { domain: toApiDomain(domain), summary });
   let route: ApiRoute | null = null;
   try {
