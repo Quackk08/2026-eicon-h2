@@ -6906,3 +6906,1304 @@
     padding-inline: 2rem;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   INTERACTIVITY ENHANCEMENT PASS — all new rules below this line.
+   Zero new design tokens introduced. All colors, fonts, spacing
+   and ease values reference existing custom properties only.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Check-In signal fill bar & range slider ── */
+
+.signal-fill-track {
+  position: relative;
+  height: 4px;
+  margin-top: 1.5rem;
+  background: var(--color-line);
+  overflow: hidden;
+}
+
+.signal-fill-bar {
+  display: block;
+  height: 100%;
+  background: var(--color-leaf);
+  transition: width 150ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-fill-bar { transition: none; }
+}
+
+.signal-range-slider {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+  accent-color: var(--color-forest);
+  cursor: pointer;
+}
+
+/* The radio labels grid sits below the slider */
+.signal-field > div[role="group"] {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+@media (min-width: 48rem) {
+  .signal-field > div[role="group"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .signal-field > div[role="group"] label {
+    min-height: 4rem;
+    align-content: center;
+    justify-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    text-align: center;
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── 2. Mission size-adjustment stepper ── */
+
+.mission-size-stepper {
+  margin-top: 1.25rem;
+  border: 1px solid var(--color-ink);
+  padding: 1.5rem;
+  background: var(--color-citron);
+}
+
+.mission-stepper-hint {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  margin-bottom: 1.25rem;
+}
+
+.mission-stepper-track {
+  position: relative;
+  height: 4px;
+  background: var(--color-line);
+  margin: 2rem 0 0.5rem;
+}
+
+.mission-stepper-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--color-forest);
+  transition: width 150ms var(--ease-out);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-stepper-fill { transition: none; }
+}
+
+.mission-stepper-stop {
+  position: absolute;
+  top: 50%;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid var(--color-forest);
+  border-radius: 50%;
+  background: var(--color-paper);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: background 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+
+.mission-stepper-stop.is-active {
+  background: var(--color-forest);
+  transform: translate(-50%, -50%) scale(1.25);
+  box-shadow: 0 0 0 3px var(--color-citron), 0 0 0 5px var(--color-forest);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-stepper-stop,
+  .mission-stepper-stop.is-active { transition: none; transform: translate(-50%, -50%); }
+}
+
+.mission-stepper-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+}
+
+.mission-stepper-labels span.is-active {
+  font-weight: 700;
+  color: var(--color-forest);
+}
+
+.mission-stepper-description {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  min-height: 3rem;
+}
+
+.mission-stepper-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+/* ── 3. Mission timer ── */
+
+.mission-timer {
+  position: relative;
+  display: grid;
+  gap: 1rem;
+  margin: 1.25rem 0;
+  padding: 1.5rem;
+  background: var(--color-citron);
+  border: 1px solid var(--color-ink);
+  justify-items: start;
+}
+
+.mission-timer-display {
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  font-weight: 400;
+  line-height: 1;
+  /* Always visible — primary element */
+}
+
+.mission-timer-done {
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-forest);
+}
+
+.mission-timer-ring {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
+.mission-timer-ring circle {
+  fill: none;
+  stroke: var(--color-line);
+  stroke-width: 5;
+}
+
+.mission-timer-progress {
+  stroke: var(--color-forest) !important;
+  stroke-dasharray: 276.46;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 1s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-timer-progress { transition: none; }
+  .mission-timer-ring { display: none; }
+}
+
+.mission-timer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.mission-timer-controls .secondary-command,
+.mission-timer-controls .primary-command {
+  min-width: 9rem;
+}
+
+/* ── 3b. Route staircase visualization ── */
+
+.route-staircase {
+  margin: 2.5rem 0;
+  overflow-x: auto;
+}
+
+.route-staircase-inner {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  min-width: max-content;
+  padding: 0.5rem 0 0;
+}
+
+.route-stair {
+  position: relative;
+  width: 2.75rem;
+  background: var(--color-line);
+  border: 1px solid transparent;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 0.35rem;
+  /* Height grows per step to create staircase shape */
+  height: calc(1.5rem + calc(var(--stair-index, 0) * 1.1rem));
+  transition: background 650ms var(--ease-out), border-color 650ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-stair { transition: none; }
+}
+
+.route-stair.is-completed {
+  background: var(--color-leaf);
+  border-color: var(--color-forest);
+}
+
+.route-stair.is-current {
+  background: var(--color-route);
+  border-color: var(--color-forest);
+  border-width: 3px;
+  color: var(--color-ink);
+}
+
+.route-stair-level {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+.route-stair-you {
+  position: absolute;
+  top: -1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-forest);
+  white-space: nowrap;
+}
+
+.route-levelup-notice {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-route);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Level-up animation — skipped for reduced motion */
+.route-manager-list li.is-levelled-up {
+  animation: levelup-flash 650ms var(--ease-out) forwards;
+}
+
+@keyframes levelup-flash {
+  0%   { background: var(--color-leaf); }
+  100% { background: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-manager-list li.is-levelled-up { animation: none; }
+}
+
+/* ── 4. Reflection effort fill-bar ── */
+
+.effort-fillbar {
+  padding: 2rem 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.effort-track {
+  position: relative;
+  height: 6px;
+  background: var(--color-line);
+  margin: 1.5rem 0 0.75rem;
+  border-radius: 3px;
+}
+
+.effort-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--color-forest);
+  border-radius: 3px;
+  pointer-events: none;
+  transition: width 150ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .effort-fill { transition: none; }
+}
+
+.effort-stop {
+  position: absolute;
+  top: 50%;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--color-forest);
+  border-radius: 50%;
+  background: var(--color-paper);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: background 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+
+.effort-stop.is-active {
+  background: var(--color-forest);
+  /* Selected-state: 3px border, forest background, paper text — matches existing pattern */
+  border: 3px solid var(--color-paper);
+  box-shadow: 0 0 0 2px var(--color-forest);
+  transform: translate(-50%, -50%) scale(1.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .effort-stop,
+  .effort-stop.is-active { transition: none; transform: translate(-50%, -50%); }
+}
+
+.effort-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  font-size: 0.68rem;
+}
+
+.effort-axis span.is-active {
+  font-weight: 700;
+  color: var(--color-forest);
+}
+
+/* ── 5. Insights charts ── */
+
+.insight-weekly-chart {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--color-sky);
+}
+
+.insight-weekly-chart h2 {
+  margin-top: 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.insight-bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  margin-top: 1.25rem;
+  position: relative;
+}
+
+.insight-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.insight-bar-track {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  background: oklch(19% 0.025 145 / 8%);
+  min-height: 4px;
+}
+
+.insight-bar-fill {
+  width: 100%;
+  min-height: 2px;
+  transition: height 650ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .insight-bar-fill { transition: none; }
+}
+
+.insight-bar-label {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.insight-chart-empty {
+  font-size: 0.72rem;
+  color: oklch(19% 0.025 145 / 62%);
+  font-family: var(--font-editorial);
+  margin: auto;
+}
+
+.insight-chart-empty-text {
+  margin-top: 1rem;
+  font-family: var(--font-editorial);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.insight-line-chart {
+  margin-top: 1.25rem;
+}
+
+.insight-line-chart svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.insight-line-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+}
+
+/* ── 6. Places page — distance/cost filter chips ── */
+
+.place-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.place-filter-chip {
+  min-height: 2.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: 99rem;
+  background: transparent;
+  color: inherit;
+  padding: 0 0.85rem;
+  font: inherit;
+  font-size: 0.65rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 150ms var(--ease-out), border-color 150ms var(--ease-out);
+}
+
+.place-filter-chip.is-active {
+  border-color: var(--color-forest);
+  background: var(--color-forest);
+  color: var(--color-paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .place-filter-chip { transition: none; }
+}
+
+/* ── 7. Today page — walkthrough tooltips ── */
+
+.today-walkthrough-overlay {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  pointer-events: none;
+  /* Transparent overlay — just positions the tooltip */
+}
+
+.today-tooltip {
+  pointer-events: all;
+  position: fixed;
+  z-index: 61;
+  bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  left: 1rem;
+  right: 1rem;
+  max-width: 28rem;
+  margin-inline: auto;
+  background: var(--color-citron);
+  border: 1px solid var(--color-ink);
+  padding: 1.25rem;
+  display: grid;
+  gap: 0.75rem;
+  box-shadow: 0 1rem 2.5rem oklch(19% 0.025 145 / 18%);
+}
+
+.today-tooltip strong {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+.today-tooltip p {
+  font-family: var(--font-editorial);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.today-tooltip .primary-command {
+  justify-self: start;
+  min-width: 9rem;
+}
+
+.today-tooltip-close {
+  justify-self: end;
+}
+
+@media (min-width: 64rem) {
+  .today-tooltip {
+    bottom: 2rem;
+    left: 17rem; /* offset for sidebar */
+    right: 2rem;
+    max-width: 26rem;
+    margin-inline: 0;
+  }
+}
+
+/* ── 7b. Vision / Route "(i)" info affordances ── */
+
+.info-affordance {
+  display: inline-grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  place-items: center;
+  vertical-align: middle;
+  margin-left: 0.35rem;
+  opacity: 0.62;
+  transition: opacity 150ms var(--ease-out);
+}
+
+.info-affordance:hover,
+.info-affordance:focus-visible {
+  opacity: 1;
+}
+
+.info-affordance svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.info-disclosure {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-sky);
+  border: 1px solid var(--color-line);
+  font-family: var(--font-editorial);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.info-disclosure-bottom {
+  margin: 1rem 0 0;
+}
+
+.planner-direction-wrap {
+  display: contents;
+}
+
+/* ── 8. Onboarding selection count ── */
+
+.choice-count {
+  margin-top: 1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-forest);
+  min-height: 1.25rem;
+}
+
+/* ── CheckIn progress bar (was missing from original) ── */
+
+.checkin-header {
+  display: grid;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--color-line);
+  grid-template-columns: auto 1fr;
+}
+
+.checkin-progress {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.checkin-progress-bar {
+  height: 2px;
+  background: var(--color-line);
+}
+
+.checkin-progress-bar i {
+  display: block;
+  height: 100%;
+  background: var(--color-leaf);
+  transition: width 180ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checkin-progress-bar i { transition: none; }
+}
+
+.checkin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding: 1.5rem 0 2rem;
+}
+
+/* ── Onboarding route-preview: "Route" label fix ── */
+.route-preview-header > span::before { content: ""; }
+
+/* ── Vision summary card on RoutePage ── */
+
+.vision-summary-card {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 2.5rem;
+  border: 1px solid var(--color-ink);
+  padding: 1.5rem;
+  background: var(--color-deep-forest);
+  color: var(--color-paper);
+}
+
+.vision-summary-content h2 {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.vision-summary-content p {
+  margin-top: 0.75rem;
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.vision-summary-card .secondary-command {
+  justify-self: start;
+  border-color: var(--color-paper);
+  color: var(--color-paper);
+}
+
+@media (min-width: 48rem) {
+  .vision-summary-card {
+    align-items: center;
+    padding: 2rem;
+    grid-template-columns: 1fr auto;
+  }
+}
+
+/* ── Mission page: "why this fits" inside planner-focus ── */
+
+.planner-focus .mission-fit {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  background: color-mix(in oklch, var(--color-sky) 35%, var(--color-paper));
+  border: 1px solid var(--color-line);
+}
+
+.planner-focus .mission-fit .app-kicker {
+  margin-bottom: 0.5rem;
+}
+
+.planner-focus .mission-fit ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planner-focus .mission-fit li {
+  display: grid;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  grid-template-columns: 1rem 1fr;
+}
+
+.planner-focus .mission-fit li svg {
+  width: 0.8rem;
+  color: var(--color-forest);
+}
+
+/* ── Reduced motion: global catch-all for new animations ── */
+
+@media (prefers-reduced-motion: reduce) {
+  .route-stair,
+  .mission-stepper-fill,
+  .mission-stepper-stop,
+  .effort-fill,
+  .effort-stop,
+  .insight-bar-fill,
+  .signal-fill-bar,
+  .checkin-progress-bar i {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STRUCTURE, DENSITY & COLOR PASS — Collection A / B / C / D
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── A3 / B1: Today hero layout ── */
+
+.today-hero-focus {
+  /* Always visible — not behind a collapse */
+  margin-top: 1.5rem;
+}
+
+/* ── B1: This Week collapsible ── */
+
+.today-week-section {
+  margin-top: 2rem;
+  border-top: 1px solid var(--color-line);
+}
+
+.today-week-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 3.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.today-week-toggle svg {
+  width: 1rem;
+}
+
+.today-week-toggle svg:last-child {
+  margin-left: auto;
+}
+
+.today-week-body {
+  border-top: 1px solid var(--color-line);
+  padding-bottom: 1.5rem;
+}
+
+.today-week-mission-link {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-line);
+  font-size: 0.75rem;
+}
+
+.today-week-mission-link a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration: underline;
+}
+
+/* ── B2: Settings grouped layout ── */
+
+.settings-group {
+  /* Shared with existing .settings-section */
+}
+
+.settings-group-heading {
+  display: grid;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+  grid-template-columns: 1.5rem 1fr;
+}
+
+.settings-group-heading svg {
+  width: 1.15rem;
+}
+
+.settings-group-heading h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.settings-link-row {
+  display: flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  gap: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.5rem 0;
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.settings-link-row svg {
+  width: 1rem;
+  flex: 0 0 auto;
+}
+
+/* C2: Trusted Contact read-only summary in Settings */
+
+.settings-trusted-contact-summary {
+  margin-top: 1.5rem;
+  border: 1px solid var(--color-line);
+  padding: 1rem;
+  background: color-mix(in oklch, var(--color-sky) 20%, var(--color-paper));
+}
+
+.settings-trusted-contact-summary p {
+  margin-top: 0.4rem;
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* ── C1: Support in AppShell header ── */
+
+.header-support {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  place-items: center;
+  color: inherit;
+  flex: 0 0 auto;
+}
+
+.header-support svg {
+  width: 1.1rem;
+}
+
+.header-support:hover {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+/* Sidebar bottom area */
+
+.sidebar-bottom {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.sidebar-support {
+  display: grid;
+  min-height: 3rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.75rem;
+  color: oklch(19% 0.025 145 / 58%);
+  font-size: 0.75rem;
+  grid-template-columns: 1.25rem 1fr;
+}
+
+.sidebar-support:hover {
+  color: var(--color-ink);
+}
+
+.sidebar-support svg {
+  width: 1rem;
+}
+
+/* ── D2: Vision page — new / past visions ── */
+
+.vision-pause-confirm,
+.vision-new-form {
+  margin-top: 2rem;
+  border: 1px solid var(--color-ink);
+  padding: 1.5rem;
+}
+
+.vision-pause-confirm {
+  background: var(--color-citron);
+}
+
+.vision-pause-confirm h2 {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 400;
+}
+
+.vision-pause-confirm > div:first-child > p:last-child {
+  margin-top: 0.75rem;
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.vision-pause-confirm > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.vision-new-action {
+  margin-top: 2rem;
+  border-top: 1px solid var(--color-line);
+  padding-top: 1.5rem;
+}
+
+.vision-past-list {
+  margin-top: 3rem;
+}
+
+.vision-past-list h2 {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 400;
+}
+
+.vision-past-list > p {
+  margin-top: 0.75rem;
+  font-family: var(--font-editorial);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.past-vision-grid {
+  display: grid;
+  gap: 1px;
+  margin-top: 1.5rem;
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+}
+
+.past-vision-card {
+  display: grid;
+  gap: 0.5rem;
+  background: var(--color-paper);
+  padding: 1.25rem;
+}
+
+.past-vision-card h3 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.past-vision-card > p {
+  font-family: var(--font-editorial);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.past-vision-card .secondary-command {
+  justify-self: start;
+  margin-top: 0.5rem;
+}
+
+@media (min-width: 48rem) {
+  .past-vision-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Color: --color-route scoped documentation ──
+   Appears only on:
+   1. .route-stair.is-current (staircase current level highlight)
+   2. .route-levelup-notice (level-up confirmation bar)
+   No other uses permitted until explicitly extended.
+   ─────────────────────────────────────────────── */
+
+/* ── Expanded sky: informational callouts in Check-In and Mission ── */
+
+.signal-field .sky-callout,
+.mission-sky-callout {
+  background: var(--color-sky);
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+  font-family: var(--font-editorial);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+/* sky already used on: insight panels, mission-fit inside planner-focus,
+   settings trusted contact summary, weekly chart background */
+
+/* ── Expanded clay: place facts outside the Places page ── */
+
+.mission-place .place-fact-clay {
+  background: color-mix(in oklch, var(--color-clay) 18%, var(--color-paper));
+}
+
+/* The planner-facts dt icons on the mission focus panel use clay tint */
+.planner-facts {
+  background: color-mix(in oklch, var(--color-clay) 8%, var(--color-paper));
+}
+
+/* clay already used on: place tile backgrounds, activity event icons (plans),
+   weekly panel tint (dashboard), planner-focus facts grid (new) */
+
+/* ── Expanded plum: community/social load indicators ── */
+
+.community-page .community-safety-note {
+  border-left: 3px solid var(--color-plum);
+}
+
+/* plum already used on: community place tile, dashboard pattern panel tint,
+   activity event icons (checkins), community detail hero number,
+   community safety note left border (new) */
+
+/* ── Coach-marks (replace floating tooltips) ── */
+
+.coach-mark-overlay {
+  position: fixed;
+  z-index: 58;
+  inset: 0;
+  background: oklch(19% 0.025 145 / 52%);
+  pointer-events: none;
+}
+
+.coach-mark-cutout {
+  /* JS sets --cx, --cy, --cw, --ch via inline style */
+  position: fixed;
+  z-index: 59;
+  top: var(--cy, 50%);
+  left: var(--cx, 50%);
+  width: var(--cw, 12rem);
+  height: var(--ch, 3rem);
+  box-shadow: 0 0 0 2px var(--color-citron);
+  background: transparent;
+  pointer-events: none;
+}
+
+.coach-mark-tip {
+  pointer-events: all;
+  position: fixed;
+  z-index: 60;
+  bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  left: 1rem;
+  right: 1rem;
+  max-width: 24rem;
+  margin-inline: auto;
+  background: var(--color-citron);
+  border: 1px solid var(--color-ink);
+  padding: 1rem 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 0.75rem;
+  box-shadow: 0 1rem 2.5rem oklch(19% 0.025 145 / 18%);
+}
+
+.coach-mark-tip::before {
+  /* Pointer arrow */
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-bottom-color: var(--color-ink);
+}
+
+.coach-mark-tip::after {
+  content: "";
+  position: absolute;
+  bottom: calc(100% - 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+  border-bottom-color: var(--color-citron);
+}
+
+.coach-mark-text {
+  min-width: 0;
+}
+
+.coach-mark-text strong {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.coach-mark-text p {
+  font-family: var(--font-editorial);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.coach-mark-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  grid-column: 1 / -1;
+}
+
+.coach-mark-actions .primary-command {
+  min-height: 2.75rem;
+  font-size: 0.72rem;
+}
+
+.coach-mark-close {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.coach-mark-close svg {
+  width: 0.9rem;
+}
+
+@media (min-width: 64rem) {
+  .coach-mark-tip {
+    bottom: 2rem;
+    left: 17rem;
+    right: 2rem;
+    margin-inline: 0;
+    max-width: 22rem;
+  }
+}
+
+/* ── Route diagram info affordance ── */
+
+.route-staircase-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.route-staircase-header .app-kicker {
+  flex: 1;
+}
+
+/* ── Landing page mobile — Manifesto / Trust / Closing cards ── */
+
+@media (max-width: 47.99rem) {
+  .manifesto-copy {
+    display: grid;
+    gap: 1px;
+    background: var(--color-ink);
+    border: 1px solid var(--color-ink);
+    margin-top: var(--space-xl);
+    padding-top: 0;
+  }
+
+  .manifesto-copy p {
+    background: var(--color-paper);
+    padding: 1.25rem;
+    margin: 0;
+  }
+
+  .trust-principles {
+    display: grid;
+    gap: 1px;
+    background: var(--color-ink);
+    border: 1px solid var(--color-ink);
+    border-top: 0;
+    margin-top: 0;
+  }
+
+  .trust-principles > div {
+    background: var(--color-paper);
+    padding: 1.25rem;
+    border: 0;
+  }
+
+  .closing-inner {
+    display: grid;
+    gap: 0;
+  }
+}
+
+/* ── Landing page mobile — Method / Route Story carousel ── */
+
+@media (max-width: 47.99rem) {
+  .process-list,
+  .route-levels {
+    /* Enable horizontal scroll snap */
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 0;
+    border: 1px solid oklch(96% 0.018 95 / 30%);
+    scrollbar-width: none;
+  }
+
+  .process-list::-webkit-scrollbar,
+  .route-levels::-webkit-scrollbar {
+    display: none;
+  }
+
+  .process-list li,
+  .route-levels li {
+    flex: 0 0 85vw;
+    max-width: 22rem;
+    scroll-snap-align: start;
+    border-right: 1px solid oklch(96% 0.018 95 / 30%);
+    border-bottom: 0;
+    padding: var(--space-lg);
+  }
+
+  .process-list li:last-child,
+  .route-levels li:last-child {
+    border-right: 0;
+  }
+
+  /* Scroll hint indicator */
+  .process-list::after,
+  .route-levels::after {
+    content: "→";
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-md);
+    color: oklch(96% 0.018 95 / 40%);
+    font-size: 1.2rem;
+  }
+
+  .route-levels {
+    /* Override desktop grid layout */
+    display: flex;
+  }
+}
+
+/* Mobile: one dominant CTA per screen */
+@media (max-width: 47.99rem) {
+  /* On landing: hero only shows the primary CTA, demote scroll-cue */
+  .scroll-cue {
+    opacity: 0.55;
+  }
+  /* Closing: only one action at mobile */
+  .sdg-links a:not(:first-child) {
+    display: none;
+  }
+}

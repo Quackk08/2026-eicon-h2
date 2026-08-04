@@ -26,9 +26,9 @@ export function CommunityPage() {
     <main className="app-page discovery-page community-page">
       <header className="discovery-heading">
         <div>
-          <p className="app-kicker">Reviewed Community Steps</p>
-          <h1>Shared action without social pressure.</h1>
-          <p>Small public activities with clear hosts, places, times, and participation boundaries.</p>
+          <p className="app-kicker">Pre-reviewed group activities</p>
+          <h1>Shared Activities</h1>
+          <p>These are pre-reviewed group activities — not a social feed. Each has a clear host, public venue, defined start and end time, and no private messaging.</p>
         </div>
         <Link className="secondary-command" to="/app/places">
           <MapPin aria-hidden="true" /> Browse places
@@ -95,7 +95,7 @@ export function CommunityPage() {
       ) : (
         <section className="empty-results">
           <p className="app-kicker">No matching activities</p>
-          <h2>Try a different social setting or view all reviewed steps.</h2>
+        <h2>Try a different social setting or view all reviewed Shared Activities.</h2>
           <button className="secondary-command" type="button" onClick={() => { setQuery(""); setLoad("All"); setJoinedOnly(false); }}>
             Reset filters
           </button>

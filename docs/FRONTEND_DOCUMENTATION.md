@@ -56,8 +56,8 @@ The application uses an OKLCH color space for consistent, perceptually uniform c
 ### Typography
 
 #### Font Families
-- **--font-display**: "Bodoni Moda", serif - Headlines, display text
-- **--font-editorial**: "Bodoni Moda", serif - Body copy, descriptions
+- **--font-display**: "Cormorant Garamond", serif - Headlines, display text
+- **--font-editorial**: "Cormorant Garamond", serif - Body copy, descriptions
 - **--font-script**: "Pinyon Script", cursive - Decorative script text
 - **Default**: "Manrope", sans-serif - UI elements, buttons, forms
 
@@ -339,6 +339,9 @@ The main wrapper for authenticated app pages.
 │ - H1: "Plan the week. Do one thing..."  │
 │ - Vision link (current direction)        │
 ├─────────────────────────────────────────┤
+│ planner-header-actions                  │
+│ - "Update today's conditions" button    │
+├─────────────────────────────────────────┤
 │ planner-flow (3-step status)            │
 │ 01 Plan | 02 Do | 03 Review             │
 ├─────────────────────────────────────────┤
@@ -437,26 +440,31 @@ The main wrapper for authenticated app pages.
 #### Layout Structure
 ```
 ┌─────────────────────────────────────────┐
-│ flow-heading                            │
+│ checkin-header                          │
 │ - Back button                           │
+│ - Progress bar (Step X of Y)            │
+├─────────────────────────────────────────┤
+│ checkin-step (dynamic content)          │
+│                                         │
+│ [STEP 1: Mode Selection]                │
 │ - Kicker: "A moment, not a measure"     │
 │ - H1: "What is today giving you..."     │
 │ - Description                           │
+│ - Mode cards (Quick / Standard)         │
+│                                         │
+│ [STEPS 2-4: Signal Fields]              │
+│ - Mood (Step 2)                         │
+│ - Energy (Step 3)                       │
+│ - Capacity (Step 4)                     │
+│ - [Standard]: Stress, Sleep, Social     │
+│                                         │
+│ [FINAL STEP: Optional Note]             │
+│ - H1: "Anything worth remembering?"     │
+│ - Textarea (optional)                   │
 ├─────────────────────────────────────────┤
-│ flow-mode-tabs                          │
-│ - Quick (3 signals) | Standard (6)      │
-├─────────────────────────────────────────┤
-│ checkin-form                            │
-│ - Mood field (radio buttons)            │
-│ - Energy field (radio buttons)          │
-│ - Capacity field (radio buttons)        │
-│ - [Standard mode only]:                 │
-│   - Stress load                         │
-│   - Sleep                               │
-│   - Social load                         │
-│ - Optional note textarea                │
-│ - Local save notice                     │
-│ - Submit button                         │
+│ checkin-actions                         │
+│ - Back button (when step > 0)           │
+│ - Continue / Find a workable step       │
 └─────────────────────────────────────────┘
 ```
 

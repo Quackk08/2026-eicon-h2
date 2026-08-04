@@ -20,6 +20,32 @@ const variantLabels: Record<MissionVariant, string> = {
 export function RecommendationPage() {
   const navigate = useNavigate();
   const { data, ready, updateData } = useAppState();
+
+  /* A1: Guard — need at least one check-in today to reach this page */
+  const today = new Date().toISOString().slice(0, 10);
+  const hasCheckInToday = data.checkIns.some((c) => c.createdAt.slice(0, 10) === today);
+
+  if (!ready) {
+    return (
+      <main className="app-page dashboard-loading" aria-live="polite">
+        <span /><p>Loading actions that fit your conditions...</p>
+      </main>
+    );
+  }
+
+  if (!hasCheckInToday) {
+    return (
+      <main className="app-page flow-page mission-empty">
+        <p className="app-kicker">Check-In first</p>
+        <h1>A recommendation needs today's conditions.</h1>
+        <p>Complete a quick Check-In and ReNew will match an action to what's available right now.</p>
+        <Link className="primary-command" to="/app/check-in">
+          Start Check-In <ArrowRight aria-hidden="true" />
+        </Link>
+      </main>
+    );
+  }
+
   const recommended = getRecommendedMissionOption(data);
   const eligibleOptions = getEligibleMissionOptions(data);
   const alternatives = eligibleOptions.filter((option) => option.id !== recommended.id).slice(0, 4);
@@ -33,15 +59,6 @@ export function RecommendationPage() {
     }));
     navigate("/app/mission");
   };
-
-  if (!ready) {
-    return (
-      <main className="app-page dashboard-loading" aria-live="polite">
-        <span />
-        <p>Loading actions that fit your conditions...</p>
-      </main>
-    );
-  }
 
   return (
     <main className="app-page flow-page recommendation-page">
@@ -67,7 +84,7 @@ export function RecommendationPage() {
             <span><MapPin aria-hidden="true" /> {recommendedPlace?.name ?? recommended.placeType}</span>
           </div>
           <button className="primary-command" type="button" onClick={() => chooseMission(recommended)}>
-            Choose this step <ArrowRight aria-hidden="true" />
+            Choose this Mission <ArrowRight aria-hidden="true" />
           </button>
         </div>
       </section>

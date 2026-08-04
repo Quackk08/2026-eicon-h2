@@ -6,6 +6,7 @@ import {
   Check,
   Circle,
   Edit3,
+  Info,
   Plus,
   Save,
   Trash2,
@@ -17,11 +18,14 @@ import { useAppState } from "../state/AppState";
 
 export function RoutePage() {
   const { data, updateData } = useAppState();
+  const reducedMotion = data.settings.reducedMotion;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftMinutes, setDraftMinutes] = useState(10);
   const [draftPlace, setDraftPlace] = useState("Flexible");
+  const [recentlyLevelledId, setRecentlyLevelledId] = useState<string | null>(null);
+  const [staircaseInfoOpen, setStaircaseInfoOpen] = useState(false);
   const completedCount = data.route.filter((step) => step.completed).length;
 
   const beginEdit = (step: RouteStep) => {
@@ -73,10 +77,20 @@ export function RoutePage() {
   };
 
   const toggleComplete = (id: string) => {
-    updateData((current) => ({
-      ...current,
-      route: current.route.map((step) => (step.id === id ? { ...step, completed: !step.completed } : step))
-    }));
+    updateData((current) => {
+      const step = current.route.find((s) => s.id === id);
+      const willComplete = step ? !step.completed : false;
+      return {
+        ...current,
+        route: current.route.map((s) => (s.id === id ? { ...s, completed: !s.completed } : s))
+      };
+    });
+    // Trigger level-up announcement/animation
+    const step = data.route.find((s) => s.id === id);
+    if (step && !step.completed) {
+      setRecentlyLevelledId(id);
+      setTimeout(() => setRecentlyLevelledId(null), 2000);
+    }
   };
 
   const moveStep = (index: number, direction: -1 | 1) => {
@@ -97,6 +111,11 @@ export function RoutePage() {
         .map((step, index) => ({ ...step, level: index + 1 }))
     }));
   };
+
+  /* ─── Build staircase levels sorted lowest→highest ─── */
+  const sortedRoute = [...data.route].sort((a, b) => a.level - b.level);
+  const currentStepIndex = sortedRoute.findIndex((s) => !s.completed);
+  // The "current" level is the first incomplete step
 
   return (
     <main className="app-page planning-page route-page">
@@ -122,7 +141,7 @@ export function RoutePage() {
       <section className="route-overview">
         <div>
           <span>{completedCount}</span>
-          <p>steps explored</p>
+          <p>levels explored</p>
         </div>
         <div>
           <span>{data.route.length - completedCount}</span>
@@ -134,11 +153,66 @@ export function RoutePage() {
         </div>
       </section>
 
+      {/* ─── Staircase / path visualization ─── */}
+      {data.route.length > 0 && (
+        <section className="route-staircase" aria-label="Route staircase — visual overview">
+          {/* Info affordance for the diagram */}
+          <div className="route-staircase-header">
+            <p className="app-kicker">Your path at a glance</p>
+            <button
+              className="info-affordance"
+              type="button"
+              aria-label="What does this diagram show?"
+              aria-expanded={staircaseInfoOpen}
+              onClick={() => setStaircaseInfoOpen((v) => !v)}
+            >
+              <Info aria-hidden="true" />
+            </button>
+          </div>
+          {staircaseInfoOpen && (
+            <aside className="info-disclosure" role="note">
+              <p>Each column is one Level — from the smallest action on the left to the biggest on the right. The highlighted column is where you are now. Completing a Mission at a Level moves you forward.</p>
+              <button type="button" className="text-button" onClick={() => setStaircaseInfoOpen(false)}>Close</button>
+            </aside>
+          )}
+          <div
+            className={`route-staircase-inner${reducedMotion ? " is-reduced" : ""}`}
+            aria-hidden="true"
+          >
+            {sortedRoute.map((step, i) => {
+              const isCompleted = step.completed;
+              const isCurrent = i === currentStepIndex;
+              const stepClass = isCompleted
+                ? "route-stair is-completed"
+                : isCurrent
+                  ? "route-stair is-current"
+                  : "route-stair";
+              return (
+                <div
+                  key={step.id}
+                  className={stepClass}
+                  style={{ "--stair-index": i } as React.CSSProperties}
+                >
+                  <span className="route-stair-level">L{step.level}</span>
+                  {isCurrent && <span className="route-stair-you">You</span>}
+                </div>
+              );
+            })}
+          </div>
+          {/* Level-up confirmation (non-animated, always readable) */}
+          {recentlyLevelledId && (
+            <p className="route-levelup-notice" aria-live="polite" role="status">
+              Level {data.route.find((s) => s.id === recentlyLevelledId)?.level} explored. Well done.
+            </p>
+          )}
+        </section>
+      )}
+
       <section className="route-manager" aria-labelledby="route-manager-title">
         <div className="route-manager-heading">
           <div>
             <p className="app-kicker">From smallest to widest</p>
-            <h2 id="route-manager-title">Your current ladder</h2>
+            <h2 id="route-manager-title">Your current Route</h2>
           </div>
           <button
             className="primary-command"
@@ -148,43 +222,52 @@ export function RoutePage() {
               setAdding(true);
             }}
           >
-            <Plus aria-hidden="true" /> Add step
+            <Plus aria-hidden="true" /> Add level
           </button>
         </div>
 
         <ol className="route-manager-list">
-          {data.route.map((step, index) => (
-            <li className={step.completed ? "is-completed" : ""} key={step.id}>
-              <button
-                className="route-complete-button"
-                type="button"
-                aria-label={step.completed ? `Mark ${step.title} incomplete` : `Mark ${step.title} complete`}
-                title={step.completed ? "Mark incomplete" : "Mark complete"}
-                onClick={() => toggleComplete(step.id)}
+          {data.route.map((step, index) => {
+            const isLevelledUp = recentlyLevelledId === step.id;
+            return (
+              <li
+                className={[
+                  step.completed ? "is-completed" : "",
+                  isLevelledUp ? "is-levelled-up" : ""
+                ].filter(Boolean).join(" ")}
+                key={step.id}
               >
-                {step.completed ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}
-              </button>
-              <span className="route-level-label">Level {String(step.level).padStart(2, "0")}</span>
-              <div className="route-step-copy">
-                <p>{step.title}</p>
-                <span>{step.durationMinutes} min / {step.placeType}</span>
-              </div>
-              <div className="route-row-actions">
-                <button type="button" onClick={() => moveStep(index, -1)} disabled={index === 0} aria-label="Move step up" title="Move up">
-                  <ArrowUp aria-hidden="true" />
+                <button
+                  className="route-complete-button"
+                  type="button"
+                  aria-label={step.completed ? `Mark Level ${step.level} incomplete` : `Mark Level ${step.level} complete`}
+                  title={step.completed ? "Mark incomplete" : "Mark complete"}
+                  onClick={() => toggleComplete(step.id)}
+                >
+                  {step.completed ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}
                 </button>
-                <button type="button" onClick={() => moveStep(index, 1)} disabled={index === data.route.length - 1} aria-label="Move step down" title="Move down">
-                  <ArrowDown aria-hidden="true" />
-                </button>
-                <button type="button" onClick={() => beginEdit(step)} aria-label={`Edit ${step.title}`} title="Edit step">
-                  <Edit3 aria-hidden="true" />
-                </button>
-                <button type="button" onClick={() => deleteStep(step.id)} aria-label={`Delete ${step.title}`} title="Delete step">
-                  <Trash2 aria-hidden="true" />
-                </button>
-              </div>
-            </li>
-          ))}
+                <span className="route-level-label">Level {String(step.level).padStart(2, "0")}</span>
+                <div className="route-step-copy">
+                  <p>{step.title}</p>
+                  <span>{step.durationMinutes} min / {step.placeType}</span>
+                </div>
+                <div className="route-row-actions">
+                  <button type="button" onClick={() => moveStep(index, -1)} disabled={index === 0} aria-label="Move level up" title="Move up">
+                    <ArrowUp aria-hidden="true" />
+                  </button>
+                  <button type="button" onClick={() => moveStep(index, 1)} disabled={index === data.route.length - 1} aria-label="Move level down" title="Move down">
+                    <ArrowDown aria-hidden="true" />
+                  </button>
+                  <button type="button" onClick={() => beginEdit(step)} aria-label={`Edit Level ${step.level}`} title="Edit level">
+                    <Edit3 aria-hidden="true" />
+                  </button>
+                  <button type="button" onClick={() => deleteStep(step.id)} aria-label={`Delete Level ${step.level}`} title="Delete level">
+                    <Trash2 aria-hidden="true" />
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ol>
       </section>
 
@@ -192,7 +275,7 @@ export function RoutePage() {
         <form className="route-editor" onSubmit={saveStep}>
           <div className="route-editor-heading">
             <div>
-              <p className="app-kicker">{adding ? "New route step" : "Adjust this step"}</p>
+              <p className="app-kicker">{adding ? "New Route level" : "Adjust this level"}</p>
               <h2>{adding ? "Add another workable size" : "Rewrite without losing the direction"}</h2>
             </div>
             <button type="button" className="icon-button" aria-label="Close editor" title="Close editor" onClick={closeEditor}>
@@ -201,7 +284,7 @@ export function RoutePage() {
           </div>
           <div className="route-editor-fields">
             <div className="field-group">
-              <label htmlFor="route-step-title">Step title</label>
+              <label htmlFor="route-step-title">Level title</label>
               <input id="route-step-title" value={draftTitle} maxLength={160} onChange={(event) => setDraftTitle(event.target.value)} required />
             </div>
             <div className="field-group">
@@ -214,7 +297,7 @@ export function RoutePage() {
             </div>
           </div>
           <button className="primary-command" type="submit">
-            <Save aria-hidden="true" /> Save step
+            <Save aria-hidden="true" /> Save level
           </button>
         </form>
       )}

@@ -145,6 +145,7 @@ export interface AppData {
   };
   preferences: UserPreferences;
   vision: LifeVision;
+  pastVisions: LifeVision[];
   route: RouteStep[];
   checkIns: CheckInRecord[];
   recommendations: RecommendationOption[];
@@ -161,6 +162,7 @@ export interface AppData {
     checkInRhythm: CheckInRhythm;
     reducedMotion: boolean;
     theme: "system" | "light";
+    walkthroughSeen: boolean;
   };
   trustedContact: {
     name: string;
@@ -193,6 +195,7 @@ export function createDefaultAppData(): AppData {
       description: "Build a gentle routine of studying outside the home several times each week.",
       status: "active"
     },
+    pastVisions: [],
     route: [
       { id: "route-1", level: 1, title: "Put one notebook in your bag", durationMinutes: 2, placeType: "Home", completed: true },
       { id: "route-2", level: 2, title: "Take a five-minute walk outside", durationMinutes: 5, placeType: "Nearby", completed: true },
@@ -397,7 +400,8 @@ export function createDefaultAppData(): AppData {
         enabled: true
       },
       reducedMotion: false,
-      theme: "system"
+      theme: "system",
+      walkthroughSeen: false
     },
     trustedContact: null
   };
@@ -503,6 +507,7 @@ export async function loadAppData(): Promise<AppData> {
     profile: { ...defaults.profile, ...storedData.profile },
     preferences: { ...defaults.preferences, ...storedData.preferences },
     vision: { ...defaults.vision, ...storedData.vision },
+    pastVisions: (storedData as AppData & { pastVisions?: LifeVision[] }).pastVisions ?? [],
     recommendations: defaults.recommendations,
     mission: storedData.mission ? normalizeMission(storedData.mission, defaults.recommendations) : null,
     plannedMissions: (storedMissionData.plannedMissions ?? []).map((mission) =>
@@ -521,7 +526,8 @@ export async function loadAppData(): Promise<AppData> {
         ...storedRhythm,
         time: rhythmTime,
         enabled: rhythmEnabled
-      }
+      },
+      walkthroughSeen: storedSettings.walkthroughSeen ?? defaults.settings.walkthroughSeen
     }
   };
 }

@@ -204,7 +204,13 @@ export function OnboardingPage() {
             <div className="onboarding-panel">
               <p className="app-kicker">Life priorities</p>
               <h1>What matters in the life you want?</h1>
-              <p className="panel-lead">Choose one or more areas. The first becomes your starting route.</p>
+              <p className="panel-lead">Choose one or more areas. The first becomes your starting Route.</p>
+              {/* Running selection count */}
+              <p className="choice-count" aria-live="polite">
+                {preferences.domains.length === 0
+                  ? "None selected yet"
+                  : `${preferences.domains.length} selected`}
+              </p>
               <div className="choice-grid">
                 {domains.map((domain) => {
                   const selected = preferences.domains.includes(domain);
