@@ -4,6 +4,9 @@ build/
 .env
 .env.*
 !.env.example
+# The local secrets file is named .local.env, which neither pattern above matches.
+*.local.env
+.local.env
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -14,3 +17,9 @@ pnpm-debug.log*
 Thumbs.db
 .vite/
 coverage/
+.vercel/
+.idea/
+# Per-machine Claude Code settings; only this developer's global ignore covered it.
+.claude/settings.local.json
+**/supabase/.temp/
+**/supabase/.branches/
