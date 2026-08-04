@@ -15,7 +15,8 @@ import {
   type AppData
 } from "../data/appData";
 import { hydrateFromBackend } from "../api/backend";
-import { onAuthChange } from "../api/auth";
+import { clearGuestProfileId } from "../api/client";
+import { getAccessToken, onAuthChange } from "../api/auth";
 import type { ApiRecommendation } from "../api/types";
 
 interface AppStateValue {
@@ -106,6 +107,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       refresh,
       resetDemo: async () => {
         await clearAppData();
+
+        // Clearing the local cache alone was not a reset: the guest id
+        // stayed behind, so the next load pulled the same Vision, Route and
+        // Check-Ins straight back from the server while the dialog claimed
+        // they had been removed. Forgetting the id starts a genuinely empty
+        // profile. Signed-in users keep their account — their records belong
+        // to it, not to this browser.
+        if (!(await getAccessToken())) clearGuestProfileId();
+
         setData(createDefaultAppData());
         setRecommendation(null);
       }
