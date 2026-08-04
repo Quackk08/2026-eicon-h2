@@ -154,12 +154,22 @@ function LandingPage() {
 
       <main>
         <section className="hero" id="top" aria-labelledby="hero-title">
-          <video className="hero-video" autoPlay loop muted playsInline preload="metadata" aria-hidden="true" />
+          {/* Stays behind the video so the hero is still filled while it loads or if it cannot play */}
           <div className="hero-film-empty" aria-hidden="true">
             <span className="film-index">RN / 001</span>
             <span className="film-line film-line-one" />
             <span className="film-line film-line-two" />
           </div>
+          <video
+            className="hero-video"
+            src="/hero.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            aria-hidden="true"
+          />
           <div className="hero-shade" aria-hidden="true" />
 
           <div className="hero-content">
