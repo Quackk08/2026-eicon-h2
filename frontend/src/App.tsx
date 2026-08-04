@@ -77,12 +77,11 @@ function PlaceTile({
   description: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [ready, setReady] = useState(false);
 
   /*
-   * preload="metadata" buys the first frame and little else, so a tile rests on
-   * a still of its own clip instead of the flat colour, and the body of the file
-   * still waits for a pointer. Pointer events rather than mouse events so a tap
+   * The poster is the clip's own first frame, so a tile rests on a still without
+   * fetching any of the video: preload stays none until a pointer arrives, and
+   * the poster covers the wait. Pointer events rather than mouse events so a tap
    * starts the clip on touch screens.
    */
   const start = () => {
@@ -109,13 +108,13 @@ function PlaceTile({
       <div className="place-visual" aria-hidden="true">
         <video
           ref={videoRef}
-          className={`place-video${ready ? " is-ready" : ""}`}
+          className="place-video"
           src={`/places/${slug}.mp4`}
+          poster={`/places/${slug}.jpg`}
           loop
           muted
           playsInline
-          preload="metadata"
-          onLoadedData={() => setReady(true)}
+          preload="none"
         />
         <span>{index}</span>
       </div>
