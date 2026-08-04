@@ -153,44 +153,119 @@ export function TodayPage() {
   const [weekOpen, setWeekOpen] = useState(false);
 
   /* ─── Walkthrough state ─── */
-  const [activeTooltip, setActiveTooltip] = useState<number | null>(
+  const TOTAL_STEPS = 4;
+  const [activeStep, setActiveStep] = useState<number | null>(
     data.settings.walkthroughSeen ? null : 0
   );
   const [walkthroughDone, setWalkthroughDone] = useState(data.settings.walkthroughSeen);
 
-  /* Info disclosure state — "(i)" affordances */
-  const [visionInfoOpen, setVisionInfoOpen] = useState(false);
-  const [routeInfoOpen, setRouteInfoOpen] = useState(false);
+  /* One ref per target element, in display order:
+     0 = Check-in button   1 = Plan/Do/Review   2 = Vision link   3 = Why-this-fits */
+  const cmRef0 = useRef<HTMLElement | null>(null); // check-in link (set via callback ref)
+  const cmRef1 = useRef<HTMLElement | null>(null); // planner-flow section
+  const cmRef2 = useRef<HTMLElement | null>(null); // vision link
+  const cmRef3 = useRef<HTMLElement | null>(null); // why-this-fits aside
+
+  /* Measured rect of the current target */
+  interface Rect { top: number; left: number; width: number; height: number }
+  const [targetRect, setTargetRect] = useState<Rect | null>(null);
+
+  const refs = [cmRef0, cmRef1, cmRef2, cmRef3];
+
+  /* Measure (or re-measure) the active target */
+  const measureTarget = () => {
+    if (activeStep === null) return;
+    const el = refs[activeStep].current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+  };
+
+  /* On step change: scroll target into view, then measure */
+  useEffect(() => {
+    if (activeStep === null || walkthroughDone) return;
+    const el = refs[activeStep].current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const inView = r.top >= 0 && r.bottom <= window.innerHeight;
+    if (!inView) {
+      el.scrollIntoView({ behavior: data.settings.reducedMotion ? "auto" : "smooth", block: "center" });
+      /* Re-measure after scroll settles */
+      const timer = window.setTimeout(measureTarget, data.settings.reducedMotion ? 0 : 350);
+      return () => clearTimeout(timer);
+    }
+    measureTarget();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStep, walkthroughDone]);
+
+  /* Re-measure on scroll and resize while walkthrough is active */
+  useEffect(() => {
+    if (walkthroughDone) return;
+    window.addEventListener("scroll", measureTarget, { passive: true });
+    window.addEventListener("resize", measureTarget, { passive: true });
+    const ro = new ResizeObserver(measureTarget);
+    const el = activeStep !== null ? refs[activeStep].current : null;
+    if (el) ro.observe(el);
+    return () => {
+      window.removeEventListener("scroll", measureTarget);
+      window.removeEventListener("resize", measureTarget);
+      ro.disconnect();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walkthroughDone, activeStep]);
 
   const dismissWalkthrough = () => {
-    setActiveTooltip(null);
+    setActiveStep(null);
     setWalkthroughDone(true);
+    setTargetRect(null);
     updateData((current) => ({
       ...current,
       settings: { ...current.settings, walkthroughSeen: true }
     }));
   };
 
-  const advanceTooltip = () => {
-    if (activeTooltip === null) return;
-    if (activeTooltip >= 2) {
+  const advanceStep = () => {
+    if (activeStep === null) return;
+    if (activeStep >= TOTAL_STEPS - 1) {
       dismissWalkthrough();
     } else {
-      setActiveTooltip(activeTooltip + 1);
+      setTargetRect(null); // clear until next measurement
+      setActiveStep(activeStep + 1);
     }
   };
 
-  /* Escape key dismisses walkthrough */
+  /* Escape key dismisses */
   useEffect(() => {
     if (walkthroughDone) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") dismissWalkthrough();
-    };
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") dismissWalkthrough(); };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walkthroughDone]);
 
-  const tooltipRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
+  /* Functional tip content — instruction shape: what it is + what to do */
+  const tips = [
+    {
+      label: "Check-In button",
+      copy: "Tap here to check in — it takes about a minute and shapes what's suggested today."
+    },
+    {
+      label: "Plan · Do · Review",
+      copy: "This shows where you are today — tap any step to look back at it."
+    },
+    {
+      label: "Life Vision link",
+      copy: "Tap here anytime to see or change your bigger goal."
+    },
+    {
+      label: "Why this fits today",
+      copy: "Tap to see the reasoning behind today's suggestion, anytime."
+    }
+  ];
+
+  /* Info disclosure state — "(i)" affordances */
+  const [visionInfoOpen, setVisionInfoOpen] = useState(false);
+  const [routeInfoOpen, setRouteInfoOpen] = useState(false);
 
   useEffect(() => {
     if (data.mission) {
@@ -380,43 +455,71 @@ export function TodayPage() {
   return (
     <main className="app-page mission-home planner-dashboard">
 
-      {/* ── First-visit coach-marks (spotlight pattern, one element each) ── */}
-      {!walkthroughDone && activeTooltip !== null && (() => {
-        const tips = [
-          {
-            ref: tooltipRefs[0],
-            label: "Plan · Do · Review",
-            copy: "These three cells show where you are in today's flow.",
-            step: "01 / 03"
-          },
-          {
-            ref: tooltipRefs[1],
-            label: "Your Life Vision",
-            copy: "Tap here anytime to read or update your direction.",
-            step: "02 / 03"
-          },
-          {
-            ref: tooltipRefs[2],
-            label: "Why this fits today",
-            copy: "These reasons explain exactly why this Mission size was matched to your Check-In.",
-            step: "03 / 03"
-          }
-        ];
-        const tip = tips[activeTooltip];
+      {/* ── Coach-marks: real-position spotlight ── */}
+      {!walkthroughDone && activeStep !== null && (() => {
+        const tip = tips[activeStep];
+        const PAD = 8; // px padding around target
+
+        /* Compute spotlight panels from targetRect */
+        const top    = targetRect ? Math.max(0, targetRect.top    - PAD) : 0;
+        const left   = targetRect ? Math.max(0, targetRect.left   - PAD) : 0;
+        const w      = targetRect ? targetRect.width  + PAD * 2 : 0;
+        const h      = targetRect ? targetRect.height + PAD * 2 : 0;
+
+        /* Position tip: below target if space available, else above */
+        const viewH = window.innerHeight;
+        const viewW = window.innerWidth;
+        const TIP_H = 160; // estimated tip height px
+        const TIP_W = Math.min(352, viewW - 32);
+        const belowRoom = (top + h + 14 + TIP_H) <= viewH;
+        const arrowDir = belowRoom ? "is-up" : "is-down";
+
+        /* Tip top edge */
+        const tipTop = belowRoom ? top + h + 14 : top - 14 - TIP_H;
+        /* Arrow X relative to tip: centre over the target */
+        const targetCentreX = left + w / 2;
+        const tipLeft = Math.min(Math.max(targetCentreX - TIP_W / 2, 16), viewW - TIP_W - 16);
+        const arrowX = Math.min(Math.max(targetCentreX - tipLeft, 16), TIP_W - 16);
+
+        const sceneStyle = {
+          "--cm-top":  `${top}px`,
+          "--cm-left": `${left}px`,
+          "--cm-w":    `${w}px`,
+          "--cm-h":    `${h}px`
+        } as React.CSSProperties;
+
+        const tipStyle = targetRect ? {
+          top:   `${tipTop}px`,
+          left:  `${tipLeft}px`,
+          "--arrow-x": `${arrowX}px`
+        } as React.CSSProperties : {};
+
         return (
           <>
-            {/* Dim overlay — pointer-events off so spotlight area is clickable */}
-            <div className="coach-mark-overlay" aria-hidden="true" />
-            {/* Tip bubble with pointer arrow */}
+            {/* Four dim panels leaving the target element unobscured */}
+            <div className="coach-mark-scene" style={sceneStyle} aria-hidden="true">
+              <div className="coach-mark-dim-top" />
+              <div className="coach-mark-dim-bottom" />
+              <div className="coach-mark-dim-left" />
+              <div className="coach-mark-dim-right" />
+              {targetRect && <div className="coach-mark-ring" />}
+            </div>
+
+            {/* Tip bubble anchored to the target */}
             <div
-              className="coach-mark-tip"
+              className={`coach-mark-tip${targetRect ? " is-positioned" : ""}`}
+              style={tipStyle}
               role="dialog"
               aria-modal="true"
-              aria-label={`Walkthrough step ${activeTooltip + 1} of 3`}
+              aria-label={`Walkthrough ${activeStep + 1} of ${TOTAL_STEPS}: ${tip.label}`}
+              aria-describedby="cm-instruction"
             >
+              {/* Arrow pointing toward the highlighted element */}
+              {targetRect && <span className={`coach-mark-arrow ${arrowDir}`} aria-hidden="true" />}
+
               <div className="coach-mark-text">
                 <strong>{tip.label}</strong>
-                <p>{tip.copy}</p>
+                <p id="cm-instruction">{tip.copy}</p>
               </div>
               <button
                 className="coach-mark-close"
@@ -427,9 +530,10 @@ export function TodayPage() {
                 <X aria-hidden="true" />
               </button>
               <div className="coach-mark-actions">
-                <span className="app-kicker" style={{ marginRight: "auto" }}>{tip.step}</span>
-                {activeTooltip < 2 ? (
-                  <button className="primary-command" type="button" onClick={advanceTooltip}>
+                <span className="coach-mark-step">{activeStep + 1} / {TOTAL_STEPS}</span>
+                {activeStep < TOTAL_STEPS - 1 ? (
+                  <button className="primary-command" type="button" onClick={advanceStep}
+                    aria-label={`Next: ${tips[activeStep + 1].label}`}>
                     Next <ArrowRight aria-hidden="true" />
                   </button>
                 ) : (
@@ -452,7 +556,7 @@ export function TodayPage() {
         </div>
         {/* Life Vision link with (i) affordance */}
         <div className="planner-direction-wrap">
-          <Link className="planner-direction" to="/app/vision" aria-label="View your Life Vision" ref={tooltipRefs[1] as React.Ref<HTMLAnchorElement>}>
+          <Link className="planner-direction" to="/app/vision" aria-label="View your Life Vision" ref={(el) => { cmRef2.current = el; }}>
             <span>
               Life Vision
               <button
@@ -477,7 +581,11 @@ export function TodayPage() {
       </header>
 
       <div className="planner-header-actions">
-        <Link className="primary-command" to="/app/check-in">
+        <Link
+          className="primary-command"
+          to="/app/check-in"
+          ref={(el) => { cmRef0.current = el; }}
+        >
           <RefreshCcw aria-hidden="true" />
           <span>Update today's conditions</span>
           <ArrowRight aria-hidden="true" />
@@ -485,7 +593,11 @@ export function TodayPage() {
       </div>
 
       {/* ── Plan / Do / Review status row ── */}
-      <section className="planner-flow" aria-label="Plan, do, and review status" ref={tooltipRefs[0]}>
+      <section
+        className="planner-flow"
+        aria-label="Plan, do, and review status"
+        ref={(el) => { cmRef1.current = el; }}
+      >
         <div className={upcomingMissions.length ? "is-complete" : "is-current"}>
           <span>01 / Plan</span>
           <strong>{upcomingMissions.length ? `${upcomingMissions.length} on the calendar` : "Choose a day"}</strong>
@@ -554,7 +666,11 @@ export function TodayPage() {
 
         {/* ── Why this fits — always visible, never collapsed ── */}
         {reasons.length > 0 && (
-          <aside className="mission-fit" aria-label="Why this Mission fits today" ref={tooltipRefs[2] as React.Ref<HTMLElement>}>
+          <aside
+            className="mission-fit"
+            aria-label="Why this Mission fits today"
+            ref={(el) => { cmRef3.current = el; }}
+          >
             <p className="app-kicker">Why this fits today</p>
             <ul>
               {reasons.map((reason) => (

@@ -7972,37 +7972,88 @@
    activity event icons (checkins), community detail hero number,
    community safety note left border (new) */
 
-/* ── Coach-marks (replace floating tooltips) ── */
+/* ── Coach-marks: real-position spotlight system ── */
 
-.coach-mark-overlay {
+/*
+  The overlay is split into 4 clip-path panels that surround the
+  target rect, leaving the target itself fully visible (no dimming
+  over it). JS calculates these panels from getBoundingClientRect()
+  and passes them via CSS custom properties on .coach-mark-scene.
+*/
+
+.coach-mark-scene {
+  /* root for all coach-mark nodes; JS sets CSS vars here */
+  pointer-events: none;
   position: fixed;
-  z-index: 58;
   inset: 0;
-  background: oklch(19% 0.025 145 / 52%);
+  z-index: 58;
+}
+
+/* Four dim panels: top / right / bottom / left of the cutout */
+.coach-mark-dim-top,
+.coach-mark-dim-right,
+.coach-mark-dim-bottom,
+.coach-mark-dim-left {
+  position: absolute;
+  background: oklch(19% 0.025 145 / 56%);
+}
+
+/* Top: full width, from screen-top to target-top */
+.coach-mark-dim-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--cm-top, 0px);
+}
+
+/* Bottom: full width, from target-bottom to screen-bottom */
+.coach-mark-dim-bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  top: calc(var(--cm-top, 0px) + var(--cm-h, 0px));
+}
+
+/* Left: between top and bottom panels, left of target */
+.coach-mark-dim-left {
+  top: var(--cm-top, 0px);
+  left: 0;
+  width: var(--cm-left, 0px);
+  height: var(--cm-h, 0px);
+}
+
+/* Right: between top and bottom panels, right of target */
+.coach-mark-dim-right {
+  top: var(--cm-top, 0px);
+  left: calc(var(--cm-left, 0px) + var(--cm-w, 0px));
+  right: 0;
+  height: var(--cm-h, 0px);
+}
+
+/* Highlight ring drawn exactly on top of the target cutout */
+.coach-mark-ring {
+  position: absolute;
+  top: calc(var(--cm-top, 0px) - 3px);
+  left: calc(var(--cm-left, 0px) - 3px);
+  width: calc(var(--cm-w, 0px) + 6px);
+  height: calc(var(--cm-h, 0px) + 6px);
+  outline: 3px solid var(--color-citron);
+  outline-offset: 0;
+  box-shadow: 0 0 0 6px oklch(91% 0.105 105 / 22%);
+  border-radius: 2px;
   pointer-events: none;
 }
 
-.coach-mark-cutout {
-  /* JS sets --cx, --cy, --cw, --ch via inline style */
-  position: fixed;
-  z-index: 59;
-  top: var(--cy, 50%);
-  left: var(--cx, 50%);
-  width: var(--cw, 12rem);
-  height: var(--ch, 3rem);
-  box-shadow: 0 0 0 2px var(--color-citron);
-  background: transparent;
-  pointer-events: none;
-}
-
+/* Tip bubble — positioned by JS via top/left inline style */
 .coach-mark-tip {
   pointer-events: all;
   position: fixed;
   z-index: 60;
+  /* fallback before JS positions it */
   bottom: calc(5.5rem + env(safe-area-inset-bottom));
   left: 1rem;
   right: 1rem;
-  max-width: 24rem;
+  max-width: 22rem;
   margin-inline: auto;
   background: var(--color-citron);
   border: 1px solid var(--color-ink);
@@ -8011,39 +8062,76 @@
   grid-template-columns: 1fr auto;
   align-items: start;
   gap: 0.75rem;
-  box-shadow: 0 1rem 2.5rem oklch(19% 0.025 145 / 18%);
+  box-shadow: 0 0.75rem 2rem oklch(19% 0.025 145 / 20%);
 }
 
-.coach-mark-tip::before {
-  /* Pointer arrow */
-  content: "";
+/* JS overrides bottom/left/right when positioning is available */
+.coach-mark-tip.is-positioned {
+  bottom: auto;
+  left: var(--tip-left, 1rem);
+  right: auto;
+  top: var(--tip-top, auto);
+  max-width: 22rem;
+  margin-inline: 0;
+}
+
+/* Directional arrow — points toward the target */
+.coach-mark-arrow {
   position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Arrow pointing up (tip is below target) */
+.coach-mark-arrow.is-up {
   bottom: 100%;
-  left: 50%;
+  left: var(--arrow-x, 50%);
   transform: translateX(-50%);
-  border: 8px solid transparent;
-  border-bottom-color: var(--color-ink);
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 10px solid var(--color-ink);
+  margin-bottom: 0;
 }
-
-.coach-mark-tip::after {
+.coach-mark-arrow.is-up::after {
   content: "";
   position: absolute;
-  bottom: calc(100% - 1px);
-  left: 50%;
+  top: 1px;
+  left: -8px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 9px solid var(--color-citron);
+}
+
+/* Arrow pointing down (tip is above target) */
+.coach-mark-arrow.is-down {
+  top: 100%;
+  left: var(--arrow-x, 50%);
   transform: translateX(-50%);
-  border: 7px solid transparent;
-  border-bottom-color: var(--color-citron);
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 10px solid var(--color-ink);
+}
+.coach-mark-arrow.is-down::after {
+  content: "";
+  position: absolute;
+  bottom: 1px;
+  left: -8px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 9px solid var(--color-citron);
 }
 
 .coach-mark-text {
   min-width: 0;
+  grid-column: 1;
 }
 
 .coach-mark-text strong {
   display: block;
   font-size: 0.88rem;
   font-weight: 700;
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.25rem;
 }
 
 .coach-mark-text p {
@@ -8053,20 +8141,9 @@
   margin: 0;
 }
 
-.coach-mark-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  grid-column: 1 / -1;
-}
-
-.coach-mark-actions .primary-command {
-  min-height: 2.75rem;
-  font-size: 0.72rem;
-}
-
 .coach-mark-close {
+  grid-column: 2;
+  grid-row: 1;
   width: 2rem;
   height: 2rem;
   border: 0;
@@ -8075,21 +8152,35 @@
   color: inherit;
   display: grid;
   place-items: center;
-  flex: 0 0 auto;
+  padding: 0;
 }
 
 .coach-mark-close svg {
   width: 0.9rem;
 }
 
-@media (min-width: 64rem) {
-  .coach-mark-tip {
-    bottom: 2rem;
-    left: 17rem;
-    right: 2rem;
-    margin-inline: 0;
-    max-width: 22rem;
-  }
+.coach-mark-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  grid-column: 1 / -1;
+}
+
+.coach-mark-step {
+  margin-right: auto;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.coach-mark-actions .primary-command {
+  min-height: 2.75rem;
+  font-size: 0.72rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coach-mark-ring { box-shadow: none; }
 }
 
 /* ── Route diagram info affordance ── */
