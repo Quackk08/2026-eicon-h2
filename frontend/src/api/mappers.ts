@@ -171,7 +171,8 @@ export function fromApiPlace(place: ApiPlace): Place {
     description: place.notes ?? `${CATEGORY_LABELS[place.category] ?? titleCase(place.category)} in ${place.addressRegion ?? "your area"}.`,
     address: place.addressRegion ?? "Address not listed",
     hours: place.hours ?? "Hours not listed",
-    color: CATEGORY_COLORS[place.category] ?? "leaf"
+    color: CATEGORY_COLORS[place.category] ?? "leaf",
+    mission: place.mission ?? null
   };
 }
 

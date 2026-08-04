@@ -170,6 +170,9 @@ export function PlacesPage() {
                     <span>{place.socialLoad} social load</span>
                     {place.accessibility.slice(0, 2).map((item) => <span key={item}>{item}</span>)}
                   </div>
+                  {place.mission && (
+                    <p className="place-mission"><strong>One small step</strong> {place.mission}</p>
+                  )}
                 </div>
                 <button
                   className={saved ? "save-place is-saved" : "save-place"}

@@ -117,6 +117,8 @@ export interface Place {
   address: string;
   hours: string;
   color: "sky" | "clay" | "leaf" | "plum";
+  /** One small step to take at this place, or null when none is written. */
+  mission: string | null;
 }
 
 export interface CommunityActivity {

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getActionTemplateById } from "../repositories/actionTemplates.js";
 import { listAllPlaces } from "../repositories/places.js";
+import { placeMissions } from "../data/places.seed.js";
 import { selectPlaceForTemplate } from "../services/placeSelection.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
 
@@ -8,7 +9,10 @@ const router = Router();
 
 router.get("/places", async (_req, res, next) => {
   try {
-    res.json(await listAllPlaces());
+    const places = await listAllPlaces();
+    // The mission lives beside the seed data rather than in the table: it
+    // is fixed copy for a known place, not per-user state.
+    res.json(places.map((place) => ({ ...place, mission: placeMissions[place.id] ?? null })));
   } catch (err) {
     next(err);
   }

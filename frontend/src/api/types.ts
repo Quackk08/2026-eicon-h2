@@ -184,6 +184,8 @@ export interface ApiPlace {
   isPartner: boolean;
   verifiedAt: string | null;
   notes: string | null;
+  /** A small fixed step for this place; null when none is written. */
+  mission?: string | null;
 }
 
 export interface ApiPlaceSearchResult {
