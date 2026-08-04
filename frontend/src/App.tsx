@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import { ArrowDown, ArrowUpRight, Menu, X } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { SignInPage } from "./pages/SignInPage";
@@ -57,6 +57,77 @@ const navigationItems = [
   ["Local Network", "#local"],
   ["e-ICON", "#e-icon"]
 ];
+
+const placeTiles = [
+  ["library", "Quiet / 01", "Library", "A public place where you can stay quietly"],
+  ["cafe", "Nearby / 02", "Local cafe", "A nearby place for starting a small action"],
+  ["park", "Open air / 03", "Park", "An open setting where movement costs nothing"],
+  ["community", "Together / 04", "Community", "A way to act alongside others without pressure to talk"]
+];
+
+function PlaceTile({
+  slug,
+  index,
+  title,
+  description
+}: {
+  slug: string;
+  index: string;
+  title: string;
+  description: string;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [ready, setReady] = useState(false);
+  const [active, setActive] = useState(false);
+
+  /*
+   * preload="none" keeps the clips off the landing page until they are asked
+   * for, so the first hover is also the first byte. Pointer events rather than
+   * mouse events so a tap starts the same clip on touch screens.
+   */
+  const start = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    setActive(true);
+    void video.play().catch(() => undefined);
+  };
+
+  const stop = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    setActive(false);
+    video.pause();
+    video.currentTime = 0;
+  };
+
+  return (
+    <figure
+      className={`place-tile place-tile-${slug}`}
+      data-reveal
+      onPointerEnter={start}
+      onPointerLeave={stop}
+    >
+      <div className="place-visual" aria-hidden="true">
+        <video
+          ref={videoRef}
+          className={`place-video${active && ready ? " is-playing" : ""}`}
+          src={`/places/${slug}.mp4`}
+          loop
+          muted
+          playsInline
+          preload="none"
+          onCanPlay={() => setReady(true)}
+        />
+        <span>{index}</span>
+      </div>
+      <figcaption>
+        <span>{title}</span>
+        {description}
+      </figcaption>
+    </figure>
+  );
+}
 
 function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -286,42 +357,15 @@ function LandingPage() {
             </div>
 
             <div className="place-mosaic" aria-label="Examples of local places connected by ReNew">
-              <figure className="place-tile place-tile-library" data-reveal>
-                <div className="place-visual" aria-hidden="true">
-                  <span>Quiet / 01</span>
-                </div>
-                <figcaption>
-                  <span>Library</span>
-                  A public place where you can stay quietly
-                </figcaption>
-              </figure>
-              <figure className="place-tile place-tile-cafe" data-reveal>
-                <div className="place-visual" aria-hidden="true">
-                  <span>Nearby / 02</span>
-                </div>
-                <figcaption>
-                  <span>Local cafe</span>
-                  A nearby place for starting a small action
-                </figcaption>
-              </figure>
-              <figure className="place-tile place-tile-park" data-reveal>
-                <div className="place-visual" aria-hidden="true">
-                  <span>Open air / 03</span>
-                </div>
-                <figcaption>
-                  <span>Park</span>
-                  An open setting where movement costs nothing
-                </figcaption>
-              </figure>
-              <figure className="place-tile place-tile-community" data-reveal>
-                <div className="place-visual" aria-hidden="true">
-                  <span>Together / 04</span>
-                </div>
-                <figcaption>
-                  <span>Community</span>
-                  A way to act alongside others without pressure to talk
-                </figcaption>
-              </figure>
+              {placeTiles.map(([slug, index, title, description]) => (
+                <PlaceTile
+                  key={slug}
+                  slug={slug}
+                  index={index}
+                  title={title}
+                  description={description}
+                />
+              ))}
             </div>
           </div>
         </section>
