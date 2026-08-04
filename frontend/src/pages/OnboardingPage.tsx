@@ -12,6 +12,7 @@ import {
   Check,
   Compass,
   Route as RouteIcon,
+  SkipForward,
   SlidersHorizontal,
   Target
 } from "lucide-react";
@@ -38,6 +39,16 @@ const stepMeta = [
   { label: "Route", icon: RouteIcon }
 ];
 
+/**
+ * The wording a skipped Vision is recorded as.
+ *
+ * Not having a direction yet is a real answer, so skipping writes that down
+ * instead of inventing a goal or leaving the Vision blank: the server reads
+ * this as directionless and answers with the reviewed orienting ladder that
+ * looks for a direction rather than pursuing one.
+ */
+const DIRECTIONLESS_SUMMARY = "I don't know what I want yet.";
+
 
 export function OnboardingPage() {
   const navigate = useNavigate();
@@ -51,6 +62,9 @@ export function OnboardingPage() {
   const [route, setRoute] = useState<RouteStep[]>([]);
   const [buildingRoute, setBuildingRoute] = useState(false);
   const [visionId, setVisionId] = useState<string | null>(null);
+  // Set when the Vision question was skipped, so the Route is built from the
+  // absence of a direction rather than from two empty fields.
+  const [visionSkipped, setVisionSkipped] = useState(false);
   // The wording the shown ladder was built from, so going back without
   // changing anything does not spend another generation.
   const [routeBuiltFor, setRouteBuiltFor] = useState<string | null>(null);
@@ -77,8 +91,7 @@ export function OnboardingPage() {
    * Builds the ladder before the review step renders, so "your first Route"
    * shows what the person actually gets rather than a generic sample.
    */
-  const buildRouteForVision = async () => {
-    const summary = composeVisionSummary(visionTitle, visionDescription);
+  const buildRouteForVision = async (summary: string) => {
     if (!summary || routeBuiltFor === summary) return;
 
     setBuildingRoute(true);
@@ -130,8 +143,8 @@ export function OnboardingPage() {
       vision: {
         ...current.vision,
         domain: primaryDomain,
-        title: visionTitle,
-        description: visionDescription,
+        title: visionSkipped ? DIRECTIONLESS_SUMMARY : visionTitle,
+        description: visionSkipped ? "" : visionDescription,
         status: "active"
       },
       route
@@ -141,9 +154,8 @@ export function OnboardingPage() {
       await savePreferences(preferences);
       // Usually already done on the review step; this covers the case where
       // that generation failed, so the Vision still reaches the server.
-      const summary = composeVisionSummary(visionTitle, visionDescription);
-      if (routeBuiltFor !== summary) {
-        await createVisionWithRoute(primaryDomain, summary);
+      if (routeBuiltFor !== visionSummary) {
+        await createVisionWithRoute(primaryDomain, visionSummary);
       }
       await refresh();
     } catch {
@@ -158,6 +170,27 @@ export function OnboardingPage() {
   const canContinue =
     (step !== 1 || preferences.domains.length > 0) &&
     (step !== 3 || (visionTitle.trim().length > 0 && visionDescription.trim().length > 0));
+
+  const visionSummary = visionSkipped
+    ? DIRECTIONLESS_SUMMARY
+    : composeVisionSummary(visionTitle, visionDescription);
+
+  const goToStep = (next: number) => setStep(Math.min(stepMeta.length - 1, Math.max(0, next)));
+
+  /**
+   * Every question is optional, so each one can be left unanswered.
+   *
+   * Nothing is filled in on the person's behalf: an unanswered question stays
+   * at its untouched default, and a skipped Vision is recorded as having no
+   * direction yet — which is what the orienting Route is built from.
+   */
+  const skipStep = async () => {
+    if (step === 3) {
+      setVisionSkipped(true);
+      await buildRouteForVision(DIRECTIONLESS_SUMMARY);
+    }
+    goToStep(step + 1);
+  };
 
   return (
     <main className="onboarding-page">
@@ -316,14 +349,32 @@ export function OnboardingPage() {
               <div className="vision-form">
                 <label>
                   Vision title
-                  <input value={visionTitle} maxLength={90} onChange={(event) => setVisionTitle(event.target.value)} />
+                  <input
+                    value={visionTitle}
+                    maxLength={90}
+                    onChange={(event) => {
+                      setVisionSkipped(false);
+                      setVisionTitle(event.target.value);
+                    }}
+                  />
                 </label>
                 <label>
                   What would this life feel like?
-                  <textarea value={visionDescription} maxLength={300} rows={5} onChange={(event) => setVisionDescription(event.target.value)} />
+                  <textarea
+                    value={visionDescription}
+                    maxLength={300}
+                    rows={5}
+                    onChange={(event) => {
+                      setVisionSkipped(false);
+                      setVisionDescription(event.target.value);
+                    }}
+                  />
                 </label>
               </div>
               <p className="writing-note">Starting area: {primaryDomain}</p>
+              <p className="writing-note">
+                No direction in mind yet? Skip this — your Route will start by looking for one.
+              </p>
             </div>
           )}
 
@@ -333,7 +384,7 @@ export function OnboardingPage() {
               <h1>One direction, five possible sizes.</h1>
               <div className="route-preview-header">
                 <span>{primaryDomain}</span>
-                <p>{visionTitle}</p>
+                <p>{visionSkipped ? "No direction named yet" : visionTitle}</p>
               </div>
               <ol className="onboarding-route-list">
                 {route.slice().reverse().map((routeStep) => (
@@ -359,19 +410,28 @@ export function OnboardingPage() {
           <ArrowLeft aria-hidden="true" /> Back
         </button>
         {step < stepMeta.length - 1 ? (
-          <button
-            className="primary-command"
-            type="button"
-            onClick={async () => {
-              // Leaving the Vision step is the moment the ladder can be
-              // built, so the next screen has something real to show.
-              if (step === 3) await buildRouteForVision();
-              setStep((current) => Math.min(stepMeta.length - 1, current + 1));
-            }}
-            disabled={!canContinue || buildingRoute}
-          >
-            {buildingRoute ? "Building your Route..." : "Continue"} <ArrowRight aria-hidden="true" />
-          </button>
+          <div className="onboarding-advance">
+            {/* The questions are optional, so each one can be passed by.
+                Nothing to skip on the welcome screen. */}
+            {step > 0 ? (
+              <button className="secondary-command" type="button" onClick={skipStep} disabled={buildingRoute}>
+                Skip <SkipForward aria-hidden="true" />
+              </button>
+            ) : null}
+            <button
+              className="primary-command"
+              type="button"
+              onClick={async () => {
+                // Leaving the Vision step is the moment the ladder can be
+                // built, so the next screen has something real to show.
+                if (step === 3) await buildRouteForVision(visionSummary);
+                goToStep(step + 1);
+              }}
+              disabled={!canContinue || buildingRoute}
+            >
+              {buildingRoute ? "Building your Route..." : "Continue"} <ArrowRight aria-hidden="true" />
+            </button>
+          </div>
         ) : (
           <button className="primary-command" type="button" onClick={completeOnboarding} disabled={saving}>
             Enter ReNew <ArrowRight aria-hidden="true" />

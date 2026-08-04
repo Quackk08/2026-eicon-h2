@@ -6874,8 +6874,17 @@
   background: var(--color-paper);
 }
 
+/* Narrow enough that Back, Skip and Continue still fit a small phone. */
 .onboarding-actions button {
-  min-width: 8rem;
+  min-width: 6rem;
+}
+
+/* Skip sits beside Continue rather than opposite Back, so passing a question
+   by reads as an alternative to answering it. */
+.onboarding-advance {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .onboarding-actions button:disabled {
@@ -6942,6 +6951,10 @@
 
   .onboarding-actions {
     padding-inline: 2rem;
+  }
+
+  .onboarding-actions button {
+    min-width: 8rem;
   }
 }
 
