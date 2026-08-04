@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowUpRight, Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { signInAndLink, signUpAndLink } from "../api/backend";
+import { fetchVisions, signInAndLink, signUpAndLink } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 export function SignInPage() {
@@ -34,7 +34,10 @@ export function SignInPage() {
     setBusy(false);
 
     if (result.linkNote) setError(result.linkNote);
-    else navigate(data.profile.onboardingComplete ? "/app/today" : "/onboarding");
+    else {
+      const hasVision = await fetchVisions().then((visions) => visions.length > 0).catch(() => false);
+      navigate(hasVision ? "/app/today" : "/onboarding");
+    }
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {

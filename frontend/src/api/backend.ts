@@ -29,6 +29,7 @@ import {
 import type {
   ApiActionTemplate,
   ApiCheckIn,
+  ApiCheckInRhythm,
   ApiCommunityActivity,
   ApiMission,
   ApiPlace,
@@ -37,6 +38,7 @@ import type {
   ApiRecommendation,
   ApiReflection,
   ApiRoute,
+  ApiStateSummary,
   ApiVision,
   ApiWeeklyInsight
 } from "./types";
@@ -177,6 +179,14 @@ export async function fetchWeeklyInsight(): Promise<ApiWeeklyInsight> {
   return api.get<ApiWeeklyInsight>("/insights/weekly");
 }
 
+export async function fetchStateSummary(): Promise<ApiStateSummary> {
+  return api.get<ApiStateSummary>("/state/summary");
+}
+
+export async function fetchCheckInRhythm(): Promise<ApiCheckInRhythm> {
+  return api.get<ApiCheckInRhythm>("/check-in-rhythm");
+}
+
 /* ── Writes ────────────────────────────────────────────────────────── */
 
 export async function savePreferences(preferences: UserPreferences): Promise<void> {
@@ -184,6 +194,33 @@ export async function savePreferences(preferences: UserPreferences): Promise<voi
   // exist yet; without this the save 401s and the caller's catch loses it.
   await ensureProfile();
   await api.patch("/me/preferences", toApiPreferences(preferences));
+}
+
+export async function saveProfile(displayName: string): Promise<ApiProfile> {
+  await ensureProfile();
+  return api.patch<ApiProfile>("/me", { displayName });
+}
+
+export async function resetProfileData(): Promise<void> {
+  if (!getProfileId() && !(await ensureProfile().catch(() => null))) return;
+  await api.delete("/me");
+  clearGuestProfileId();
+}
+
+export async function saveCheckInRhythm(
+  rhythm: AppData["settings"]["checkInRhythm"]
+): Promise<ApiCheckInRhythm> {
+  await ensureProfile();
+  return api.patch<ApiCheckInRhythm>("/check-in-rhythm", rhythm);
+}
+
+export function composeVisionSummary(title: string, description: string): string {
+  return [title.trim(), description.trim()].filter(Boolean).join("\n\n").slice(0, 500);
+}
+
+function splitVisionSummary(summary: string): { title: string; description: string } {
+  const [title, ...description] = summary.split(/\n\s*\n/);
+  return { title: title.trim(), description: description.join("\n\n").trim() };
 }
 
 /**
@@ -207,7 +244,10 @@ export async function createVisionWithGeneratedRoute(
   await ensureProfile();
 
   const vision = existingVisionId
-    ? await api.patch<ApiVision>(`/visions/${existingVisionId}`, { summary })
+    ? await api.patch<ApiVision>(`/visions/${existingVisionId}`, {
+        summary,
+        domain: toApiDomain(domain)
+      })
     : await api.post<ApiVision>("/visions", { domain: toApiDomain(domain), summary });
 
   const route = await api.post<ApiRoute>(`/visions/${vision.id}/generate-route`, {});
@@ -245,6 +285,40 @@ export async function updateVision(
     ...(patch.status !== undefined ? { status: patch.status } : {}),
     ...(patch.domain !== undefined ? { domain: toApiDomain(patch.domain) } : {})
   });
+}
+
+export async function updateRouteStepStatus(
+  routeId: string,
+  stepId: string,
+  stepStatus: "pending" | "current" | "done" | "skipped"
+): Promise<ApiRoute> {
+  return api.patch<ApiRoute>(`/routes/${routeId}`, { stepId, stepStatus });
+}
+
+export interface EditableRouteStep {
+  title: string;
+  durationMinutes: number;
+  placeType: string;
+}
+
+export async function addRouteStep(routeId: string, step: EditableRouteStep): Promise<ApiRoute> {
+  return api.post<ApiRoute>(`/routes/${routeId}/steps`, step);
+}
+
+export async function editRouteStep(
+  routeId: string,
+  stepId: string,
+  step: EditableRouteStep
+): Promise<ApiRoute> {
+  return api.patch<ApiRoute>(`/routes/${routeId}/steps/${stepId}`, step);
+}
+
+export async function reorderRouteSteps(routeId: string, stepIds: string[]): Promise<ApiRoute> {
+  return api.patch<ApiRoute>(`/routes/${routeId}/steps`, { stepIds });
+}
+
+export async function removeRouteStep(routeId: string, stepId: string): Promise<ApiRoute> {
+  return api.delete<ApiRoute>(`/routes/${routeId}/steps/${stepId}`);
 }
 
 function buildCheckInBody(record: CheckInRecord) {
@@ -332,6 +406,13 @@ export async function fetchPlaceForTemplate(templateId: string): Promise<ApiPlac
 
 export async function setMissionPlace(missionId: string, placeId: string | null): Promise<ApiMission> {
   return api.patch<ApiMission>(`/missions/${missionId}/place`, { placeId });
+}
+
+export async function updateMission(
+  missionId: string,
+  patch: { status?: "planned" | "in_progress" | "cancelled"; scheduledFor?: string }
+): Promise<ApiMission> {
+  return api.patch<ApiMission>(`/missions/${missionId}`, patch);
 }
 
 export async function submitReflection(
@@ -481,6 +562,7 @@ export async function hydrateFromBackend(current: AppData): Promise<HydrationRes
 
   const [
     profile,
+    session,
     visions,
     places,
     community,
@@ -490,55 +572,93 @@ export async function hydrateFromBackend(current: AppData): Promise<HydrationRes
     templates,
     recommendation,
     savedPlaceIds,
-    trustedContacts
+    trustedContacts,
+    rhythm
   ] = await Promise.all([
     fetchProfile(),
+    fetchSession().catch(() => null),
     fetchVisions(),
     fetchPlaces(),
-    fetchCommunityActivities().catch(() => [] as ApiCommunityActivity[]),
-    api.get<ApiMission[]>("/missions").catch(() => [] as ApiMission[]),
-    api.get<ApiCheckIn[]>("/check-ins").catch(() => [] as ApiCheckIn[]),
-    api.get<ApiReflection[]>("/reflections").catch(() => [] as ApiReflection[]),
-    api.get<ApiActionTemplate[]>("/action-templates").catch(() => [] as ApiActionTemplate[]),
+    fetchCommunityActivities().catch(() => null),
+    api.get<ApiMission[]>("/missions").catch(() => null),
+    api.get<ApiCheckIn[]>("/check-ins").catch(() => null),
+    api.get<ApiReflection[]>("/reflections").catch(() => null),
+    api.get<ApiActionTemplate[]>("/action-templates").catch(() => null),
     fetchLatestRecommendation().catch(() => null),
-    fetchSavedPlaceIds().catch(() => [] as string[]),
-    fetchTrustedContacts().catch(() => [] as ApiTrustedContact[])
+    fetchSavedPlaceIds().catch(() => null),
+    fetchTrustedContacts().catch(() => null),
+    fetchCheckInRhythm().catch(() => null)
   ]);
 
-  const templatesById = new Map(templates.map((template) => [template.id, template]));
+  const templatesById = new Map((templates ?? []).map((template) => [template.id, template]));
 
   const patch: Partial<AppData> = {
+    profile: {
+      ...current.profile,
+      name: profile.display_name ?? current.profile.name,
+      email: session?.email ?? current.profile.email,
+      signedIn: session?.signedIn ?? profile.signedIn ?? current.profile.signedIn,
+      onboardingComplete: visions.length > 0
+    },
     preferences: mergeApiPreferences(current.preferences, profile.preferences),
-    places: places.map(fromApiPlace),
-    community: community.map(fromApiCommunityActivity),
-    checkIns: checkIns.map(fromApiCheckIn).reverse(),
-    reflections: reflections.map(fromApiReflection).reverse(),
-    savedPlaceIds,
-    // The UI holds a single contact; the server stores a list, so the first
-    // one is the one shown.
-    trustedContact: trustedContacts[0]
+    places: places.map(fromApiPlace)
+  };
+
+  if (community) patch.community = community.map(fromApiCommunityActivity);
+  if (checkIns) patch.checkIns = checkIns.map(fromApiCheckIn).reverse();
+  if (reflections) patch.reflections = reflections.map(fromApiReflection).reverse();
+  if (savedPlaceIds) patch.savedPlaceIds = savedPlaceIds;
+  if (trustedContacts) {
+    patch.trustedContact = trustedContacts[0]
       ? {
           id: trustedContacts[0].id,
           name: trustedContacts[0].name,
           phone: trustedContacts[0].phone ?? "",
           relationship: trustedContacts[0].relationship ?? ""
         }
-      : null
-  };
+      : null;
+  }
+  if (rhythm) {
+    patch.settings = {
+      ...current.settings,
+      checkInTime: rhythm.time,
+      reminders: rhythm.enabled,
+      checkInRhythm: {
+        frequency: rhythm.frequency,
+        days: rhythm.days,
+        time: rhythm.time,
+        enabled: rhythm.enabled
+      }
+    };
+  }
 
   const activeVision = visions.find((vision) => vision.status === "active") ?? visions[0] ?? null;
 
-  if (activeVision) {
-    patch.vision = {
-      id: activeVision.id,
-      domain: fromApiDomain(activeVision.domain),
-      title: activeVision.summary,
-      description: current.vision.description,
-      status: activeVision.status
+  const toLifeVision = (vision: ApiVision) => {
+    const saved =
+      vision.id === current.vision.id
+        ? current.vision
+        : current.pastVisions.find((item) => item.id === vision.id);
+    const summary = splitVisionSummary(vision.summary);
+    return {
+      id: vision.id,
+      domain: fromApiDomain(vision.domain),
+      title: summary.title,
+      description: summary.description || saved?.description || "",
+      status: vision.status
     };
+  };
+
+  patch.pastVisions = visions
+    .filter((vision) => vision.id !== activeVision?.id)
+    .map(toLifeVision);
+
+  if (activeVision) {
+    patch.vision = toLifeVision(activeVision);
 
     const route = await fetchRouteForVision(activeVision.id).catch(() => null);
     if (route) {
+      patch.routeId = route.id;
       patch.route = route.steps.map((step) =>
         fromApiRouteStep(step, templatesById.get(step.template_id))
       );
@@ -561,21 +681,39 @@ export async function hydrateFromBackend(current: AppData): Promise<HydrationRes
           return fromApiTemplate(template, activeVision.id, variant, step.id);
         })
         .filter((option): option is NonNullable<typeof option> => option !== null);
+    } else {
+      patch.routeId = null;
+      patch.route = [];
+      patch.recommendations = [];
     }
+  } else {
+    patch.routeId = null;
+    patch.route = [];
+    patch.recommendations = [];
   }
 
   const visionId = activeVision?.id ?? current.vision.id;
-  const uiMissions = missions
+  const uiMissions = (missions ?? [])
     .map((mission) => fromApiMission(mission, visionId))
     .filter((mission): mission is Mission => mission !== null);
 
-  const openMission =
-    uiMissions.find((mission) => mission.status === "planned" || mission.status === "in_progress") ?? null;
+  if (missions) {
+    const today = new Date().toISOString().slice(0, 10);
+    const openMission =
+      uiMissions.find((mission) => mission.status === "in_progress") ??
+      uiMissions.find(
+        (mission) => mission.status === "planned" && mission.scheduledFor?.slice(0, 10) === today
+      ) ??
+      null;
 
-  patch.mission = openMission;
-  patch.missionHistory = uiMissions.filter(
-    (mission) => mission.status !== "planned" && mission.status !== "in_progress"
-  );
+    patch.mission = openMission;
+    patch.plannedMissions = uiMissions.filter(
+      (mission) => mission.status === "planned" && mission.id !== openMission?.id
+    );
+    patch.missionHistory = uiMissions.filter(
+      (mission) => mission.status !== "planned" && mission.status !== "in_progress"
+    );
+  }
 
   return { patch, recommendation };
 }

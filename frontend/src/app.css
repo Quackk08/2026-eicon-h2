@@ -2484,7 +2484,12 @@
 .mission-empty {
   display: grid;
   min-height: calc(100svh - 4.75rem);
+  min-width: 0;
   align-content: center;
+}
+
+.mission-empty > * {
+  min-width: 0;
 }
 
 .mission-empty h1 {
@@ -2494,6 +2499,13 @@
   font-size: 3rem;
   font-weight: 400;
   line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 22rem) {
+  .mission-empty h1 {
+    font-size: 2.625rem;
+  }
 }
 
 .mission-empty > p:nth-of-type(2) {
@@ -2981,8 +2993,11 @@
   z-index: 25;
   top: 4.5rem;
   right: 0;
+  bottom: calc(4.5rem + env(safe-area-inset-bottom));
   left: 0;
   display: grid;
+  align-content: start;
+  overflow-y: auto;
   border-bottom: 1px solid var(--color-ink);
   background: var(--color-citron);
   padding: 1rem;
@@ -3016,7 +3031,7 @@
   border-top: 1px solid var(--color-line);
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--color-paper);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .mobile-bottom-nav a {
@@ -3026,9 +3041,11 @@
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
+  padding-inline: 0.15rem;
   color: oklch(19% 0.025 145 / 56%);
   flex-direction: column;
-  font-size: 0.62rem;
+  font-size: 0.58rem;
+  line-height: 1.1;
 }
 
 .mobile-bottom-nav a.is-active {
@@ -3322,7 +3339,9 @@
 
   .product-sidebar nav {
     display: flex;
+    min-height: 0;
     margin-top: 4rem;
+    overflow-y: auto;
     flex-direction: column;
     gap: 0.35rem;
   }
@@ -7964,13 +7983,9 @@
 
 /* ── Expanded plum: community/social load indicators ── */
 
-.community-page .community-safety-note {
-  border-left: 3px solid var(--color-plum);
-}
-
 /* plum already used on: community place tile, dashboard pattern panel tint,
    activity event icons (checkins), community detail hero number,
-   community safety note left border (new) */
+   community safety note */
 
 /* ── Coach-marks (replace floating tooltips) ── */
 

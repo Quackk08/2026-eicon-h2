@@ -10,6 +10,7 @@ import { getOrCreateRhythm, updateRhythm } from "../repositories/checkinRhythms.
 import { computeNextCheckinAt } from "../services/checkinScheduler.js";
 import { createReflection } from "../repositories/reflections.js";
 import { getMissionById, updateMissionStatus } from "../repositories/missions.js";
+import { completeRouteStep } from "../repositories/routes.js";
 import { savePlace, unsavePlace } from "../repositories/savedPlaces.js";
 import {
   createTrustedContact,
@@ -82,6 +83,9 @@ export async function applyOperation(
         not_today: "not_today"
       } as const;
       await updateMissionStatus(mission.id, statusMap[input.result]);
+      if (input.result === "completed" && mission.route_step_id) {
+        await completeRouteStep(mission.route_step_id);
+      }
       return;
     }
 

@@ -62,7 +62,7 @@ export interface RecommendationOption {
   routeStepId?: string;
   variant: MissionVariant;
   /** "ai" steps were generated for this user and had no prior human review. */
-  source?: "seed" | "ai";
+  source?: "seed" | "ai" | "user";
   title: string;
   description: string;
   durationMinutes: number;
@@ -148,6 +148,7 @@ export interface AppData {
   preferences: UserPreferences;
   vision: LifeVision;
   pastVisions: LifeVision[];
+  routeId: string | null;
   route: RouteStep[];
   checkIns: CheckInRecord[];
   recommendations: RecommendationOption[];
@@ -207,6 +208,7 @@ export function createDefaultAppData(): AppData {
     },
     route: [],
     pastVisions: [],
+    routeId: null,
     checkIns: [],
     recommendations: [],
     mission: null,
@@ -373,6 +375,7 @@ export async function loadAppData(): Promise<AppData> {
       ? {
           ...rawStored,
           vision: defaults.vision,
+          routeId: null,
           route: [],
           recommendations: [],
           places: [],

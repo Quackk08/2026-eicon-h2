@@ -37,6 +37,17 @@ export async function createVision(profileId: string, domain: LifeDomain, summar
   return data;
 }
 
+export async function pauseActiveVisions(profileId: string, exceptId?: string): Promise<void> {
+  let query = supabase
+    .from("life_visions")
+    .update({ status: "paused", updated_at: new Date().toISOString() })
+    .eq("profile_id", profileId)
+    .eq("status", "active");
+  if (exceptId) query = query.neq("id", exceptId);
+  const { error } = await query;
+  if (error) throw error;
+}
+
 export async function updateVision(
   id: string,
   patch: Partial<Pick<VisionRow, "summary" | "status" | "domain">>

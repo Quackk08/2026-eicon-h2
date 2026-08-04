@@ -2,7 +2,11 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, Edit3, Pause, Play, Save, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { LifeDomain, LifeVision } from "../data/appData";
-import { updateVision as updateVisionOnServer } from "../api/backend";
+import {
+  composeVisionSummary,
+  createVisionWithRoute,
+  updateVision as updateVisionOnServer
+} from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 const visionDomains: LifeDomain[] = [
@@ -17,7 +21,7 @@ const visionDomains: LifeDomain[] = [
 ];
 
 export function VisionPage() {
-  const { data, updateData } = useAppState();
+  const { data, updateData, refresh } = useAppState();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(data.vision.title);
   const [description, setDescription] = useState(data.vision.description);
@@ -29,10 +33,15 @@ export function VisionPage() {
   const [newDescription, setNewDescription] = useState("");
   const [newDomain, setNewDomain] = useState<LifeDomain>("Study & focus");
   const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const saveVision = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const visionId = data.vision.id;
+    if (!visionId) return;
+    setSaving(true);
+    setError(null);
     updateData((current) => ({
       ...current,
       vision: { ...current.vision, title: title.trim(), description: description.trim(), domain }
@@ -40,9 +49,15 @@ export function VisionPage() {
     setEditing(false);
 
     try {
-      await updateVisionOnServer(visionId, { summary: title.trim(), domain });
+      await updateVisionOnServer(visionId, {
+        summary: composeVisionSummary(title, description),
+        domain
+      });
+      await refresh();
     } catch {
-      // Saved locally; it syncs on the next successful load.
+      setError("The Vision was kept on this device, but the server could not be updated.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -55,6 +70,7 @@ export function VisionPage() {
 
   const toggleStatus = async () => {
     const visionId = data.vision.id;
+    if (!visionId) return;
     const nextStatus = data.vision.status === "active" ? "paused" : "active";
     updateData((current) => ({
       ...current,
@@ -63,36 +79,33 @@ export function VisionPage() {
 
     try {
       await updateVisionOnServer(visionId, { status: nextStatus });
+      await refresh();
     } catch {
-      // Saved locally; it syncs on the next successful load.
+      setError("The Vision status could not be updated on the server.");
     }
   };
 
   /* D2: Pause current vision then activate the new one */
-  const activateNewVision = (event: FormEvent<HTMLFormElement>) => {
+  const activateNewVision = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const now = new Date().toISOString();
-    updateData((current) => {
-      const archived: LifeVision = { ...current.vision, status: "paused" };
-      return {
-        ...current,
-        pastVisions: [...(current.pastVisions ?? []), archived],
-        vision: {
-          id: `vision-${now}`,
-          domain: newDomain,
-          title: newTitle.trim(),
-          description: newDescription.trim(),
-          status: "active"
-        },
-        /* Reset route for the new vision */
-        route: []
-      };
-    });
-    setNewVisionOpen(false);
-    setNewTitle("");
-    setNewDescription("");
-    setNewDomain("Study & focus");
-    setPauseConfirmOpen(false);
+    setSaving(true);
+    setError(null);
+    try {
+      await createVisionWithRoute(
+        newDomain,
+        composeVisionSummary(newTitle, newDescription)
+      );
+      await refresh();
+      setNewVisionOpen(false);
+      setNewTitle("");
+      setNewDescription("");
+      setNewDomain("Study & focus");
+      setPauseConfirmOpen(false);
+    } catch {
+      setError("The new Vision could not be created. Please try again when the server is reachable.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleNewVisionRequest = () => {
@@ -109,7 +122,9 @@ export function VisionPage() {
     setNewVisionOpen(true);
   };
 
-  const resumePastVision = (past: LifeVision) => {
+  const resumePastVision = async (past: LifeVision) => {
+    setSaving(true);
+    setError(null);
     updateData((current) => {
       /* Archive current active vision */
       const archived: LifeVision = { ...current.vision, status: "paused" };
@@ -120,6 +135,14 @@ export function VisionPage() {
         vision: { ...past, status: "active" }
       };
     });
+    try {
+      await updateVisionOnServer(past.id, { status: "active" });
+      await refresh();
+    } catch {
+      setError("That Vision could not be resumed on the server.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -132,6 +155,8 @@ export function VisionPage() {
         </div>
         <span className={`vision-status is-${data.vision.status}`}>{data.vision.status}</span>
       </header>
+
+      {error && <p className="auth-note" role="alert">{error}</p>}
 
       {!editing ? (
         <section className="vision-statement">
@@ -169,7 +194,7 @@ export function VisionPage() {
             <button className="secondary-command" type="button" onClick={cancelEditing}>
               <X aria-hidden="true" /> Cancel
             </button>
-            <button className="primary-command" type="submit">
+            <button className="primary-command" type="submit" disabled={saving}>
               <Save aria-hidden="true" /> Save Vision
             </button>
           </div>
@@ -220,7 +245,7 @@ export function VisionPage() {
             <button className="secondary-command" type="button" onClick={() => setNewVisionOpen(false)}>
               <X aria-hidden="true" /> Cancel
             </button>
-            <button className="primary-command" type="submit">
+            <button className="primary-command" type="submit" disabled={saving}>
               <Save aria-hidden="true" /> Activate new Vision
             </button>
           </div>
@@ -260,7 +285,8 @@ export function VisionPage() {
                 <button
                   className="secondary-command"
                   type="button"
-                  onClick={() => resumePastVision(v)}
+                  disabled={saving}
+                  onClick={() => void resumePastVision(v)}
                 >
                   <Play aria-hidden="true" /> Resume this Vision
                 </button>

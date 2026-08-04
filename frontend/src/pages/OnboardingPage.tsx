@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  composeVisionSummary,
   createVisionWithGeneratedRoute,
   createVisionWithRoute,
   fetchRoutePreview,
@@ -77,7 +78,7 @@ export function OnboardingPage() {
    * shows what the person actually gets rather than a generic sample.
    */
   const buildRouteForVision = async () => {
-    const summary = visionTitle.trim();
+    const summary = composeVisionSummary(visionTitle, visionDescription);
     if (!summary || routeBuiltFor === summary) return;
 
     setBuildingRoute(true);
@@ -140,8 +141,9 @@ export function OnboardingPage() {
       await savePreferences(preferences);
       // Usually already done on the review step; this covers the case where
       // that generation failed, so the Vision still reaches the server.
-      if (routeBuiltFor !== visionTitle.trim()) {
-        await createVisionWithRoute(primaryDomain, visionTitle);
+      const summary = composeVisionSummary(visionTitle, visionDescription);
+      if (routeBuiltFor !== summary) {
+        await createVisionWithRoute(primaryDomain, summary);
       }
       await refresh();
     } catch {

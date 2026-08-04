@@ -8,6 +8,7 @@ export interface RhythmSettings {
   interval_days: number | null;
   specific_day: string | null;
   preferred_time: string | null;
+  paused_until?: string | null;
 }
 
 function atTime(date: Date, time: string | null): Date {
@@ -28,11 +29,21 @@ function isWeekend(date: Date): boolean {
 
 /** Returns null for "on_demand"/"custom" — the user manages those themselves. */
 export function computeNextCheckinAt(from: Date, rhythm: RhythmSettings): Date | null {
+  if (rhythm.paused_until && new Date(rhythm.paused_until).getTime() > from.getTime()) return null;
   const time = rhythm.preferred_time;
   switch (rhythm.rhythm_type) {
     case "on_demand":
-    case "custom":
       return null;
+    case "custom": {
+      const days = (rhythm.specific_day ?? "")
+        .split(",")
+        .map(Number)
+        .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6);
+      if (days.length === 0) return null;
+      let d = addDays(from, 1);
+      while (!days.includes(d.getDay())) d = addDays(d, 1);
+      return atTime(d, time);
+    }
     case "daily":
       return atTime(addDays(from, 1), time);
     case "weekdays": {

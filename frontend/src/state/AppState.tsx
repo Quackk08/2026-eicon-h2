@@ -14,7 +14,7 @@ import {
   saveAppData,
   type AppData
 } from "../data/appData";
-import { hydrateFromBackend } from "../api/backend";
+import { hydrateFromBackend, resetProfileData } from "../api/backend";
 import { clearGuestProfileId } from "../api/client";
 import { getAccessToken, onAuthChange } from "../api/auth";
 import type { ApiRecommendation } from "../api/types";
@@ -106,6 +106,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       updateData: setData,
       refresh,
       resetDemo: async () => {
+        await resetProfileData();
         await clearAppData();
 
         // Clearing the local cache alone was not a reset: the guest id

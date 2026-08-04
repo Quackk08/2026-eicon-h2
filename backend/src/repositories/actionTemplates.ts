@@ -1,8 +1,11 @@
 import { supabase } from "../supabase/client.js";
 import type { ActionTemplate } from "@renew/shared";
+import { randomUUID } from "node:crypto";
 
 interface ActionTemplateRow {
   id: string;
+  profile_id: string | null;
+  source: "seed" | "ai" | "user";
   goal_domains: string[];
   title: string;
   min_capacity: number;
@@ -60,8 +63,12 @@ export async function listActionTemplatesForProfile(
     .contains("goal_domains", [domain]);
   if (error) throw error;
 
-  const generated = (data as ActionTemplateRow[]).map(toDomain);
-  return generated.length > 0 ? generated : listActionTemplatesByDomain(domain);
+  const personalRows = data as ActionTemplateRow[];
+  const personal = personalRows.map(toDomain);
+  if (personalRows.some((row) => row.source === "ai")) return personal;
+
+  const reviewed = await listActionTemplatesByDomain(domain);
+  return [...reviewed, ...personal];
 }
 
 export async function replaceGeneratedTemplates(
@@ -75,6 +82,7 @@ export async function replaceGeneratedTemplates(
     .from("action_templates")
     .delete()
     .eq("profile_id", profileId)
+    .eq("source", "ai")
     .contains("goal_domains", [domain]);
   if (deleteError) throw deleteError;
 
@@ -103,9 +111,9 @@ export async function replaceGeneratedTemplates(
 }
 
 /** `source` travels with the template so the UI can say which steps were generated. */
-export type ActionTemplateWithSource = ActionTemplate & { source: "seed" | "ai" };
+export type ActionTemplateWithSource = ActionTemplate & { source: "seed" | "ai" | "user" };
 
-function toDomainWithSource(row: ActionTemplateRow & { source?: "seed" | "ai" }): ActionTemplateWithSource {
+function toDomainWithSource(row: ActionTemplateRow & { source?: "seed" | "ai" | "user" }): ActionTemplateWithSource {
   return { ...toDomain(row), source: row.source ?? "seed" };
 }
 
@@ -125,7 +133,7 @@ export async function listVisibleActionTemplates(
     .select()
     .or(`profile_id.is.null,profile_id.eq.${profileId}`);
   if (error) throw error;
-  return (data as Array<ActionTemplateRow & { source?: "seed" | "ai" }>).map(toDomainWithSource);
+  return (data as Array<ActionTemplateRow & { source?: "seed" | "ai" | "user" }>).map(toDomainWithSource);
 }
 
 /** Same visibility rule as the list above, for a single template. */
@@ -140,7 +148,57 @@ export async function getVisibleActionTemplate(
     .or(`profile_id.is.null,profile_id.eq.${profileId}`)
     .maybeSingle();
   if (error) throw error;
-  return data ? toDomainWithSource(data as ActionTemplateRow & { source?: "seed" | "ai" }) : null;
+  return data ? toDomainWithSource(data as ActionTemplateRow & { source?: "seed" | "ai" | "user" }) : null;
+}
+
+function normalizePlaceType(value: string): string {
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  return normalized || "flexible";
+}
+
+export async function createUserRouteTemplate(input: {
+  profileId: string;
+  domain: string;
+  routeId: string;
+  ladderGroupId?: string;
+  level: number;
+  title: string;
+  durationMinutes: number;
+  placeType: string;
+}): Promise<ActionTemplateWithSource> {
+  const id = `user-${randomUUID()}`;
+  const row = {
+    id,
+    profile_id: input.profileId,
+    source: "user",
+    goal_domains: [input.domain],
+    title: input.title,
+    min_capacity: Math.min(4, Math.max(0, input.level - 1)),
+    max_social_load: 2,
+    duration_min_minutes: input.durationMinutes,
+    duration_max_minutes: input.durationMinutes,
+    cost_level: 0,
+    place_types: [normalizePlaceType(input.placeType)],
+    indoor_outdoor: "either",
+    ladder_group_id: input.ladderGroupId ?? `user-route-${input.routeId}`,
+    ladder_level: input.level,
+    safety_tags: []
+  } as const;
+  const { data, error } = await supabase.from("action_templates").insert(row).select().single();
+  if (error) throw error;
+  return toDomainWithSource(data as ActionTemplateRow);
+}
+
+export async function deleteUserRouteTemplate(profileId: string, templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from("action_templates")
+    .delete()
+    .eq("id", templateId)
+    .eq("profile_id", profileId)
+    .eq("source", "user");
+  // Historical Missions/Recommendations intentionally keep the template.
+  // PostgreSQL reports 23503 when one still references it.
+  if (error && error.code !== "23503") throw error;
 }
 
 export async function getActionTemplateById(id: string): Promise<ActionTemplate | null> {

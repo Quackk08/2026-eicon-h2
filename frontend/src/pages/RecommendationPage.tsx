@@ -9,7 +9,9 @@ import {
   getRecommendedMissionOption
 } from "../data/missionLogic";
 import { fetchPlaceForTemplate, requestDailyRecommendation, selectRecommendation } from "../api/backend";
-import type { ApiPlaceSearchResult } from "../api/types";
+import { ApiError } from "../api/client";
+import { fromApiMission } from "../api/mappers";
+import type { ApiPlaceSearchResult, ApiRecommendation } from "../api/types";
 import { useAppState } from "../state/AppState";
 
 const variantLabels: Record<MissionVariant, string> = {
@@ -25,10 +27,20 @@ export function RecommendationPage() {
   const { data, ready, recommendation: serverPick, updateData, refresh } = useAppState();
   const [loadingPick, setLoadingPick] = useState(true);
   const [placePick, setPlacePick] = useState<ApiPlaceSearchResult | null>(null);
+  const [pagePick, setPagePick] = useState<ApiRecommendation | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   /* A1: Guard — need at least one check-in today to reach this page */
   const today = new Date().toISOString().slice(0, 10);
   const hasCheckInToday = data.checkIns.some((c) => c.createdAt.slice(0, 10) === today);
+  const latestCheckIn = [...data.checkIns].sort(
+    (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+  )[0] ?? null;
+  const currentServerPick =
+    serverPick?.check_in_id === latestCheckIn?.id ? serverPick : null;
+  const activePick =
+    pagePick?.check_in_id === latestCheckIn?.id ? pagePick : currentServerPick;
 
 
   // Today's step comes from the shared backend pick. Only ask for a new one
@@ -43,8 +55,10 @@ export function RecommendationPage() {
     let active = true;
     (async () => {
       try {
-        const pick = serverPick ?? (await requestDailyRecommendation().then((r) => (refresh(), r)));
+        const pick = currentServerPick ?? await requestDailyRecommendation();
         if (!active || !pick) return;
+        setPagePick(pick);
+        if (!currentServerPick) await refresh();
         // Ask the backend where this action would happen, so the suggestion
         // names a real reviewed place instead of a bare category.
         const place = await fetchPlaceForTemplate(pick.selected_template_id);
@@ -58,27 +72,44 @@ export function RecommendationPage() {
     return () => {
       active = false;
     };
-  }, [hasCheckInToday, ready, refresh, serverPick?.id]);
+  }, [hasCheckInToday, latestCheckIn?.id, ready, refresh, currentServerPick?.id]);
 
   const recommended =
-    (serverPick && data.recommendations.find((option) => option.id === serverPick.selected_template_id)) ??
+    (activePick && data.recommendations.find((option) => option.id === activePick.selected_template_id)) ??
     getRecommendedMissionOption(data);
 
   const chooseMission = async (option: RecommendationOption) => {
-    updateData((current) => ({
-      ...current,
-      mission: createMissionFromOption(option)
-    }));
+    setChoosing(true);
+    setError(null);
 
-    if (serverPick) {
+    if (activePick) {
       try {
-        await selectRecommendation(serverPick.id, option.id, option.routeStepId ?? null);
+        const created = await selectRecommendation(activePick.id, option.id, option.routeStepId ?? null);
+        const mission = fromApiMission(created, data.vision.id);
+        updateData((current) => ({
+          ...current,
+          mission: mission ?? createMissionFromOption(option, { id: created.id })
+        }));
         await refresh();
-      } catch {
-        // The choice is already stored locally; it syncs on the next load.
+      } catch (cause) {
+        if (cause instanceof ApiError) {
+          setError(cause.message);
+          setChoosing(false);
+          return;
+        }
+        updateData((current) => ({
+          ...current,
+          mission: createMissionFromOption(option)
+        }));
       }
+    } else {
+      updateData((current) => ({
+        ...current,
+        mission: createMissionFromOption(option)
+      }));
     }
 
+    setChoosing(false);
     navigate("/app/mission");
   };
 
@@ -119,16 +150,24 @@ export function RecommendationPage() {
     );
   }
 
+  const allowedTemplateIds = activePick
+    ? new Set([
+        activePick.selected_template_id,
+        activePick.smaller_template_id,
+        activePick.extension_template_id
+      ].filter((id): id is string => Boolean(id)))
+    : null;
   const alternatives = getEligibleMissionOptions(data)
     .filter((option) => option.id !== recommended.id)
+    .filter((option) => !allowedTemplateIds || allowedTemplateIds.has(option.id))
     .slice(0, 4);
   const backendPlace = placePick
     ? placePick.candidates.find((candidate) => candidate.id === placePick.selectedPlaceId) ?? null
     : null;
   const recommendedPlace = getMissionPlace(data, recommended);
   const placeName = backendPlace?.name ?? recommendedPlace?.name ?? recommended.placeType;
-  const reasons = serverPick
-    ? [serverPick.user_facing_reason, ...getRecommendationReasons(data, recommended)].slice(0, 4)
+  const reasons = activePick
+    ? [activePick.user_facing_reason, ...getRecommendationReasons(data, recommended)].slice(0, 4)
     : getRecommendationReasons(data, recommended);
 
   return (
@@ -151,16 +190,18 @@ export function RecommendationPage() {
             Suggested for today{recommended.source === "ai" ? " / AI suggested" : ""}
           </p>
           <h2 id="recommendation-title">{recommended.title}</h2>
-          <p>{serverPick?.summary ?? recommended.description}</p>
+          <p>{activePick?.summary ?? recommended.description}</p>
           <div className="recommendation-meta">
             <span><Clock3 aria-hidden="true" /> {recommended.durationMinutes} min</span>
             <span><MapPin aria-hidden="true" /> {placeName}</span>
           </div>
-          <button className="primary-command" type="button" onClick={() => chooseMission(recommended)}>
+          <button className="primary-command" type="button" disabled={choosing} onClick={() => void chooseMission(recommended)}>
             Choose this Mission <ArrowRight aria-hidden="true" />
           </button>
         </div>
       </section>
+
+      {error && <p className="auth-note" role="alert">{error}</p>}
 
       <section className="recommendation-reason" aria-labelledby="reason-title">
         <div>
@@ -187,7 +228,7 @@ export function RecommendationPage() {
                 <h3>{option.title}</h3>
                 <p>{option.description}</p>
               </div>
-              <button className="secondary-command" type="button" onClick={() => chooseMission(option)}>
+              <button className="secondary-command" type="button" disabled={choosing} onClick={() => void chooseMission(option)}>
                 Choose <ArrowRight aria-hidden="true" />
               </button>
             </article>

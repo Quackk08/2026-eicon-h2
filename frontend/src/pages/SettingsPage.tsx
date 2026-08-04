@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowRight,
   Download,
@@ -11,8 +11,9 @@ import {
   UserRound
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { signOut as supabaseSignOut } from "../api/auth";
-import { clearAppData } from "../data/appData";
+import { signOut as supabaseSignOut, updateAccountEmail } from "../api/auth";
+import { saveCheckInRhythm, saveProfile as saveProfileOnServer } from "../api/backend";
+import { clearAppData, createDefaultAppData } from "../data/appData";
 import type { CheckInRhythm } from "../data/appData";
 import { useAppState } from "../state/AppState";
 
@@ -28,21 +29,53 @@ const weekDays = [
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { data, ready, updateData, resetDemo } = useAppState();
+  const { data, ready, updateData, refresh, resetDemo } = useAppState();
   const [name, setName] = useState(data.profile.name);
   const [email, setEmail] = useState(data.profile.email);
   const [resetOpen, setResetOpen] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const saveProfile = (event: FormEvent<HTMLFormElement>) => {
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setSavingProfile(true);
+    setError(null);
+    const nextName = name.trim();
+    const nextEmail = email.trim();
     updateData((current) => ({
       ...current,
-      profile: { ...current.profile, name: name.trim(), email: email.trim() }
+      profile: { ...current.profile, name: nextName, email: nextEmail }
     }));
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 1800);
+    try {
+      await saveProfileOnServer(nextName);
+      if (data.profile.signedIn && nextEmail !== data.profile.email) {
+        const result = await updateAccountEmail(nextEmail);
+        if (!result.ok) throw new Error(result.error ?? "Email could not be updated.");
+      }
+      await refresh();
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 1800);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Profile could not be saved.");
+    } finally {
+      setSavingProfile(false);
+    }
   };
+
+  useEffect(() => {
+    if (!ready) return;
+    const timeout = window.setTimeout(() => {
+      void saveCheckInRhythm(data.settings.checkInRhythm).catch(() => undefined);
+    }, 400);
+    return () => window.clearTimeout(timeout);
+  }, [
+    ready,
+    data.settings.checkInRhythm.frequency,
+    data.settings.checkInRhythm.time,
+    data.settings.checkInRhythm.enabled,
+    data.settings.checkInRhythm.days.join(",")
+  ]);
 
   const updateSetting = <Key extends keyof typeof data.settings>(
     key: Key,
@@ -104,21 +137,23 @@ export function SettingsPage() {
   };
 
   const performReset = async () => {
-    await resetDemo();
-    setResetOpen(false);
-    navigate("/onboarding");
+    setError(null);
+    try {
+      await resetDemo();
+      setResetOpen(false);
+      navigate("/onboarding");
+    } catch {
+      setError("ReNew data could not be reset while the server is unavailable.");
+    }
   };
 
   const signOut = async () => {
     await supabaseSignOut();
-    updateData((current) => ({
-      ...current,
-      profile: { ...current.profile, signedIn: false }
-    }));
     // Records live on the server under the account, so the local copy is
     // cleared too — otherwise the next person on this browser would open
     // the previous account's Vision and Check-Ins.
     await clearAppData();
+    updateData(() => createDefaultAppData());
     navigate("/login");
   };
 
@@ -155,9 +190,10 @@ export function SettingsPage() {
               <label htmlFor="profile-email">Email</label>
               <input id="profile-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
-            <button className="primary-command" type="submit">
+            <button className="primary-command" type="submit" disabled={savingProfile}>
               <Save aria-hidden="true" /> {saved ? "Saved" : "Save profile"}
             </button>
+            {error && <p className="auth-note" role="alert">{error}</p>}
           </form>
           <div className="settings-links">
             <button className="settings-link-row secondary-command" type="button" onClick={exportData}>

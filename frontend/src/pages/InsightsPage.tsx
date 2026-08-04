@@ -16,8 +16,8 @@ import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import type { CheckInRecord, Mission, Reflection } from "../data/appData";
 import { getMissionPlace } from "../data/missionLogic";
-import { fetchWeeklyInsight } from "../api/backend";
-import type { ApiWeeklyInsight } from "../api/types";
+import { fetchStateSummary, fetchWeeklyInsight } from "../api/backend";
+import type { ApiStateSummary, ApiWeeklyInsight } from "../api/types";
 import { useAppState } from "../state/AppState";
 
 /* ─── Inline SVG bar chart (no external deps) ─── */
@@ -171,6 +171,7 @@ export function InsightsPage() {
   const [range, setRange] = useState<InsightRange>(7);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [weekly, setWeekly] = useState<ApiWeeklyInsight | null>(null);
+  const [stateSummary, setStateSummary] = useState<ApiStateSummary | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -181,6 +182,11 @@ export function InsightsPage() {
       .catch(() => {
         // Backend unavailable — the locally computed panels below still render.
       });
+    fetchStateSummary()
+      .then((summary) => {
+        if (active) setStateSummary(summary);
+      })
+      .catch(() => undefined);
     return () => {
       active = false;
     };
@@ -644,6 +650,13 @@ export function InsightsPage() {
               <p className="pattern-empty">{weekly.summary}</p>
               {weekly.maintainedNote && <p className="pattern-empty">{weekly.maintainedNote}</p>}
               {weekly.adjustmentSuggestion && <p className="pattern-empty">{weekly.adjustmentSuggestion}</p>}
+              {stateSummary && (
+                <p className="pattern-empty">
+                  {stateSummary.stateTags.length > 0
+                    ? `Current Check-In context: ${stateSummary.stateTags.join(", ")}.`
+                    : stateSummary.message ?? "Current Check-In context is still being established."}
+                </p>
+              )}
             </section>
           )}
 

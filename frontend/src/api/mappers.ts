@@ -289,7 +289,11 @@ export function fromApiMission(mission: ApiMission, visionId: string): Mission |
     optionId: mission.template.id,
     status: API_STATUS_TO_UI[mission.status],
     selectedAt: mission.created_at,
-    scheduledFor: null
+    scheduledFor: mission.scheduled_at ?? `${mission.scheduled_for}T12:00:00.000Z`,
+    ...(mission.status === "in_progress" ? { startedAt: mission.updated_at } : {}),
+    ...(mission.status === "completed" || mission.status === "partially_completed" || mission.status === "not_today"
+      ? { completedAt: mission.updated_at }
+      : {})
   };
 }
 
@@ -302,7 +306,7 @@ export function fromApiCheckIn(checkIn: ApiCheckIn): CheckInRecord {
   return {
     id: checkIn.id,
     type: checkIn.type === "standard" ? "standard" : "quick",
-    createdAt: checkIn.created_at,
+    createdAt: checkIn.captured_at,
     mood: fromApiScore(checkIn.mood) ?? 3,
     energy: fromApiScore(checkIn.energy) ?? 3,
     capacity: fromApiScore(checkIn.functional_capacity) ?? 3,

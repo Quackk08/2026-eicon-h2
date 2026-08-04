@@ -1,12 +1,90 @@
 import { Router } from "express";
 import { checkInInputSchema, type StateVector } from "@renew/shared";
 import { createCheckIn, listRecentCheckIns, type CheckInRow } from "../repositories/checkIns.js";
-import { getOrCreateRhythm, updateRhythm } from "../repositories/checkinRhythms.js";
+import { z } from "zod";
+import {
+  getOrCreateRhythm,
+  updateRhythm,
+  type CheckinRhythmRow
+} from "../repositories/checkinRhythms.js";
 import { computeNextCheckinAt } from "../services/checkinScheduler.js";
 import { computeStateTags } from "../services/ruleEngine.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
 
 const router = Router();
+const DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+
+function toRhythmResponse(row: CheckinRhythmRow) {
+  const frequency =
+    row.rhythm_type === "weekdays" || row.rhythm_type === "weekly" || row.rhythm_type === "custom"
+      ? row.rhythm_type
+      : "daily";
+  const days =
+    frequency === "daily"
+      ? [0, 1, 2, 3, 4, 5, 6]
+      : frequency === "weekdays"
+        ? [1, 2, 3, 4, 5]
+        : frequency === "weekly"
+          ? [Math.max(0, DAY_NAMES.indexOf((row.specific_day ?? "mon") as (typeof DAY_NAMES)[number]))]
+          : (row.specific_day ?? "")
+              .split(",")
+              .map(Number)
+              .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6);
+
+  return {
+    frequency,
+    days,
+    time: row.preferred_time ?? "19:00",
+    enabled: !row.paused_until || new Date(row.paused_until).getTime() <= Date.now(),
+    nextCheckInAt: row.next_checkin_at,
+    lastCheckInAt: row.last_checkin_at
+  };
+}
+
+router.get("/check-in-rhythm", resolveProfile, async (req, res, next) => {
+  try {
+    res.json(toRhythmResponse(await getOrCreateRhythm(req.profileId!)));
+  } catch (err) {
+    next(err);
+  }
+});
+
+const rhythmSchema = z.object({
+  frequency: z.enum(["daily", "weekdays", "weekly", "custom"]),
+  days: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  enabled: z.boolean()
+});
+
+router.patch("/check-in-rhythm", resolveProfile, async (req, res, next) => {
+  try {
+    const parsed = rhythmSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    await getOrCreateRhythm(req.profileId!);
+
+    const specificDay =
+      parsed.data.frequency === "weekly"
+        ? DAY_NAMES[parsed.data.days[0]]
+        : parsed.data.frequency === "custom"
+          ? [...new Set(parsed.data.days)].sort((a, b) => a - b).join(",")
+          : null;
+    const settings = {
+      rhythm_type: parsed.data.frequency,
+      interval_days: null,
+      specific_day: specificDay,
+      preferred_time: parsed.data.time,
+      paused_until: parsed.data.enabled ? null : "9999-12-31T23:59:59.999Z"
+    } as const;
+    const next = computeNextCheckinAt(new Date(), settings);
+    const updated = await updateRhythm(req.profileId!, {
+      ...settings,
+      next_checkin_at: next?.toISOString() ?? null
+    });
+    res.json(toRhythmResponse(updated));
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.get("/check-ins", resolveProfile, async (req, res, next) => {
   try {

@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createMissionFromOption, type MissionVariant } from "../data/appData";
 import { getMissionPlace } from "../data/missionLogic";
-import { adaptMission } from "../api/backend";
+import { adaptMission, updateMission as updateMissionOnServer } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 /* ─── Size-adjustment stepper data ─── */
@@ -162,7 +162,7 @@ export function MissionPage() {
     );
   }
 
-  const updateMission = (status: "planned" | "in_progress" | "completed" | "not_today") => {
+  const setMissionStatus = (status: "planned" | "in_progress" | "completed" | "not_today") => {
     updateData((current) => ({
       ...current,
       mission: current.mission
@@ -176,8 +176,11 @@ export function MissionPage() {
   };
 
   const startMission = () => {
-    updateMission("in_progress");
+    setMissionStatus("in_progress");
     setTimerRunning(true);
+    void updateMissionOnServer(mission.id, { status: "in_progress" })
+      .then(() => refresh())
+      .catch(() => undefined);
   };
 
   const finishMission = (status: "completed" | "not_today") => {

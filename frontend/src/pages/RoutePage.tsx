@@ -14,10 +14,17 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { RouteStep } from "../data/appData";
+import {
+  addRouteStep as addRouteStepOnServer,
+  editRouteStep,
+  removeRouteStep,
+  reorderRouteSteps,
+  updateRouteStepStatus
+} from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 export function RoutePage() {
-  const { data, updateData } = useAppState();
+  const { data, updateData, refresh } = useAppState();
   const reducedMotion = data.settings.reducedMotion;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -26,6 +33,8 @@ export function RoutePage() {
   const [draftPlace, setDraftPlace] = useState("Flexible");
   const [recentlyLevelledId, setRecentlyLevelledId] = useState<string | null>(null);
   const [staircaseInfoOpen, setStaircaseInfoOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const completedCount = data.route.filter((step) => step.completed).length;
 
   const beginEdit = (step: RouteStep) => {
@@ -44,72 +53,95 @@ export function RoutePage() {
     setDraftPlace("Flexible");
   };
 
-  const saveStep = (event: FormEvent<HTMLFormElement>) => {
+  const saveStep = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    updateData((current) => {
+    if (!data.routeId) {
+      setError("This Route is not available on the server yet.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    const input = {
+      title: draftTitle.trim(),
+      durationMinutes: draftMinutes,
+      placeType: draftPlace.trim()
+    };
+    try {
       if (adding) {
-        return {
-          ...current,
-          route: [
-            ...current.route,
-            {
-              id: crypto.randomUUID(),
-              level: current.route.length + 1,
-              title: draftTitle.trim(),
-              durationMinutes: draftMinutes,
-              placeType: draftPlace.trim(),
-              completed: false
-            }
-          ]
-        };
+        await addRouteStepOnServer(data.routeId, input);
+      } else if (editingId) {
+        await editRouteStep(data.routeId, editingId, input);
       }
-
-      return {
-        ...current,
-        route: current.route.map((step) =>
-          step.id === editingId
-            ? { ...step, title: draftTitle.trim(), durationMinutes: draftMinutes, placeType: draftPlace.trim() }
-            : step
-        )
-      };
-    });
-    closeEditor();
-  };
-
-  const toggleComplete = (id: string) => {
-    updateData((current) => {
-      const step = current.route.find((s) => s.id === id);
-      const willComplete = step ? !step.completed : false;
-      return {
-        ...current,
-        route: current.route.map((s) => (s.id === id ? { ...s, completed: !s.completed } : s))
-      };
-    });
-    // Trigger level-up announcement/animation
-    const step = data.route.find((s) => s.id === id);
-    if (step && !step.completed) {
-      setRecentlyLevelledId(id);
-      setTimeout(() => setRecentlyLevelledId(null), 2000);
+      await refresh();
+      closeEditor();
+    } catch {
+      setError("The Route step could not be saved.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const moveStep = (index: number, direction: -1 | 1) => {
-    const target = index + direction;
-    if (target < 0 || target >= data.route.length) return;
+  const toggleComplete = async (id: string) => {
+    const previous = data.route.find((step) => step.id === id);
+    if (!previous) return;
+    const willComplete = !previous.completed;
     updateData((current) => {
-      const route = [...current.route];
-      [route[index], route[target]] = [route[target], route[index]];
-      return { ...current, route: route.map((step, routeIndex) => ({ ...step, level: routeIndex + 1 })) };
+      return {
+        ...current,
+        route: current.route.map((s) => (s.id === id ? { ...s, completed: willComplete } : s))
+      };
     });
+    // Trigger level-up announcement/animation
+    if (willComplete) {
+      setRecentlyLevelledId(id);
+      setTimeout(() => setRecentlyLevelledId(null), 2000);
+    }
+
+    if (!data.routeId) return;
+    try {
+      await updateRouteStepStatus(data.routeId, id, willComplete ? "done" : "pending");
+      await refresh();
+    } catch {
+      updateData((current) => ({
+        ...current,
+        route: current.route.map((step) =>
+          step.id === id ? { ...step, completed: previous.completed } : step
+        )
+      }));
+    }
   };
 
-  const deleteStep = (id: string) => {
+  const moveStep = async (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= data.route.length || !data.routeId) return;
+    const original = [...data.route];
+    const route = [...data.route];
+    [route[index], route[target]] = [route[target], route[index]];
     updateData((current) => ({
       ...current,
-      route: current.route
-        .filter((step) => step.id !== id)
-        .map((step, index) => ({ ...step, level: index + 1 }))
+      route: route.map((step, routeIndex) => ({ ...step, level: routeIndex + 1 }))
     }));
+    try {
+      await reorderRouteSteps(data.routeId, route.map((step) => step.id));
+      await refresh();
+    } catch {
+      updateData((current) => ({ ...current, route: original }));
+      setError("The Route order could not be saved.");
+    }
+  };
+
+  const deleteStep = async (id: string) => {
+    if (!data.routeId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await removeRouteStep(data.routeId, id);
+      await refresh();
+    } catch {
+      setError("The Route step could not be removed.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   /* ─── Build staircase levels sorted lowest→highest ─── */
@@ -126,6 +158,8 @@ export function RoutePage() {
           <p>Reorder, rewrite, or pause any step. The Route belongs to you.</p>
         </div>
       </header>
+
+      {error && <p className="auth-note" role="alert">{error}</p>}
 
       <section className="vision-summary-card" aria-labelledby="vision-summary-title">
         <div className="vision-summary-content">
@@ -242,7 +276,8 @@ export function RoutePage() {
                   type="button"
                   aria-label={step.completed ? `Mark Level ${step.level} incomplete` : `Mark Level ${step.level} complete`}
                   title={step.completed ? "Mark incomplete" : "Mark complete"}
-                  onClick={() => toggleComplete(step.id)}
+                  disabled={saving}
+                  onClick={() => void toggleComplete(step.id)}
                 >
                   {step.completed ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}
                 </button>
@@ -252,16 +287,16 @@ export function RoutePage() {
                   <span>{step.durationMinutes} min / {step.placeType}</span>
                 </div>
                 <div className="route-row-actions">
-                  <button type="button" onClick={() => moveStep(index, -1)} disabled={index === 0} aria-label="Move level up" title="Move up">
+                  <button type="button" onClick={() => void moveStep(index, -1)} disabled={saving || index === 0} aria-label="Move level up" title="Move up">
                     <ArrowUp aria-hidden="true" />
                   </button>
-                  <button type="button" onClick={() => moveStep(index, 1)} disabled={index === data.route.length - 1} aria-label="Move level down" title="Move down">
+                  <button type="button" onClick={() => void moveStep(index, 1)} disabled={saving || index === data.route.length - 1} aria-label="Move level down" title="Move down">
                     <ArrowDown aria-hidden="true" />
                   </button>
                   <button type="button" onClick={() => beginEdit(step)} aria-label={`Edit Level ${step.level}`} title="Edit level">
                     <Edit3 aria-hidden="true" />
                   </button>
-                  <button type="button" onClick={() => deleteStep(step.id)} aria-label={`Delete Level ${step.level}`} title="Delete level">
+                  <button type="button" disabled={saving} onClick={() => void deleteStep(step.id)} aria-label={`Delete Level ${step.level}`} title="Delete level">
                     <Trash2 aria-hidden="true" />
                   </button>
                 </div>
@@ -296,7 +331,7 @@ export function RoutePage() {
               <input id="route-step-place" value={draftPlace} maxLength={80} onChange={(event) => setDraftPlace(event.target.value)} required />
             </div>
           </div>
-          <button className="primary-command" type="submit">
+          <button className="primary-command" type="submit" disabled={saving}>
             <Save aria-hidden="true" /> Save level
           </button>
         </form>

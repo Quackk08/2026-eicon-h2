@@ -1,8 +1,14 @@
 import { Router } from "express";
 import { z } from "zod";
 import { LIFE_DOMAINS } from "@renew/shared";
-import { createVision, getVisionById, listVisions, updateVision } from "../repositories/visions.js";
-import { createRoute, getLatestRouteForVision } from "../repositories/routes.js";
+import {
+  createVision,
+  getVisionById,
+  listVisions,
+  pauseActiveVisions,
+  updateVision
+} from "../repositories/visions.js";
+import { createRoute, getLatestRouteForVision, updateRouteStatus } from "../repositories/routes.js";
 import {
   listActionTemplatesByDomain,
   replaceGeneratedTemplates
@@ -31,6 +37,7 @@ router.post("/visions", resolveProfile, async (req, res, next) => {
     const parsed = createVisionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     const vision = await createVision(req.profileId!, parsed.data.domain, parsed.data.summary);
+    await pauseActiveVisions(req.profileId!, vision.id);
     res.status(201).json(vision);
   } catch (err) {
     next(err);
@@ -49,7 +56,15 @@ router.patch("/visions/:id", resolveProfile, async (req, res, next) => {
     if (!existing || existing.profile_id !== req.profileId) return res.status(404).json({ error: "not found" });
     const parsed = patchVisionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    res.json(await updateVision((req.params.id as string), parsed.data));
+    if (parsed.data.status === "active") {
+      await pauseActiveVisions(req.profileId!, existing.id);
+    }
+    const updated = await updateVision((req.params.id as string), parsed.data);
+    if (parsed.data.status) {
+      const route = await getLatestRouteForVision(existing.id);
+      if (route) await updateRouteStatus(route.id, parsed.data.status);
+    }
+    res.json(updated);
   } catch (err) {
     next(err);
   }

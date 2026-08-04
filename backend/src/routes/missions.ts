@@ -12,12 +12,14 @@ import {
   listMissionsForProfile,
   switchMissionTemplate,
   updateMissionPlace,
+  updateMissionSchedule,
   updateMissionStatus,
   type MissionRow
 } from "../repositories/missions.js";
 import { getActionTemplateById, listActionTemplatesInLadderGroup } from "../repositories/actionTemplates.js";
 import { getPlaceById } from "../repositories/places.js";
 import { selectPlaceForTemplate } from "../services/placeSelection.js";
+import { completeRouteStep } from "../repositories/routes.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
 
 const router = Router();
@@ -55,6 +57,34 @@ router.get("/missions/today", resolveProfile, async (req, res, next) => {
     const mission = await getTodayMission(req.profileId!);
     if (!mission) return res.json(null);
     res.json(await withDetails(mission));
+  } catch (err) {
+    next(err);
+  }
+});
+
+const missionPatchSchema = z.object({
+  status: z.enum(["planned", "in_progress", "cancelled"]).optional(),
+  scheduledFor: z.string().datetime({ offset: true }).optional()
+}).refine((value) => value.status !== undefined || value.scheduledFor !== undefined, {
+  message: "status or scheduledFor required"
+});
+
+router.patch("/missions/:id", resolveProfile, async (req, res, next) => {
+  try {
+    const mission = await getMissionById(req.params.id as string);
+    if (!mission || mission.profile_id !== req.profileId) return res.status(404).json({ error: "not found" });
+
+    const parsed = missionPatchSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    let updated = mission;
+    if (parsed.data.scheduledFor) {
+      updated = await updateMissionSchedule(updated.id, parsed.data.scheduledFor);
+    }
+    if (parsed.data.status) {
+      updated = await updateMissionStatus(updated.id, parsed.data.status);
+    }
+    res.json(await withDetails(updated));
   } catch (err) {
     next(err);
   }
@@ -170,6 +200,9 @@ router.post("/missions/:id/reflection", resolveProfile, async (req, res, next) =
       not_today: "not_today"
     } as const;
     await updateMissionStatus(mission.id, statusMap[input.result]);
+    if (input.result === "completed" && mission.route_step_id) {
+      await completeRouteStep(mission.route_step_id);
+    }
 
     res.status(201).json({ reflection, suggestion: suggestNext(input.result, input.burden) });
   } catch (err) {

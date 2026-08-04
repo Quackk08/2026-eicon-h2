@@ -6,6 +6,7 @@ import {
   Menu,
   Route as RouteIcon,
   Settings,
+  UsersRound,
   X
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -15,6 +16,7 @@ const navigation = [
   { label: "Today", href: "/app/today", icon: CalendarCheck2 },
   { label: "Route", href: "/app/route", icon: RouteIcon },
   { label: "Places", href: "/app/places", icon: MapPin },
+  { label: "Community", href: "/app/community", icon: UsersRound },
   { label: "Insights", href: "/app/insights", icon: BarChart3 },
   { label: "Settings", href: "/app/settings", icon: Settings }
 ];
@@ -121,7 +123,7 @@ export function AppShell() {
         </div>
 
         <nav className="mobile-bottom-nav" aria-label="Primary app navigation">
-          {navigation.slice(0, 4).map(({ label, href, icon: Icon }) => (
+          {navigation.slice(0, 5).map(({ label, href, icon: Icon }) => (
             <NavLink className={({ isActive }) => (isActive ? "is-active" : "")} to={href} key={href}>
               <Icon aria-hidden="true" />
               <span>{label}</span>

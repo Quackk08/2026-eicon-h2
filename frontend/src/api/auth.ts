@@ -69,3 +69,10 @@ export async function signOut(): Promise<void> {
   if (!supabase) return;
   await supabase.auth.signOut();
 }
+
+export async function updateAccountEmail(email: string): Promise<AuthResult> {
+  if (!supabase) return { ok: false, error: "Account updates are not configured in this build." };
+  const { error } = await supabase.auth.updateUser({ email });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}

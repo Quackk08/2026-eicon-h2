@@ -10,6 +10,7 @@ export interface MissionRow {
   place_id: string | null;
   status: MissionStatus;
   scheduled_for: string;
+  scheduled_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -82,6 +83,21 @@ export async function updateMissionStatus(id: string, status: MissionStatus): Pr
   const { data, error } = await supabase
     .from("missions")
     .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateMissionSchedule(id: string, scheduledAt: string): Promise<MissionRow> {
+  const { data, error } = await supabase
+    .from("missions")
+    .update({
+      scheduled_for: scheduledAt.slice(0, 10),
+      scheduled_at: scheduledAt,
+      updated_at: new Date().toISOString()
+    })
     .eq("id", id)
     .select()
     .single();

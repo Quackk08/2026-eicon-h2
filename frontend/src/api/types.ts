@@ -12,10 +12,12 @@ export interface ApiPreferences {
 
 export interface ApiProfile {
   id: string;
+  display_name: string | null;
   locale: string;
   timezone: string;
   created_at: string;
   preferences: ApiPreferences | null;
+  signedIn?: boolean;
 }
 
 export type ApiLifeDomain =
@@ -41,7 +43,7 @@ export interface ApiVision {
 export interface ApiActionTemplate {
   id: string;
   /** "ai" steps were generated for this user and had no prior human review. */
-  source?: "seed" | "ai";
+  source?: "seed" | "ai" | "user";
   goalDomains: ApiLifeDomain[];
   title: string;
   minCapacity: number;
@@ -126,10 +128,34 @@ export interface ApiMission {
   place_id: string | null;
   status: ApiMissionStatus;
   scheduled_for: string;
+  scheduled_at: string | null;
   created_at: string;
   updated_at: string;
   template?: ApiActionTemplate | null;
   place?: ApiPlace | null;
+}
+
+export interface ApiCheckInRhythm {
+  frequency: "daily" | "weekdays" | "weekly" | "custom";
+  days: number[];
+  time: string;
+  enabled: boolean;
+  nextCheckInAt: string | null;
+  lastCheckInAt: string | null;
+}
+
+export interface ApiStateSummary {
+  hasEnoughData: boolean;
+  message?: string;
+  stateTags: string[];
+  baseline?: {
+    mood: number | null;
+    energy: number | null;
+    functionalCapacity: number | null;
+    stress: number | null;
+    sleepQuality: number | null;
+    loneliness: number | null;
+  };
 }
 
 export interface ApiReflection {

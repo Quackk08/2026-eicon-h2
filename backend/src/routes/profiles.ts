@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
-import { createProfile, getProfileById } from "../repositories/profiles.js";
+import {
+  createProfile,
+  deleteProfile,
+  getProfileById,
+  updateProfile
+} from "../repositories/profiles.js";
 import { getPreferences, upsertPreferences } from "../repositories/preferences.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
 
@@ -22,6 +27,30 @@ router.get("/me", resolveProfile, async (req, res, next) => {
     const profile = await getProfileById(req.profileId!);
     const preferences = await getPreferences(req.profileId!);
     res.json({ ...profile, preferences, signedIn: Boolean(req.authUserId) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const profileSchema = z.object({
+  displayName: z.string().trim().min(1).max(80)
+});
+
+router.patch("/me", resolveProfile, async (req, res, next) => {
+  try {
+    const parsed = profileSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    res.json(await updateProfile(req.profileId!, { display_name: parsed.data.displayName }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** Deletes the ReNew profile data; the Supabase Auth account itself remains. */
+router.delete("/me", resolveProfile, async (req, res, next) => {
+  try {
+    await deleteProfile(req.profileId!);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

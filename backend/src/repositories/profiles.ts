@@ -3,6 +3,7 @@ import { supabase } from "../supabase/client.js";
 export interface ProfileRow {
   id: string;
   auth_user_id: string | null;
+  display_name: string | null;
   locale: string;
   timezone: string;
   created_at: string;
@@ -60,6 +61,20 @@ export async function profileHasRecords(profileId: string): Promise<boolean> {
 export async function deleteProfile(profileId: string): Promise<void> {
   const { error } = await supabase.from("profiles").delete().eq("id", profileId);
   if (error) throw error;
+}
+
+export async function updateProfile(
+  profileId: string,
+  patch: { display_name?: string | null }
+): Promise<ProfileRow> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(patch)
+    .eq("id", profileId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 /**

@@ -104,3 +104,106 @@ export async function updateStepStatus(
   if (error) throw error;
   return data;
 }
+
+/** Marks one Route step done and promotes the next pending step to current. */
+export async function completeRouteStep(stepId: string): Promise<void> {
+  const { data: step, error: stepError } = await supabase
+    .from("route_steps")
+    .select()
+    .eq("id", stepId)
+    .maybeSingle();
+  if (stepError) throw stepError;
+  if (!step) return;
+
+  await updateStepStatus(step.id, "done");
+
+  const { data: next, error: nextError } = await supabase
+    .from("route_steps")
+    .select()
+    .eq("route_id", step.route_id)
+    .gt("sequence", step.sequence)
+    .in("status", ["pending", "current"])
+    .order("sequence", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (nextError) throw nextError;
+  if (next) await updateStepStatus(next.id, "current");
+}
+
+export async function getRouteStepById(stepId: string): Promise<RouteStepRow | null> {
+  const { data, error } = await supabase
+    .from("route_steps")
+    .select()
+    .eq("id", stepId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function addRouteStep(
+  routeId: string,
+  templateId: string,
+  sequence: number,
+  ladderLevel: number
+): Promise<RouteStepRow> {
+  const { data, error } = await supabase
+    .from("route_steps")
+    .insert({
+      route_id: routeId,
+      template_id: templateId,
+      sequence,
+      ladder_level: ladderLevel,
+      status: "pending"
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function replaceRouteStepTemplate(
+  stepId: string,
+  templateId: string,
+  ladderLevel: number
+): Promise<RouteStepRow> {
+  const { data, error } = await supabase
+    .from("route_steps")
+    .update({ template_id: templateId, ladder_level: ladderLevel })
+    .eq("id", stepId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function reorderRouteSteps(routeId: string, stepIds: string[]): Promise<void> {
+  const route = await getRouteById(routeId);
+  if (!route) throw new Error("route not found");
+  const existing = new Set(route.steps.map((step) => step.id));
+  if (stepIds.length !== existing.size || stepIds.some((id) => !existing.has(id))) {
+    throw new Error("stepIds must contain every route step exactly once");
+  }
+
+  await Promise.all(
+    stepIds.map(async (id, sequence) => {
+      const { error } = await supabase
+        .from("route_steps")
+        .update({ sequence, ladder_level: sequence + 1 })
+        .eq("id", id)
+        .eq("route_id", routeId);
+      if (error) throw error;
+    })
+  );
+}
+
+export async function deleteRouteStep(routeId: string, stepId: string): Promise<void> {
+  const { error } = await supabase
+    .from("route_steps")
+    .delete()
+    .eq("id", stepId)
+    .eq("route_id", routeId);
+  if (error) throw error;
+
+  const route = await getRouteById(routeId);
+  if (route) await reorderRouteSteps(routeId, route.steps.map((step) => step.id));
+}

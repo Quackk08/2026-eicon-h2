@@ -37,6 +37,8 @@ import {
   getRecommendationReasons,
   getRecommendedMissionOption
 } from "../data/missionLogic";
+import { selectRecommendation, updateMission as updateMissionOnServer } from "../api/backend";
+import { fromApiMission } from "../api/mappers";
 import { useAppState } from "../state/AppState";
 
 const variantLabels: Record<MissionVariant, string> = {
@@ -133,7 +135,7 @@ function missionDateKey(mission: Mission): string | null {
 
 export function TodayPage() {
   const navigate = useNavigate();
-  const { data, ready, recommendation, updateData } = useAppState();
+  const { data, ready, recommendation, updateData, refresh } = useAppState();
   // The backend decides today's step from the latest Check-In; the local
   // heuristic is only the offline fallback. Without this the "Best fit" badge
   // sat on the Route's first step no matter what the Check-In said.
@@ -154,6 +156,7 @@ export function TodayPage() {
   const [scheduleDate, setScheduleDate] = useState(scheduleDays[0].value);
   const [scheduleTime, setScheduleTime] = useState(data.settings.checkInRhythm.time);
   const [scheduleNotice, setScheduleNotice] = useState("");
+  const [actionBusy, setActionBusy] = useState(false);
 
   /* ─── Collapsible "This Week" section ─── */
   const [weekOpen, setWeekOpen] = useState(false);
@@ -281,16 +284,37 @@ export function TodayPage() {
     }
   };
 
-  const startSelectedMission = () => {
-    const startedAt = new Date().toISOString();
-    updateData((current) => ({
-      ...current,
-      mission:
-        current.mission?.optionId === selectedOption.id
-          ? { ...current.mission, status: "in_progress", startedAt }
-          : createMissionFromOption(selectedOption, { status: "in_progress", startedAt })
-    }));
-    navigate("/app/mission");
+  const createServerMission = async (option: RecommendationOption): Promise<Mission> => {
+    if (!recommendation) return createMissionFromOption(option);
+    const created = await selectRecommendation(
+      recommendation.id,
+      option.id,
+      option.routeStepId ?? null
+    );
+    return fromApiMission(created, data.vision.id) ??
+      createMissionFromOption(option, { id: created.id });
+  };
+
+  const startSelectedMission = async () => {
+    setActionBusy(true);
+    setScheduleNotice("");
+    try {
+      const selectedMission =
+        data.mission?.optionId === selectedOption.id
+          ? data.mission
+          : await createServerMission(selectedOption);
+      await updateMissionOnServer(selectedMission.id, { status: "in_progress" });
+      const startedAt = new Date().toISOString();
+      updateData((current) => ({
+        ...current,
+        mission: { ...selectedMission, status: "in_progress", startedAt }
+      }));
+      navigate("/app/mission");
+    } catch {
+      setScheduleNotice("The Mission could not be started. Please check the connection and try again.");
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const finishSelectedMission = () => {
@@ -316,7 +340,7 @@ export function TodayPage() {
     } else if (activeStatus === "completed" || activeStatus === "partly" || activeStatus === "not_today") {
       navigate("/app/reflection");
     } else {
-      startSelectedMission();
+      void startSelectedMission();
     }
   };
 
@@ -335,30 +359,50 @@ export function TodayPage() {
     setScheduleNotice("");
   };
 
-  const saveSchedule = (event: FormEvent<HTMLFormElement>) => {
+  const saveSchedule = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!scheduleTarget) return;
 
+    setActionBusy(true);
+    setScheduleNotice("");
     const wasEditing = editingPlanId !== null;
     const scheduledFor = new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
-    updateData((current) => ({
-      ...current,
-      plannedMissions: editingPlanId
-        ? current.plannedMissions.map((mission) =>
+    try {
+      if (editingPlanId) {
+        await updateMissionOnServer(editingPlanId, { scheduledFor });
+        updateData((current) => ({
+          ...current,
+          plannedMissions: current.plannedMissions.map((mission) =>
             mission.id === editingPlanId ? { ...mission, scheduledFor } : mission
           )
-        : [
-            ...current.plannedMissions,
-            createMissionFromOption(scheduleTarget, { status: "planned", scheduledFor })
+        }));
+      } else {
+        const created = await createServerMission(scheduleTarget);
+        await updateMissionOnServer(created.id, { status: "planned", scheduledFor });
+        updateData((current) => ({
+          ...current,
+          plannedMissions: [
+            ...current.plannedMissions.filter((mission) => mission.id !== created.id),
+            { ...created, status: "planned", scheduledFor }
           ]
-    }));
-    setSelectedDay(scheduleDate);
-    setScheduleTargetId(null);
-    setEditingPlanId(null);
-    setScheduleNotice(wasEditing ? "Mission moved." : "Mission added to your week.");
+        }));
+      }
+      await refresh();
+      setSelectedDay(scheduleDate);
+      setScheduleTargetId(null);
+      setEditingPlanId(null);
+      setScheduleNotice(wasEditing ? "Mission moved." : "Mission added to your week.");
+    } catch {
+      setScheduleNotice("The plan could not be saved. Please check the connection and try again.");
+    } finally {
+      setActionBusy(false);
+    }
   };
 
-  const startPlannedMissionNow = (mission: Mission) => {
+  const startPlannedMissionNow = async (mission: Mission) => {
+    setActionBusy(true);
+    try {
+      await updateMissionOnServer(mission.id, { status: "in_progress" });
     const startedAt = new Date().toISOString();
     updateData((current) => ({
       ...current,
@@ -372,13 +416,26 @@ export function TodayPage() {
       plannedMissions: current.plannedMissions.filter((item) => item.id !== mission.id)
     }));
     navigate("/app/mission");
+    } catch {
+      setScheduleNotice("The planned Mission could not be started.");
+    } finally {
+      setActionBusy(false);
+    }
   };
 
-  const removePlannedMission = (missionId: string) => {
+  const removePlannedMission = async (missionId: string) => {
+    setActionBusy(true);
+    try {
+      await updateMissionOnServer(missionId, { status: "cancelled" });
     updateData((current) => ({
       ...current,
       plannedMissions: current.plannedMissions.filter((mission) => mission.id !== missionId)
     }));
+    } catch {
+      setScheduleNotice("The planned Mission could not be removed.");
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   const primaryLabel = !isTodaySelected
@@ -542,7 +599,7 @@ export function TodayPage() {
         <p className="planner-focus-description">{selectedOption.description}</p>
 
         <div className="planner-focus-actions">
-          <button className="primary-command" type="button" onClick={handlePrimaryAction}>
+          <button className="primary-command" type="button" disabled={actionBusy} onClick={handlePrimaryAction}>
             <Play aria-hidden="true" />
             {primaryLabel}
           </button>
@@ -681,10 +738,10 @@ export function TodayPage() {
                       </div>
                       <div className="planner-agenda-actions">
                         {isTodaySelected && (
-                          <button className="planner-small-command" type="button" onClick={() => startPlannedMissionNow(mission)}>Start</button>
+                          <button className="planner-small-command" type="button" disabled={actionBusy} onClick={() => void startPlannedMissionNow(mission)}>Start</button>
                         )}
                         <button className="icon-button" type="button" aria-label={`Move ${mission.title}`} title="Move" onClick={() => openSchedule(option, mission)}><CalendarClock aria-hidden="true" /></button>
-                        <button className="icon-button" type="button" aria-label={`Remove ${mission.title}`} title="Remove" onClick={() => removePlannedMission(mission.id)}><X aria-hidden="true" /></button>
+                        <button className="icon-button" type="button" disabled={actionBusy} aria-label={`Remove ${mission.title}`} title="Remove" onClick={() => void removePlannedMission(mission.id)}><X aria-hidden="true" /></button>
                       </div>
                     </article>
                   );
@@ -736,7 +793,7 @@ export function TodayPage() {
             </select>
           </label>
           <div className="mission-schedule-actions">
-            <button className="primary-command" type="submit">Save plan <ArrowRight aria-hidden="true" /></button>
+            <button className="primary-command" type="submit" disabled={actionBusy}>Save plan <ArrowRight aria-hidden="true" /></button>
             <button className="icon-button" type="button" aria-label="Close schedule editor" title="Close" onClick={() => setScheduleTargetId(null)}>
               <X aria-hidden="true" />
             </button>
