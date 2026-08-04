@@ -172,7 +172,8 @@ export function fromApiPlace(place: ApiPlace): Place {
     address: place.addressRegion ?? "Address not listed",
     hours: place.hours ?? "Hours not listed",
     color: CATEGORY_COLORS[place.category] ?? "leaf",
-    mission: place.mission ?? null
+    mission: place.mission ?? null,
+    imageUrl: place.imageUrl ?? null
   };
 }
 

@@ -115,6 +115,20 @@ export const placeSeeds: Omit<Place, "isPartner">[] = [
 ];
 
 /**
+ * Photographs of the places, served from frontend/public/places. Keyed by
+ * id so a place without a photo keeps the plain panel it has now.
+ */
+export const placeImages: Record<string, string> = {
+  "place-mapo-central-library": "/places/mapo-central-library.jpg",
+  "place-worldcup-peace-park": "/places/worldcup-peace-park.jpg",
+  "place-haneul-park": "/places/haneul-park.jpg",
+  "place-oil-tank-culture-park": "/places/oil-tank-culture-park.jpg",
+  "place-nanji-hangang-park": "/places/nanji-hangang-park.jpg",
+  "place-dmc-cafe-street": "/places/dmc-cafe-street.jpg",
+  "place-worldcup-stadium-concourse": "/places/worldcup-stadium-concourse.jpg"
+};
+
+/**
  * One small, concrete thing to do at each place — written for this seed
  * data, not generated. Keyed by place id, so a place without one simply
  * shows no mission.

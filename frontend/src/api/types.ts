@@ -186,6 +186,8 @@ export interface ApiPlace {
   notes: string | null;
   /** A small fixed step for this place; null when none is written. */
   mission?: string | null;
+  /** Photo path under /places, or null when the place has no photo yet. */
+  imageUrl?: string | null;
 }
 
 export interface ApiPlaceSearchResult {

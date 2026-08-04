@@ -119,6 +119,8 @@ export interface Place {
   color: "sky" | "clay" | "leaf" | "plum";
   /** One small step to take at this place, or null when none is written. */
   mission: string | null;
+  /** Photo to show in the card's panel, or null to keep the plain panel. */
+  imageUrl: string | null;
 }
 
 export interface CommunityActivity {

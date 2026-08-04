@@ -158,6 +158,20 @@ export function PlacesPage() {
             return (
               <article className="place-result" key={place.id}>
                 <Link className={`place-result-visual is-${place.color}`} to={`/app/places/${place.id}`} aria-label={`View ${place.name}`}>
+                  {/* Decorative: the name sits beside it, so alt stays empty
+                      rather than repeating it to a screen reader. A path is
+                      mapped for every place, but the files arrive one at a
+                      time — a missing one hides itself and leaves the plain
+                      panel rather than showing a broken-image icon. */}
+                  {place.imageUrl && (
+                    <img
+                      className="place-result-photo"
+                      src={place.imageUrl}
+                      alt=""
+                      loading="lazy"
+                      onError={(event) => event.currentTarget.remove()}
+                    />
+                  )}
                   <span>{String(index + 1).padStart(2, "0")} / {place.type}</span>
                 </Link>
                 <div className="place-result-copy">

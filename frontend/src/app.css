@@ -1768,6 +1768,25 @@
   overflow: hidden;
 }
 
+/* Fills the panel when a place has a photo. Sits under the label and above
+   the inset frame, so a card with a photo and one without still line up. */
+.place-result-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.place-result-visual:has(.place-result-photo)::before {
+  border-color: oklch(100% 0 0 / 45%);
+}
+
+.place-result-visual:has(.place-result-photo) span {
+  color: oklch(100% 0 0);
+  text-shadow: 0 1px 3px oklch(0% 0 0 / 65%);
+}
+
 .place-result-visual::before {
   position: absolute;
   inset: 14%;
