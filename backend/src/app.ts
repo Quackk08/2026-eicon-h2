@@ -1,7 +1,7 @@
 import cors from "cors";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
-import { env } from "./config/env.js";
+import { env, isAIEnabled } from "./config/env.js";
 import profilesRouter from "./routes/profiles.js";
 import visionsRouter from "./routes/visions.js";
 import routesRouter from "./routes/routes.js";
@@ -31,10 +31,19 @@ const app = express();
 app.use(cors({ origin: env.clientOrigin }));
 app.use(express.json());
 
+/**
+ * Reports whether AI generation is configured, which is otherwise invisible:
+ * with no key, or a model whose quota is spent, ladders silently fall back
+ * to reviewed seed steps and every Vision gets the same five actions.
+ *
+ * Only the model name and a boolean are exposed — never the key itself.
+ */
 app.get("/api/health", (_request, response) => {
   response.json({
     ok: true,
-    service: "26e-icon-api"
+    service: "26e-icon-api",
+    aiEnabled: isAIEnabled(),
+    geminiModel: isAIEnabled() ? env.geminiModel : null
   });
 });
 
