@@ -3,11 +3,6 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build --workspace @renew/shared && npm run build --workspace backend && npm run build --workspace frontend",
   "outputDirectory": "frontend/dist",
-  "functions": {
-    "api/index.mjs": {
-      "maxDuration": 60
-    }
-  },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index?__vercelPath=:path*" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
