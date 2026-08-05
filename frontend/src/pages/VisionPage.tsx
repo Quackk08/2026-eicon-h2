@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, Edit3, Pause, Play, Save, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { LifeDomain, LifeVision } from "../data/appData";
@@ -7,6 +7,7 @@ import {
   createVisionWithRoute,
   updateVision as updateVisionOnServer
 } from "../api/backend";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useAppState } from "../state/AppState";
 
 const visionDomains: LifeDomain[] = [
@@ -35,6 +36,16 @@ export function VisionPage() {
   const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The server's copy can arrive (or change) after this page mounted. While
+  // the editor is closed, follow it — otherwise "Edit Vision" opened a form
+  // holding the stale mount-time text, and saving wrote that stale text back.
+  useEffect(() => {
+    if (editing) return;
+    setTitle(data.vision.title);
+    setDescription(data.vision.description);
+    setDomain(data.vision.domain);
+  }, [editing, data.vision.id, data.vision.title, data.vision.description, data.vision.domain]);
 
   const saveVision = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -70,8 +81,11 @@ export function VisionPage() {
 
   const toggleStatus = async () => {
     const visionId = data.vision.id;
-    if (!visionId) return;
-    const nextStatus = data.vision.status === "active" ? "paused" : "active";
+    if (!visionId || saving) return;
+    const previousStatus = data.vision.status;
+    const nextStatus = previousStatus === "active" ? "paused" : "active";
+    setSaving(true);
+    setError(null);
     updateData((current) => ({
       ...current,
       vision: { ...current.vision, status: nextStatus }
@@ -81,7 +95,15 @@ export function VisionPage() {
       await updateVisionOnServer(visionId, { status: nextStatus });
       await refresh();
     } catch {
+      // Revert — a badge claiming "paused" while the server still runs the
+      // Vision is worse than the failure itself.
+      updateData((current) => ({
+        ...current,
+        vision: { ...current.vision, status: previousStatus }
+      }));
       setError("The Vision status could not be updated on the server.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -125,13 +147,18 @@ export function VisionPage() {
   const resumePastVision = async (past: LifeVision) => {
     setSaving(true);
     setError(null);
+    const previousVision = data.vision;
+    const previousPast = data.pastVisions ?? [];
     updateData((current) => {
-      /* Archive current active vision */
-      const archived: LifeVision = { ...current.vision, status: "paused" };
       const remaining = (current.pastVisions ?? []).filter((v) => v.id !== past.id);
+      // A guest's placeholder Vision has no id; archiving it would leave an
+      // un-removable blank card in the list.
+      const archived: LifeVision[] = current.vision.id
+        ? [{ ...current.vision, status: "paused" }]
+        : [];
       return {
         ...current,
-        pastVisions: [...remaining, archived],
+        pastVisions: [...remaining, ...archived],
         vision: { ...past, status: "active" }
       };
     });
@@ -139,11 +166,34 @@ export function VisionPage() {
       await updateVisionOnServer(past.id, { status: "active" });
       await refresh();
     } catch {
+      // Put both lists back the way they were rather than leaving the page
+      // claiming a switch the server never made.
+      updateData((current) => ({
+        ...current,
+        vision: previousVision,
+        pastVisions: previousPast
+      }));
       setError("That Vision could not be resumed on the server.");
     } finally {
       setSaving(false);
     }
   };
+
+  // No Vision yet — a fresh guest can land here directly. The edit and pause
+  // controls have nothing to act on (an empty id made them silent no-ops), so
+  // the page says what comes first instead of rendering blank headings.
+  if (!data.vision.id) {
+    return (
+      <main className="app-page flow-page mission-empty">
+        <p className="app-kicker">No direction named yet</p>
+        <h1>Your Life Vision starts in onboarding.</h1>
+        <p>Describe the everyday life you want to move toward, and ReNew will build a Route of workable steps for it.</p>
+        <Link className="primary-command" to="/onboarding">
+          Start onboarding <ArrowRight aria-hidden="true" />
+        </Link>
+      </main>
+    );
+  }
 
   return (
     <main className="app-page planning-page vision-page">
@@ -153,7 +203,9 @@ export function VisionPage() {
           <h1>A direction you can return to.</h1>
           <p>Your Vision holds the longer story. Daily actions can change without losing it.</p>
         </div>
-        <span className={`vision-status is-${data.vision.status}`}>{data.vision.status}</span>
+        <span className={`vision-status is-${data.vision.status}`}>
+          {data.vision.status === "active" ? "Active" : "Paused"}
+        </span>
       </header>
 
       {error && <p className="auth-note" role="alert">{error}</p>}
@@ -168,7 +220,7 @@ export function VisionPage() {
             <button className="primary-command" type="button" onClick={() => setEditing(true)}>
               <Edit3 aria-hidden="true" /> Edit Vision
             </button>
-            <button className="secondary-command" type="button" onClick={toggleStatus}>
+            <button className="secondary-command" type="button" disabled={saving} onClick={toggleStatus}>
               {data.vision.status === "active" ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
               {data.vision.status === "active" ? "Pause Vision" : "Resume Vision"}
             </button>
@@ -202,23 +254,17 @@ export function VisionPage() {
       )}
 
       {/* D2: Pause-confirm before starting a new Vision */}
-      {pauseConfirmOpen && (
-        <section className="vision-pause-confirm" role="dialog" aria-modal="true" aria-labelledby="pause-confirm-title">
-          <div>
-            <p className="app-kicker">One active Vision at a time</p>
-            <h2 id="pause-confirm-title">Pause your current Vision first?</h2>
-            <p>Your current Vision and Route will be paused and kept in the list below. You can resume it at any time.</p>
-          </div>
-          <div>
-            <button className="secondary-command" type="button" onClick={() => setPauseConfirmOpen(false)}>
-              Keep current Vision
-            </button>
-            <button className="primary-command" type="button" onClick={confirmPauseAndNew}>
-              Pause and start a new one
-            </button>
-          </div>
-        </section>
-      )}
+      <ConfirmDialog
+        open={pauseConfirmOpen}
+        kicker="One active Vision at a time"
+        title="Pause your current Vision first?"
+        confirmLabel="Pause and start a new one"
+        cancelLabel="Keep current Vision"
+        onCancel={() => setPauseConfirmOpen(false)}
+        onConfirm={confirmPauseAndNew}
+      >
+        <p>Your current Vision and Route will be paused and kept in the list below. You can resume it at any time.</p>
+      </ConfirmDialog>
 
       {/* D2: New Vision form */}
       {newVisionOpen && (
@@ -246,7 +292,7 @@ export function VisionPage() {
               <X aria-hidden="true" /> Cancel
             </button>
             <button className="primary-command" type="submit" disabled={saving}>
-              <Save aria-hidden="true" /> Activate new Vision
+              <Save aria-hidden="true" /> {saving ? "Building your Route..." : "Activate new Vision"}
             </button>
           </div>
         </form>
@@ -275,7 +321,7 @@ export function VisionPage() {
         <section className="vision-past-list" aria-labelledby="past-visions-title">
           <p className="app-kicker">Past Visions</p>
           <h2 id="past-visions-title">Paused directions</h2>
-          <p>These are kept permanently. Resume any one to make it active again (this will pause the current one).</p>
+          <p>These stay in your history until you delete your data. Resume any one to make it active again (this will pause the current one).</p>
           <div className="past-vision-grid">
             {(data.pastVisions ?? []).map((v) => (
               <article key={v.id} className="past-vision-card">

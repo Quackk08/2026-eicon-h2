@@ -195,7 +195,9 @@ export function createDefaultAppData(): AppData {
       onboardingComplete: false
     },
     preferences: {
-      domains: ["Study & focus"],
+      // Deliberately empty: onboarding promises nothing is filled in on the
+      // person's behalf, and a pre-selected domain made that a lie.
+      domains: [],
       availableMinutes: 20,
       maxDistanceKm: 2,
       budget: "Low cost",

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowRight,
   Download,
@@ -12,9 +12,10 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { signOut as supabaseSignOut, updateAccountEmail } from "../api/auth";
-import { saveCheckInRhythm, saveProfile as saveProfileOnServer } from "../api/backend";
+import { saveCheckInRhythm, savePreferences, saveProfile as saveProfileOnServer } from "../api/backend";
 import { clearAppData, createDefaultAppData } from "../data/appData";
-import type { CheckInRhythm } from "../data/appData";
+import type { CheckInRhythm, UserPreferences } from "../data/appData";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useAppState } from "../state/AppState";
 
 const weekDays = [
@@ -32,28 +33,54 @@ export function SettingsPage() {
   const { data, ready, updateData, refresh, resetDemo } = useAppState();
   const [name, setName] = useState(data.profile.name);
   const [email, setEmail] = useState(data.profile.email);
+  const [profileDirty, setProfileDirty] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
+  const [signOutOpen, setSignOutOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [statusNote, setStatusNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * True only after the person changed the rhythm on this page. The autosave
+   * effect used to fire on hydration too — racing the server pull and
+   * PATCHing the local defaults over whatever was actually saved.
+   */
+  const rhythmDirty = useRef(false);
+
+  // Server hydration can land after mount; follow it while the fields are
+  // untouched so the form shows the account's real name and email.
+  useEffect(() => {
+    if (profileDirty) return;
+    setName(data.profile.name);
+    setEmail(data.profile.email);
+  }, [profileDirty, data.profile.name, data.profile.email]);
 
   const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSavingProfile(true);
     setError(null);
+    setStatusNote(null);
     const nextName = name.trim();
     const nextEmail = email.trim();
+    const emailChanged = nextEmail !== data.profile.email;
     updateData((current) => ({
       ...current,
-      profile: { ...current.profile, name: nextName, email: nextEmail }
+      // The email is not changed locally yet: with auth on, it only takes
+      // effect after the person confirms from the new address.
+      profile: { ...current.profile, name: nextName }
     }));
     try {
       await saveProfileOnServer(nextName);
-      if (data.profile.signedIn && nextEmail !== data.profile.email) {
+      if (data.profile.signedIn && emailChanged) {
         const result = await updateAccountEmail(nextEmail);
         if (!result.ok) throw new Error(result.error ?? "Email could not be updated.");
+        setStatusNote(
+          `A confirmation email is on its way to ${nextEmail}. The address changes once you confirm it there.`
+        );
       }
       await refresh();
+      setProfileDirty(false);
       setSaved(true);
       window.setTimeout(() => setSaved(false), 1800);
     } catch (cause) {
@@ -64,7 +91,7 @@ export function SettingsPage() {
   };
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !rhythmDirty.current) return;
     const timeout = window.setTimeout(() => {
       void saveCheckInRhythm(data.settings.checkInRhythm).catch(() => undefined);
     }, 400);
@@ -77,6 +104,12 @@ export function SettingsPage() {
     data.settings.checkInRhythm.days.join(",")
   ]);
 
+  const savePreferenceChange = (updates: Partial<UserPreferences>) => {
+    const next = { ...data.preferences, ...updates };
+    updateData((current) => ({ ...current, preferences: next }));
+    void savePreferences(next).catch(() => undefined);
+  };
+
   const updateSetting = <Key extends keyof typeof data.settings>(
     key: Key,
     value: (typeof data.settings)[Key]
@@ -88,6 +121,7 @@ export function SettingsPage() {
   };
 
   const updateRhythm = (updates: Partial<CheckInRhythm>) => {
+    rhythmDirty.current = true;
     updateData((current) => {
       const checkInRhythm = { ...current.settings.checkInRhythm, ...updates };
       return {
@@ -132,8 +166,13 @@ export function SettingsPage() {
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = `renew-export-${new Date().toISOString().slice(0, 10)}.json`;
+    // Firefox only honours a synthetic click on an anchor that is in the
+    // document, and revoking the URL synchronously can cancel the download.
+    document.body.appendChild(anchor);
     anchor.click();
-    URL.revokeObjectURL(url);
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setStatusNote("Export started — check your downloads.");
   };
 
   const performReset = async () => {
@@ -148,13 +187,18 @@ export function SettingsPage() {
   };
 
   const signOut = async () => {
-    await supabaseSignOut();
-    // Records live on the server under the account, so the local copy is
-    // cleared too — otherwise the next person on this browser would open
-    // the previous account's Vision and Check-Ins.
-    await clearAppData();
-    updateData(() => createDefaultAppData());
-    navigate("/login");
+    try {
+      await supabaseSignOut();
+      // Records live on the server under the account, so the local copy is
+      // cleared too — otherwise the next person on this browser would open
+      // the previous account's Vision and Check-Ins.
+      await clearAppData();
+      updateData(() => createDefaultAppData());
+      navigate("/login");
+    } catch {
+      setSignOutOpen(false);
+      setError("Signing out did not complete. Please try again.");
+    }
   };
 
   if (!ready) {
@@ -184,26 +228,47 @@ export function SettingsPage() {
           <form className="settings-form" onSubmit={saveProfile}>
             <div className="field-group">
               <label htmlFor="profile-name">Name</label>
-              <input id="profile-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} required />
+              <input
+                id="profile-name"
+                value={name}
+                maxLength={80}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setProfileDirty(true);
+                }}
+                required
+              />
             </div>
             <div className="field-group">
               <label htmlFor="profile-email">Email</label>
-              <input id="profile-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input
+                id="profile-email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setProfileDirty(true);
+                }}
+                required
+              />
             </div>
             <button className="primary-command" type="submit" disabled={savingProfile}>
-              <Save aria-hidden="true" /> {saved ? "Saved" : "Save profile"}
+              <Save aria-hidden="true" /> Save profile
             </button>
+            {/* Announced, not only painted onto the button label. */}
+            <p className="sr-only" role="status">{saved ? "Profile saved." : ""}</p>
+            {statusNote && <p className="auth-note" role="status">{statusNote}</p>}
             {error && <p className="auth-note" role="alert">{error}</p>}
           </form>
           <div className="settings-links">
             <button className="settings-link-row secondary-command" type="button" onClick={exportData}>
               <Download aria-hidden="true" /><span>Export data<strong>Download your records as JSON</strong></span>
             </button>
-            <button className="settings-link-row text-button" type="button" onClick={signOut}>
+            <button className="settings-link-row text-button" type="button" onClick={() => setSignOutOpen(true)}>
               <LogOut aria-hidden="true" /><span>Sign out</span>
             </button>
             <button className="settings-link-row text-button danger-command" type="button" onClick={() => setResetOpen(true)}>
-              <RefreshCcw aria-hidden="true" /><span>Reset demo data</span>
+              <RefreshCcw aria-hidden="true" /><span>Delete all data</span>
             </button>
           </div>
         </section>
@@ -290,15 +355,58 @@ export function SettingsPage() {
                 onChange={(e) => updateSetting("reducedMotion", e.target.checked)}
               />
             </label>
+            {/* Edited in place — this used to link into onboarding, and
+                finishing that wizard replaced the person's Vision. */}
+            <label className="settings-row">
+              <div><strong>Available time</strong><span>How long a Mission may take</span></div>
+              <select
+                value={data.preferences.availableMinutes}
+                onChange={(e) => savePreferenceChange({ availableMinutes: Number(e.target.value) })}
+              >
+                {[10, 20, 30, 45, 60, 90].map((minutes) => (
+                  <option value={minutes} key={minutes}>{minutes} min</option>
+                ))}
+              </select>
+            </label>
+            <label className="settings-row">
+              <div><strong>Travel distance</strong><span>How far a place may be</span></div>
+              <select
+                value={data.preferences.maxDistanceKm}
+                onChange={(e) => savePreferenceChange({ maxDistanceKm: Number(e.target.value) })}
+              >
+                {[1, 2, 5, 10].map((km) => (
+                  <option value={km} key={km}>{km} km</option>
+                ))}
+              </select>
+            </label>
+            <label className="settings-row">
+              <div><strong>Budget</strong><span>What a suggestion may cost</span></div>
+              <select
+                value={data.preferences.budget}
+                onChange={(e) => savePreferenceChange({ budget: e.target.value as UserPreferences["budget"] })}
+              >
+                <option value="Free">Free</option>
+                <option value="Low cost">Low cost</option>
+                <option value="Flexible">Flexible</option>
+              </select>
+            </label>
+            <label className="settings-row">
+              <div><strong>Social setting</strong><span>How much company feels right</span></div>
+              <select
+                value={data.preferences.socialPreference}
+                onChange={(e) =>
+                  savePreferenceChange({ socialPreference: e.target.value as UserPreferences["socialPreference"] })
+                }
+              >
+                <option value="Solo">Solo</option>
+                <option value="Low pressure">Low pressure</option>
+                <option value="Together">Together</option>
+              </select>
+            </label>
           </div>
           <div className="settings-links">
             <Link to="/app/vision">
-              <span>Life Vision</span><strong>{data.vision.title}</strong><ArrowRight aria-hidden="true" />
-            </Link>
-            <Link to="/onboarding">
-              <span>Distance, cost &amp; social preferences</span>
-              <strong>{data.preferences.availableMinutes} min / {data.preferences.maxDistanceKm} km / {data.preferences.socialPreference}</strong>
-              <ArrowRight aria-hidden="true" />
+              <span>Life Vision</span><strong>{data.vision.title || "Not set yet"}</strong><ArrowRight aria-hidden="true" />
             </Link>
           </div>
         </section>
@@ -322,23 +430,64 @@ export function SettingsPage() {
               Manage in Support <ArrowRight aria-hidden="true" />
             </Link>
           </div>
+          <div className="settings-links">
+            <Link to="/privacy">
+              <span>Privacy policy</span>
+              <strong>What is stored, where, and how to remove it</strong>
+              <ArrowRight aria-hidden="true" />
+            </Link>
+            <button className="settings-link-row text-button danger-command" type="button" onClick={() => setResetOpen(true)}>
+              <RefreshCcw aria-hidden="true" /><span>Delete all data</span>
+            </button>
+          </div>
         </section>
 
       </div>
 
-      {resetOpen && (
-        <section className="reset-confirm" role="dialog" aria-modal="true" aria-labelledby="reset-title">
-          <div>
-            <p className="app-kicker">Confirm reset</p>
-            <h2 id="reset-title">Remove all local ReNew data?</h2>
-            <p>This clears the profile, Vision, Route, Check-Ins, Missions, reflections, saved places, and trusted contact on this browser.</p>
-          </div>
-          <div>
-            <button className="secondary-command" type="button" onClick={() => setResetOpen(false)}>Keep my data</button>
-            <button className="primary-command danger-command" type="button" onClick={() => void performReset()}>Reset everything</button>
-          </div>
-        </section>
-      )}
+      <ConfirmDialog
+        open={resetOpen}
+        kicker="Confirm deletion"
+        title="Delete all ReNew data?"
+        confirmLabel="Delete everything"
+        cancelLabel="Keep my data"
+        danger
+        confirmDisabled={resetConfirmText.trim().toUpperCase() !== "DELETE"}
+        onCancel={() => {
+          setResetOpen(false);
+          setResetConfirmText("");
+        }}
+        onConfirm={() => void performReset()}
+      >
+        <p>
+          This removes your profile, Vision, Route, Check-Ins, Missions, reflections, saved places,
+          and trusted contact — from this browser <strong>and from the server</strong>. It cannot be
+          undone. Consider using "Export data" first.
+        </p>
+        <label className="field-group reset-confirm-field">
+          Type DELETE to confirm
+          <input
+            value={resetConfirmText}
+            onChange={(event) => setResetConfirmText(event.target.value)}
+            autoComplete="off"
+          />
+        </label>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={signOutOpen}
+        kicker="Sign out"
+        title={data.profile.signedIn ? "Sign out of this device?" : "Leave without an account?"}
+        confirmLabel="Sign out"
+        cancelLabel="Stay"
+        onCancel={() => setSignOutOpen(false)}
+        onConfirm={() => void signOut()}
+      >
+        <p>
+          {data.profile.signedIn
+            ? "The local copy on this browser is cleared; your records stay safe in your account and return when you sign back in."
+            : "You are not signed in, so there is no account holding these records — signing out erases the Vision, Check-Ins, and Missions on this browser for good. Create an account first to keep them."}
+        </p>
+      </ConfirmDialog>
     </main>
   );
 }

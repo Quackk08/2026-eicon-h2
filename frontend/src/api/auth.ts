@@ -76,3 +76,24 @@ export async function updateAccountEmail(email: string): Promise<AuthResult> {
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
+
+/**
+ * Sends the recovery email. The link lands on /reset-password, where the
+ * client (detectSessionInUrl) turns the link's token into a recovery session
+ * that updateAccountPassword can act on.
+ */
+export async function requestPasswordReset(email: string): Promise<AuthResult> {
+  if (!supabase) return { ok: false, error: "Password reset is not configured in this build." };
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function updateAccountPassword(password: string): Promise<AuthResult> {
+  if (!supabase) return { ok: false, error: "Account updates are not configured in this build." };
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}

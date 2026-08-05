@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowDown,
   ArrowRight,
@@ -8,6 +8,7 @@ import {
   Edit3,
   Info,
   Plus,
+  RefreshCcw,
   Save,
   Trash2,
   X
@@ -17,10 +18,12 @@ import type { RouteStep } from "../data/appData";
 import {
   addRouteStep as addRouteStepOnServer,
   editRouteStep,
+  regenerateRoute,
   removeRouteStep,
   reorderRouteSteps,
   updateRouteStepStatus
 } from "../api/backend";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useAppState } from "../state/AppState";
 
 export function RoutePage() {
@@ -34,8 +37,29 @@ export function RoutePage() {
   const [recentlyLevelledId, setRecentlyLevelledId] = useState<string | null>(null);
   const [staircaseInfoOpen, setStaircaseInfoOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** The one step with a toggle in flight; blocks double-fires per step. */
+  const [pendingStepId, setPendingStepId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [rebuilding, setRebuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const completedCount = data.route.filter((step) => step.completed).length;
+  const levelUpTimer = useRef<number | null>(null);
+  const editorRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => () => {
+    if (levelUpTimer.current) window.clearTimeout(levelUpTimer.current);
+  }, []);
+
+  // The editor mounts below the whole Route list; without this, Edit on a
+  // long Route appeared to do nothing at all.
+  useEffect(() => {
+    if (!editingId && !adding) return;
+    editorRef.current?.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+      block: "center"
+    });
+    editorRef.current?.querySelector("input")?.focus();
+  }, [editingId, adding, reducedMotion]);
 
   const beginEdit = (step: RouteStep) => {
     setEditingId(step.id);
@@ -82,6 +106,7 @@ export function RoutePage() {
   };
 
   const toggleComplete = async (id: string) => {
+    if (pendingStepId) return;
     const previous = data.route.find((step) => step.id === id);
     if (!previous) return;
     const willComplete = !previous.completed;
@@ -93,11 +118,13 @@ export function RoutePage() {
     });
     // Trigger level-up announcement/animation
     if (willComplete) {
+      if (levelUpTimer.current) window.clearTimeout(levelUpTimer.current);
       setRecentlyLevelledId(id);
-      setTimeout(() => setRecentlyLevelledId(null), 2000);
+      levelUpTimer.current = window.setTimeout(() => setRecentlyLevelledId(null), 2000);
     }
 
     if (!data.routeId) return;
+    setPendingStepId(id);
     try {
       await updateRouteStepStatus(data.routeId, id, willComplete ? "done" : "pending");
       await refresh();
@@ -108,25 +135,43 @@ export function RoutePage() {
           step.id === id ? { ...step, completed: previous.completed } : step
         )
       }));
+      setError("The level could not be updated on the server. Please try again.");
+    } finally {
+      setPendingStepId(null);
     }
   };
 
   const moveStep = async (index: number, direction: -1 | 1) => {
     const target = index + direction;
-    if (target < 0 || target >= data.route.length || !data.routeId) return;
-    const original = [...data.route];
-    const route = [...data.route];
-    [route[index], route[target]] = [route[target], route[index]];
+    if (target < 0 || target >= sortedRoute.length || !data.routeId || saving) return;
+    const reordered = [...sortedRoute];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
     updateData((current) => ({
       ...current,
-      route: route.map((step, routeIndex) => ({ ...step, level: routeIndex + 1 }))
+      route: reordered.map((step, routeIndex) => ({ ...step, level: routeIndex + 1 }))
     }));
+    setSaving(true);
     try {
-      await reorderRouteSteps(data.routeId, route.map((step) => step.id));
+      await reorderRouteSteps(data.routeId, reordered.map((step) => step.id));
       await refresh();
     } catch {
-      updateData((current) => ({ ...current, route: original }));
       setError("The Route order could not be saved.");
+      // Prefer the server's truth over a possibly-stale snapshot; only swap
+      // the pair back locally when the server cannot answer either.
+      await refresh().catch(() => {
+        updateData((current) => ({
+          ...current,
+          route: [...current.route]
+            .sort((a, b) => a.level - b.level)
+            .map((step, routeIndex, list) => {
+              if (routeIndex === index) return { ...list[target], level: routeIndex + 1 };
+              if (routeIndex === target) return { ...list[index], level: routeIndex + 1 };
+              return { ...step, level: routeIndex + 1 };
+            })
+        }));
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -137,6 +182,7 @@ export function RoutePage() {
     try {
       await removeRouteStep(data.routeId, id);
       await refresh();
+      setConfirmDeleteId(null);
     } catch {
       setError("The Route step could not be removed.");
     } finally {
@@ -144,10 +190,27 @@ export function RoutePage() {
     }
   };
 
+  const rebuildRoute = async () => {
+    if (!data.vision.id || rebuilding) return;
+    setRebuilding(true);
+    setError(null);
+    try {
+      await regenerateRoute(data.vision.id);
+      await refresh();
+    } catch {
+      setError("The Route could not be rebuilt. Please try again when the server is reachable.");
+    } finally {
+      setRebuilding(false);
+    }
+  };
+
   /* ─── Build staircase levels sorted lowest→highest ─── */
   const sortedRoute = [...data.route].sort((a, b) => a.level - b.level);
   const currentStepIndex = sortedRoute.findIndex((s) => !s.completed);
   // The "current" level is the first incomplete step
+  const confirmDeleteStep = confirmDeleteId
+    ? data.route.find((step) => step.id === confirmDeleteId) ?? null
+    : null;
 
   return (
     <main className="app-page planning-page route-page">
@@ -235,7 +298,7 @@ export function RoutePage() {
           </div>
           {/* Level-up confirmation (non-animated, always readable) */}
           {recentlyLevelledId && (
-            <p className="route-levelup-notice" aria-live="polite" role="status">
+            <p className="route-levelup-notice" role="status">
               Level {data.route.find((s) => s.id === recentlyLevelledId)?.level} explored. Well done.
             </p>
           )}
@@ -251,6 +314,8 @@ export function RoutePage() {
           <button
             className="primary-command"
             type="button"
+            disabled={!data.routeId}
+            title={data.routeId ? undefined : "The Route is not on the server yet"}
             onClick={() => {
               closeEditor();
               setAdding(true);
@@ -260,8 +325,30 @@ export function RoutePage() {
           </button>
         </div>
 
+        {sortedRoute.length === 0 && (
+          <div className="route-empty">
+            <p className="app-kicker">No levels yet</p>
+            <p>
+              A Route is a set of sizes for the same direction — from the smallest possible action up
+              to your full goal.{" "}
+              {data.vision.id
+                ? "Rebuild it from your Vision, or add levels by hand."
+                : "It appears once your Life Vision exists."}
+            </p>
+            {data.vision.id ? (
+              <button className="secondary-command" type="button" disabled={rebuilding} onClick={() => void rebuildRoute()}>
+                <RefreshCcw aria-hidden="true" /> {rebuilding ? "Rebuilding..." : "Rebuild my Route"}
+              </button>
+            ) : (
+              <Link className="secondary-command" to="/onboarding">
+                Start onboarding <ArrowRight aria-hidden="true" />
+              </Link>
+            )}
+          </div>
+        )}
+
         <ol className="route-manager-list">
-          {data.route.map((step, index) => {
+          {sortedRoute.map((step, index) => {
             const isLevelledUp = recentlyLevelledId === step.id;
             return (
               <li
@@ -276,7 +363,7 @@ export function RoutePage() {
                   type="button"
                   aria-label={step.completed ? `Mark Level ${step.level} incomplete` : `Mark Level ${step.level} complete`}
                   title={step.completed ? "Mark incomplete" : "Mark complete"}
-                  disabled={saving}
+                  disabled={pendingStepId !== null}
                   onClick={() => void toggleComplete(step.id)}
                 >
                   {step.completed ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}
@@ -290,13 +377,20 @@ export function RoutePage() {
                   <button type="button" onClick={() => void moveStep(index, -1)} disabled={saving || index === 0} aria-label="Move level up" title="Move up">
                     <ArrowUp aria-hidden="true" />
                   </button>
-                  <button type="button" onClick={() => void moveStep(index, 1)} disabled={saving || index === data.route.length - 1} aria-label="Move level down" title="Move down">
+                  <button type="button" onClick={() => void moveStep(index, 1)} disabled={saving || index === sortedRoute.length - 1} aria-label="Move level down" title="Move down">
                     <ArrowDown aria-hidden="true" />
                   </button>
                   <button type="button" onClick={() => beginEdit(step)} aria-label={`Edit Level ${step.level}`} title="Edit level">
                     <Edit3 aria-hidden="true" />
                   </button>
-                  <button type="button" disabled={saving} onClick={() => void deleteStep(step.id)} aria-label={`Delete Level ${step.level}`} title="Delete level">
+                  <button
+                    type="button"
+                    className="route-delete-button"
+                    disabled={saving}
+                    onClick={() => setConfirmDeleteId(step.id)}
+                    aria-label={`Delete Level ${step.level}`}
+                    title="Delete level"
+                  >
                     <Trash2 aria-hidden="true" />
                   </button>
                 </div>
@@ -306,8 +400,27 @@ export function RoutePage() {
         </ol>
       </section>
 
+      <ConfirmDialog
+        open={confirmDeleteStep !== null}
+        kicker="Remove this level"
+        title={`Delete Level ${confirmDeleteStep?.level ?? ""}?`}
+        confirmLabel="Delete level"
+        cancelLabel="Keep it"
+        danger
+        busy={saving}
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={() => {
+          if (confirmDeleteId) void deleteStep(confirmDeleteId);
+        }}
+      >
+        <p>
+          "{confirmDeleteStep?.title}" will be removed from your Route on this device and on the
+          server. This cannot be undone.
+        </p>
+      </ConfirmDialog>
+
       {(editingId || adding) && (
-        <form className="route-editor" onSubmit={saveStep}>
+        <form className="route-editor" ref={editorRef} onSubmit={saveStep}>
           <div className="route-editor-heading">
             <div>
               <p className="app-kicker">{adding ? "New Route level" : "Adjust this level"}</p>

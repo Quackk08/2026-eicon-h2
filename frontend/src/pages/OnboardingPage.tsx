@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   composeVisionSummary,
   createVisionWithGeneratedRoute,
-  createVisionWithRoute,
   fetchRoutePreview,
   savePreferences
 } from "../api/backend";
@@ -68,7 +67,15 @@ export function OnboardingPage() {
   // The wording the shown ladder was built from, so going back without
   // changing anything does not spend another generation.
   const [routeBuiltFor, setRouteBuiltFor] = useState<string | null>(null);
+  const [routeBuildFailed, setRouteBuildFailed] = useState(false);
   const progress = ((step + 1) / stepMeta.length) * 100;
+  const panelRef = useRef<HTMLElement>(null);
+
+  // Each step swaps the whole panel; without a focus move, nothing tells a
+  // screen-reader user that anything changed.
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, [step]);
 
   // A stand-in for the domain, shown only until the real ladder is built on
   // the review step. Skipped once that exists, so it cannot overwrite it.
@@ -95,15 +102,23 @@ export function OnboardingPage() {
     if (!summary || routeBuiltFor === summary) return;
 
     setBuildingRoute(true);
+    setRouteBuildFailed(false);
     try {
       await savePreferences(preferences);
       const built = await createVisionWithGeneratedRoute(primaryDomain, summary, visionId ?? undefined);
+      // The Vision id survives even a failed generation, so every retry
+      // rewrites this Vision instead of stacking new ones on the server.
       setVisionId(built.visionId);
-      setRoute(built.steps);
-      setRouteBuiltFor(summary);
+      if (built.steps) {
+        setRoute(built.steps);
+        setRouteBuiltFor(summary);
+      } else {
+        setRouteBuildFailed(true);
+      }
     } catch {
-      // Generation is allowed to fail — the seed preview already on screen
+      // Even the Vision write failed — the seed preview already on screen
       // stays, and completeOnboarding will try again on the way out.
+      setRouteBuildFailed(true);
     } finally {
       setBuildingRoute(false);
     }
@@ -136,7 +151,9 @@ export function OnboardingPage() {
       ...current,
       profile: {
         ...current.profile,
-        signedIn: true,
+        // signedIn stays false: nothing here authenticated anyone, and
+        // claiming otherwise made Settings try account-only operations for
+        // guests. Hydration owns the flag.
         onboardingComplete: true
       },
       preferences,
@@ -153,9 +170,10 @@ export function OnboardingPage() {
     try {
       await savePreferences(preferences);
       // Usually already done on the review step; this covers the case where
-      // that generation failed, so the Vision still reaches the server.
+      // that generation failed. Passing the known Vision id rewrites it
+      // rather than creating a duplicate that pauses the real one.
       if (routeBuiltFor !== visionSummary) {
-        await createVisionWithRoute(primaryDomain, visionSummary);
+        await createVisionWithGeneratedRoute(primaryDomain, visionSummary, visionId ?? undefined);
       }
       await refresh();
     } catch {
@@ -169,7 +187,11 @@ export function OnboardingPage() {
 
   const canContinue =
     (step !== 1 || preferences.domains.length > 0) &&
-    (step !== 3 || (visionTitle.trim().length > 0 && visionDescription.trim().length > 0));
+    // A skipped Vision is an answered Vision; coming Back to this step used
+    // to strand people on a disabled Continue button.
+    (step !== 3 ||
+      visionSkipped ||
+      (visionTitle.trim().length > 0 && visionDescription.trim().length > 0));
 
   const visionSummary = visionSkipped
     ? DIRECTIONLESS_SUMMARY
@@ -201,6 +223,11 @@ export function OnboardingPage() {
         <p>
           {String(step + 1).padStart(2, "0")} / {String(stepMeta.length).padStart(2, "0")}
         </p>
+        {/* Returning users land here from the hero CTA too; give them the
+            way into their existing account instead of a second onboarding. */}
+        <Link className="text-button onboarding-signin-link" to="/login">
+          Already have an account? Sign in
+        </Link>
       </header>
 
       <div className="onboarding-progress" aria-hidden="true">
@@ -210,14 +237,18 @@ export function OnboardingPage() {
       <div className="onboarding-layout">
         <aside className="onboarding-rail" aria-label="Onboarding progress">
           {stepMeta.map(({ label, icon: Icon }, index) => (
-            <div className={index === step ? "is-current" : index < step ? "is-complete" : ""} key={label}>
+            <div
+              className={index === step ? "is-current" : index < step ? "is-complete" : ""}
+              aria-current={index === step ? "step" : undefined}
+              key={label}
+            >
               <span>{index < step ? <Check aria-hidden="true" /> : <Icon aria-hidden="true" />}</span>
               {label}
             </div>
           ))}
         </aside>
 
-        <section className="onboarding-content">
+        <section className="onboarding-content" ref={panelRef} tabIndex={-1}>
           {step === 0 && (
             <div className="onboarding-panel onboarding-welcome">
               <p className="app-kicker">Start from your life</p>
@@ -301,6 +332,7 @@ export function OnboardingPage() {
                     <button
                       className={preferences.budget === option ? "is-selected" : ""}
                       type="button"
+                      aria-pressed={preferences.budget === option}
                       onClick={() => setPreferences((current) => ({ ...current, budget: option }))}
                       key={option}
                     >
@@ -317,6 +349,7 @@ export function OnboardingPage() {
                     <button
                       className={preferences.socialPreference === option ? "is-selected" : ""}
                       type="button"
+                      aria-pressed={preferences.socialPreference === option}
                       onClick={() => setPreferences((current) => ({ ...current, socialPreference: option }))}
                       key={option}
                     >
@@ -386,15 +419,38 @@ export function OnboardingPage() {
                 <span>{primaryDomain}</span>
                 <p>{visionSkipped ? "No direction named yet" : visionTitle}</p>
               </div>
-              <ol className="onboarding-route-list">
-                {route.slice().reverse().map((routeStep) => (
-                  <li key={routeStep.id}>
-                    <span>Level {String(routeStep.level).padStart(2, "0")}</span>
-                    <p>{routeStep.title}</p>
-                    <small>{routeStep.durationMinutes} min</small>
-                  </li>
-                ))}
-              </ol>
+              {buildingRoute ? (
+                <p className="auth-note" role="status">Building your Route...</p>
+              ) : route.length > 0 ? (
+                <ol className="onboarding-route-list">
+                  {route.slice().reverse().map((routeStep) => (
+                    <li key={routeStep.id}>
+                      <span>Level {String(routeStep.level).padStart(2, "0")}</span>
+                      <p>{routeStep.title}</p>
+                      <small>{routeStep.durationMinutes} min</small>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                /* An empty list under this heading read as five missing rows,
+                   not as a failure that could be retried. */
+                <div className="route-preview-empty">
+                  <p className="auth-note" role="alert">
+                    Your Route could not be built right now. You can enter ReNew anyway and add
+                    levels later, or try again.
+                  </p>
+                  {routeBuildFailed && (
+                    <button
+                      className="secondary-command"
+                      type="button"
+                      disabled={buildingRoute}
+                      onClick={() => void buildRouteForVision(visionSummary)}
+                    >
+                      Try again <ArrowRight aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </section>

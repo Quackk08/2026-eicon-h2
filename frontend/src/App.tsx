@@ -2,6 +2,8 @@ import { useRef, useEffect, useState } from "react";
 import { ArrowDown, ArrowUpRight, Menu, X } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { SignInPage } from "./pages/SignInPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { PrivacyPage } from "./pages/PrivacyPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
 import { AppShell } from "./components/AppShell";
 import { TodayPage } from "./pages/TodayPage";
@@ -490,6 +492,8 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<SignInPage />} />
           <Route path="/sign-in" element={<Navigate to="/login" replace />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/app" element={<AppShell />}>
             <Route index element={<Navigate to="/app/today" replace />} />

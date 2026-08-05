@@ -259,7 +259,7 @@ export async function createVisionWithGeneratedRoute(
   domain: LifeDomain,
   summary: string,
   existingVisionId?: string
-): Promise<{ visionId: string; steps: RouteStep[] }> {
+): Promise<{ visionId: string; steps: RouteStep[] | null }> {
   await ensureProfile();
 
   const vision = existingVisionId
@@ -269,14 +269,22 @@ export async function createVisionWithGeneratedRoute(
       })
     : await api.post<ApiVision>("/visions", { domain: toApiDomain(domain), summary });
 
-  const route = await api.post<ApiRoute>(`/visions/${vision.id}/generate-route`, {});
-  const templates = await fetchActionTemplates();
-  const templatesById = new Map(templates.map((template) => [template.id, template]));
+  // The Vision id is returned even when generation fails, so a retry can
+  // rewrite this Vision instead of creating a second one — the old shape
+  // threw the id away and every retry POSTed another Vision, pausing the
+  // previous one each time.
+  try {
+    const route = await api.post<ApiRoute>(`/visions/${vision.id}/generate-route`, {});
+    const templates = await fetchActionTemplates();
+    const templatesById = new Map(templates.map((template) => [template.id, template]));
 
-  return {
-    visionId: vision.id,
-    steps: route.steps.map((step) => fromApiRouteStep(step, templatesById.get(step.template_id)))
-  };
+    return {
+      visionId: vision.id,
+      steps: route.steps.map((step) => fromApiRouteStep(step, templatesById.get(step.template_id)))
+    };
+  } catch {
+    return { visionId: vision.id, steps: null };
+  }
 }
 
 export async function createVisionWithRoute(
@@ -304,6 +312,11 @@ export async function updateVision(
     ...(patch.status !== undefined ? { status: patch.status } : {}),
     ...(patch.domain !== undefined ? { domain: toApiDomain(patch.domain) } : {})
   });
+}
+
+/** Rebuilds the Route for an existing Vision from its reviewed ladder. */
+export async function regenerateRoute(visionId: string): Promise<ApiRoute> {
+  return api.post<ApiRoute>(`/visions/${visionId}/generate-route`, {});
 }
 
 export async function updateRouteStepStatus(

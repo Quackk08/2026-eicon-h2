@@ -232,6 +232,43 @@
   text-decoration: underline;
 }
 
+/* Inline password-reset step under the sign-in form. */
+.auth-reset-row {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  border: 1px solid var(--color-line);
+  padding: 1rem 1.25rem;
+}
+
+.auth-reset-row .auth-note {
+  text-align: left;
+}
+
+/* ── Privacy policy page ── */
+
+.privacy-body {
+  display: grid;
+  width: min(100%, 44rem);
+  gap: 2.5rem;
+  margin-inline: auto;
+  padding: 3rem 1rem 5rem;
+}
+
+.privacy-body article h2 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 400;
+}
+
+.privacy-body article p {
+  max-width: 60ch;
+  margin-top: 0.75rem;
+  font-family: var(--font-editorial);
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+
 @media (min-width: 48rem) {
   .auth-page {
     min-height: 100svh;
@@ -774,6 +811,14 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+/* Type-to-confirm field inside the delete dialog. */
+.reset-confirm-field {
+  margin-top: 1rem;
+  max-width: 16rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
 }
 
 @media (min-width: 48rem) {
@@ -2093,6 +2138,28 @@
   opacity: 0.25;
 }
 
+/* Delete stands apart from the three neutral row actions. */
+.route-row-actions .route-delete-button {
+  border-color: var(--color-clay);
+  color: var(--color-clay);
+}
+
+.route-empty {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  border: 1px dashed var(--color-line);
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+}
+
+.route-empty > p:last-of-type {
+  max-width: 52ch;
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
 .route-editor {
   margin-top: 2rem;
   border: 1px solid var(--color-ink);
@@ -2609,6 +2676,12 @@
 .mission-status.is-not_today {
   background: transparent;
   color: oklch(19% 0.025 145 / 62%);
+}
+
+.vision-status.is-paused {
+  background: transparent;
+  color: oklch(19% 0.025 145 / 62%);
+  border-style: dashed;
 }
 
 .mission-hero {
@@ -7390,6 +7463,12 @@
   .route-stair { transition: none; }
 }
 
+/* The in-app "Reduced motion" setting, not just the OS preference. */
+.route-staircase-inner.is-reduced .route-stair {
+  transition: none;
+  animation: none;
+}
+
 .route-stair.is-completed {
   background: var(--color-leaf);
   border-color: var(--color-forest);
@@ -7742,6 +7821,26 @@
 }
 
 /* ── 8. Onboarding selection count ── */
+
+.onboarding-signin-link {
+  font-size: 0.68rem;
+  text-decoration: underline;
+}
+
+.onboarding-content:focus {
+  outline: none;
+}
+
+.route-preview-empty {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.route-preview-empty .auth-note {
+  text-align: left;
+}
 
 .choice-count {
   margin-top: 1rem;
