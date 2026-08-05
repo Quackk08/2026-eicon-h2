@@ -1,6 +1,7 @@
 import {
   BarChart3,
   CalendarCheck2,
+  CalendarDays,
   HeartHandshake,
   MapPin,
   Menu,
@@ -12,8 +13,14 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAppState } from "../state/AppState";
 
+/**
+ * The bottom bar renders the first five, so order is what decides which
+ * entry a phone drops. Settings is last deliberately: it is the only one
+ * with no daily use, and the drawer keeps it one tap away.
+ */
 const navigation = [
   { label: "Today", href: "/app/today", icon: CalendarCheck2 },
+  { label: "Calendar", href: "/app/calendar", icon: CalendarDays },
   { label: "Route", href: "/app/route", icon: RouteIcon },
   { label: "Nearby", href: "/app/nearby", icon: MapPin },
   { label: "Insights", href: "/app/insights", icon: BarChart3 },
@@ -28,6 +35,7 @@ const pageTitles: Record<string, string> = {
   "/app/reflection": "Reflection",
   "/app/vision": "Life Vision",
   "/app/route": "Route",
+  "/app/calendar": "Calendar",
   "/app/nearby": "Nearby",
   "/app/places": "Places",
   "/app/community": "Shared Activities",

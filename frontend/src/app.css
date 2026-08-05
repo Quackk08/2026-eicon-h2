@@ -1862,6 +1862,226 @@
   border-bottom-color: var(--color-forest);
 }
 
+/* ── Calendar ──────────────────────────────────────────────────────── */
+
+.calendar-horizon {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+  border-left: 3px solid var(--color-forest);
+  background: var(--color-paper);
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+}
+
+.calendar-horizon svg {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.calendar-toolbar h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.calendar-toolbar button {
+  display: grid;
+  place-items: center;
+  /* 44px: the minimum touch target the plan fixes for every control. */
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 1px solid var(--color-line);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.calendar-weekdays,
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.calendar-weekdays {
+  margin-top: 1rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.calendar-days {
+  gap: 1px;
+  margin-top: 0.5rem;
+  background: var(--color-line);
+  border: 1px solid var(--color-line);
+}
+
+.calendar-day {
+  display: flex;
+  position: relative;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 3.75rem;
+  border: 0;
+  background: var(--color-paper);
+  padding: 0.5rem 0.25rem;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.calendar-day.is-outside {
+  opacity: 0.35;
+}
+
+.calendar-day.is-in-horizon {
+  background: oklch(72% 0.135 116 / 10%);
+}
+
+.calendar-day.is-today .calendar-day-number {
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.calendar-day.is-selected {
+  outline: 2px solid var(--color-forest);
+  outline-offset: -2px;
+}
+
+.calendar-day-number {
+  display: grid;
+  place-items: center;
+  min-width: 1.6rem;
+  min-height: 1.6rem;
+  font-size: 0.8rem;
+}
+
+.calendar-day-marks {
+  display: flex;
+  gap: 2px;
+}
+
+.calendar-day-marks i,
+.calendar-entry-mark {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--color-forest);
+}
+
+.calendar-day-marks i.is-done,
+.calendar-entry-mark.is-done {
+  background: var(--color-leaf);
+}
+
+.calendar-day-marks i.is-partly,
+.calendar-entry-mark.is-partly {
+  background: var(--color-citron);
+}
+
+/* Never red: a day left for another day is not a failure
+   (docs/PRODUCT_GUARDRAILS.md), so it reads as quiet, not as an alarm. */
+.calendar-day-marks i.is-not_today,
+.calendar-entry-mark.is-not_today {
+  background: oklch(19% 0.025 145 / 30%);
+}
+
+.calendar-day-marks i.is-in_progress,
+.calendar-entry-mark.is-in_progress {
+  background: var(--color-clay);
+}
+
+.calendar-detail {
+  margin-top: 2rem;
+}
+
+.calendar-detail h2 {
+  margin: 0 0 1rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 400;
+}
+
+.calendar-empty {
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.calendar-entries {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  background: var(--color-line);
+  border: 1px solid var(--color-line);
+  padding: 0;
+  list-style: none;
+}
+
+.calendar-entries li {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  background: var(--color-paper);
+  padding: 1rem;
+}
+
+.calendar-entry-mark {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+}
+
+.calendar-entry-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.calendar-entry-copy h3 {
+  margin: 0.2rem 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 400;
+}
+
+.calendar-entry-copy p {
+  margin: 0;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.calendar-entry-add {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 1px solid var(--color-line);
+  color: inherit;
+}
+
+.calendar-entry-add[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* The one-to-two month goal, on the dashboard directly under the Vision. */
 .long-term-progress {
   margin-top: 1.5rem;

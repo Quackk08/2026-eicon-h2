@@ -13,6 +13,7 @@ import { MissionPage } from "./pages/MissionPage";
 import { ReflectionPage } from "./pages/ReflectionPage";
 import { VisionPage } from "./pages/VisionPage";
 import { RoutePage } from "./pages/RoutePage";
+import { CalendarPage } from "./pages/CalendarPage";
 import { NearbyPage } from "./pages/NearbyPage";
 import { PlaceDetailPage } from "./pages/PlaceDetailPage";
 import { CommunityDetailPage } from "./pages/CommunityDetailPage";
@@ -503,6 +504,7 @@ export default function App() {
             <Route path="reflection" element={<ReflectionPage />} />
             <Route path="vision" element={<VisionPage />} />
             <Route path="route" element={<RoutePage />} />
+            <Route path="calendar" element={<CalendarPage />} />
             <Route path="nearby" element={<NearbyPage />} />
             {/* Both halves kept their own address for a year of links, saved
                 tabs, and the detail pages' own Back targets. */}
