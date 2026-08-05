@@ -1,4 +1,11 @@
-import type { ActionTemplate, RecommendationResult, StateVector } from "@renew/shared";
+import {
+  countLabel,
+  describeStateTags,
+  type ActionTemplate,
+  type ReasoningStep,
+  type RecommendationResult,
+  type StateVector
+} from "@renew/shared";
 import type { StateTag } from "../types.js";
 
 interface Constraints {
@@ -71,6 +78,12 @@ function scoreCandidate(template: ActionTemplate, functionalCapacity: number, co
  * by how well they fit today's capacity and time budget, then attach a
  * smaller/bigger option from the same Activity Ladder group. This alone
  * must be able to run the whole daily loop with Gemini disabled.
+ *
+ * The trace is a by-product of the decisions this function was already
+ * making, not a second pass that re-derives them. It exists so the app can
+ * show its working, and it would be worse than useless if it described a
+ * process other than the one that ran — so it is built inline, from the
+ * same variables.
  */
 export function buildRuleBasedRecommendation(
   allCandidatesInDomain: ActionTemplate[],
@@ -78,9 +91,38 @@ export function buildRuleBasedRecommendation(
   tags: StateTag[],
   constraints: Constraints,
   visionSummary: string
-): RecommendationResult {
+): { result: RecommendationResult; trace: ReasoningStep[] } {
+  const trace: ReasoningStep[] = [];
+
+  trace.push({
+    key: "state",
+    label: "Read your Check-In",
+    detail: `Today ${describeStateTags(tags)}.`
+  });
+
+  trace.push({
+    key: "limits",
+    label: "Applied your limits",
+    detail:
+      `Up to ${constraints.maxMinutes} minutes, ` +
+      `${constraints.maxCost > 0 ? "within your cost limit" : "free only"}, ` +
+      `${constraints.socialPreference === "solo" ? "on your own" : `social effort no higher than ${constraints.socialPreference}`}` +
+      `${constraints.accessibilityNeeds.length > 0 ? `, and ${countLabel(constraints.accessibilityNeeds.length, "access need")}` : ""}.`
+  });
+
   let filtered = filterCandidates(allCandidatesInDomain, functionalCapacity, tags, constraints);
   let usedFallback = false;
+
+  trace.push({
+    key: "filter",
+    label: "Kept what was possible",
+    detail:
+      filtered.length > 0
+        ? `${countLabel(filtered.length, "step")} of your Route fit those limits today.`
+        : "No step fit every limit today, so the smallest one you can manage was used instead.",
+    before: allCandidatesInDomain.length,
+    after: filtered.length
+  });
 
   if (filtered.length === 0) {
     // Fall back to the single easiest (lowest ladder level) template per
@@ -101,6 +143,16 @@ export function buildRuleBasedRecommendation(
     .map((template) => ({ template, score: scoreCandidate(template, functionalCapacity, constraints) }))
     .sort((a, b) => b.score - a.score)[0].template;
 
+  trace.push({
+    key: "score",
+    label: "Picked today's size",
+    // The weights are the ones scoreCandidate actually uses. Quoting them
+    // is the difference between explaining a decision and asserting one.
+    detail: `"${best.title}" scored highest on fitting today's capacity (70%) and your time (30%).`,
+    before: filtered.length,
+    after: 1
+  });
+
   const ladderSiblings = allCandidatesInDomain.filter((t) => t.ladderGroupId === best.ladderGroupId);
   const smaller = ladderSiblings
     .filter((t) => t.ladderLevel < best.ladderLevel)
@@ -109,14 +161,30 @@ export function buildRuleBasedRecommendation(
     .filter((t) => t.ladderLevel > best.ladderLevel && t.minCapacity <= functionalCapacity)
     .sort((a, b) => a.ladderLevel - b.ladderLevel)[0];
 
+  trace.push({
+    key: "ladder",
+    label: "Kept a way out either side",
+    detail:
+      smaller && bigger
+        ? "A smaller and a larger version of the same step are held ready, in case today turns out different."
+        : smaller
+          ? "A smaller version of the same step is held ready, in case today turns out harder."
+          : bigger
+            ? "A larger version is held ready — this is already the smallest step on this ladder."
+            : "This ladder has one step, so there is no smaller or larger version to offer."
+  });
+
   return {
-    contractVersion: 1,
-    selectedTemplateId: best.id,
-    summary: `Toward "${visionSummary}", today's realistic size is "${best.title}".`,
-    userFacingReason:
-      "Chosen from your reviewed steps to fit today's capacity, time, cost, and social preference.",
-    smallerOptionTemplateId: smaller?.id ?? null,
-    extensionOptionTemplateId: bigger?.id ?? null,
-    warnings: usedFallback ? ["no_exact_match_used_capacity_fallback"] : []
+    result: {
+      contractVersion: 1,
+      selectedTemplateId: best.id,
+      summary: `Toward "${visionSummary}", today's realistic size is "${best.title}".`,
+      userFacingReason:
+        "Chosen from your reviewed steps to fit today's capacity, time, cost, and social preference.",
+      smallerOptionTemplateId: smaller?.id ?? null,
+      extensionOptionTemplateId: bigger?.id ?? null,
+      warnings: usedFallback ? ["no_exact_match_used_capacity_fallback"] : []
+    },
+    trace
   };
 }

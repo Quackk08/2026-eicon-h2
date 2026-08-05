@@ -8,6 +8,7 @@ export * from "./ladder.js";
 export * from "./long-term.js";
 export * from "./offline.js";
 export * from "./place.js";
+export * from "./reasoning.js";
 export * from "./recommendation.js";
 export * from "./reflection.js";
 export * from "./support.js";

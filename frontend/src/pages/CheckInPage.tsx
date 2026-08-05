@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, CloudOff } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { CheckInRecord, EffortLevel } from "../data/appData";
-import { requestDailyRecommendation, submitCheckInOrQueue } from "../api/backend";
+import { submitCheckInOrQueue } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 const responseLabels = ["Very low", "Low", "In between", "Good", "Strong"] as const;
@@ -80,7 +80,7 @@ function SignalField({
 
 export function CheckInPage() {
   const navigate = useNavigate();
-  const { data, updateData, refresh } = useAppState();
+  const { data, updateData } = useAppState();
   const [submitting, setSubmitting] = useState(false);
   const [mode, setMode] = useState<"quick" | "standard">("quick");
   const [step, setStep] = useState(0);
@@ -184,17 +184,13 @@ export function CheckInPage() {
       return;
     }
 
-    // A Check-In is what today's suggestion is based on, so ask for a new one
-    // now rather than leaving the previous pick on screen. Failing to get one
-    // is not failing the Check-In — the Recommendation page explains itself.
-    try {
-      await requestDailyRecommendation();
-    } catch {
-      // No recommendation could be generated (e.g. no active Vision yet).
-    }
-    await refresh().catch(() => undefined);
+    // A Check-In is what today's suggestion is based on, so a new one is
+    // asked for rather than leaving the previous pick on screen — but the
+    // asking now happens on the reasoning screen, which can show what the
+    // request is doing instead of holding a spinner over this page and
+    // arriving at an answer with no account of where it came from.
     setSubmitting(false);
-    navigate("/app/recommendation");
+    navigate("/app/reasoning");
   };
 
   const continueDespiteError = () => {

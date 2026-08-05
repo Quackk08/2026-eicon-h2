@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { RecommendationResult, StateVector } from "@renew/shared";
+import { countLabel, type ReasoningStep, type RecommendationResult, type StateVector } from "@renew/shared";
 import { listVisions } from "../repositories/visions.js";
 import { getLatestRouteForVision } from "../repositories/routes.js";
 import { getPreferences } from "../repositories/preferences.js";
@@ -20,6 +20,7 @@ import { createMission } from "../repositories/missions.js";
 import { getActiveLongTermMission } from "../repositories/longTermMissions.js";
 import { buildRuleBasedRecommendation, computeStateTags } from "../services/ruleEngine.js";
 import { rerankWithGemini } from "../services/geminiAdapter.js";
+import { isAIEnabled } from "../config/env.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
 
 const router = Router();
@@ -94,13 +95,29 @@ router.post("/recommendations/daily", resolveProfile, async (req, res, next) => 
       accessibilityNeeds: preferences?.accessibility_needs ?? []
     };
 
-    const ruleResult = buildRuleBasedRecommendation(
+    const { result: ruleResult, trace: ruleTrace } = buildRuleBasedRecommendation(
       candidates,
       stateVector.functionalCapacity,
       stateTags,
       constraints,
       vision.summary
     );
+
+    // The Route narrowing happened above, before the rule engine saw
+    // anything, so its step is prepended rather than produced there.
+    const trace: ReasoningStep[] = [
+      {
+        key: "route",
+        label: "Looked only at your Route",
+        detail:
+          routeCandidates.length > 0
+            ? `Today's step comes from the ${countLabel(routeCandidates.length, "step")} of the Route you built, not from every action in the library.`
+            : `Your Route has no steps yet, so the ${countLabel(domainCandidates.length, "reviewed step")} for this area were used instead.`,
+        before: domainCandidates.length,
+        after: candidates.length
+      },
+      ...ruleTrace
+    ];
 
     let finalResult: RecommendationResult = ruleResult;
     let source: "rules" | "ai" = "rules";
@@ -116,8 +133,25 @@ router.post("/recommendations/daily", resolveProfile, async (req, res, next) => 
       source = "ai";
     }
 
+    /*
+     * Said plainly, because it is the one step people most need to be able
+     * to check. The model can only reorder steps that were already reviewed
+     * and already passed every filter above — it cannot invent an action —
+     * and when it is off or unreachable the rules stand on their own.
+     */
+    trace.push({
+      key: "ai",
+      label: source === "ai" ? "Ordering reviewed by AI" : "Decided by rules alone",
+      detail:
+        source === "ai"
+          ? "An AI adjusted the wording and the order of these already-reviewed steps. It cannot add a step that was not on your Route."
+          : isAIEnabled()
+            ? "The AI pass did not return a usable answer, so the rules above decided this on their own."
+            : "No AI was involved. The rules above decided this on their own."
+    });
+
     const saved = await createRecommendation(req.profileId!, latestCheckIn.id, finalResult, source);
-    res.status(201).json({ ...saved, stateTags });
+    res.status(201).json({ ...saved, stateTags, trace });
   } catch (err) {
     next(err);
   }

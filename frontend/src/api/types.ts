@@ -1,5 +1,9 @@
 /** Wire shapes returned by the backend, kept separate from the UI's AppData types. */
 
+import type { ReasoningStep } from "@renew/shared";
+
+export type { ReasoningStep };
+
 export interface ApiPreferences {
   profile_id: string;
   max_minutes: number | null;
@@ -109,6 +113,12 @@ export interface ApiRecommendation {
   warnings: string[];
   created_at: string;
   stateTags: string[];
+  /**
+   * How this was arrived at, step by step. Only present on the response
+   * that generated it — reading a stored recommendation back returns the
+   * pick without the working, because the row does not keep it.
+   */
+  trace?: ReasoningStep[];
 }
 
 export type ApiMissionStatus =

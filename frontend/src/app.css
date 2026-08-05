@@ -1862,6 +1862,132 @@
   border-bottom-color: var(--color-forest);
 }
 
+/* ── Reasoning screen ──────────────────────────────────────────────── */
+
+.reasoning-heading h1 {
+  margin: 0.4rem 0 0.6rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 400;
+}
+
+.reasoning-heading p:last-child {
+  max-width: 46ch;
+  font-family: var(--font-editorial);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  opacity: 0.85;
+}
+
+.reasoning-steps {
+  display: grid;
+  gap: 1px;
+  margin: 2rem 0 0;
+  background: var(--color-line);
+  border: 1px solid var(--color-line);
+  padding: 0;
+  list-style: none;
+}
+
+.reasoning-step {
+  display: flex;
+  gap: 1rem;
+  background: var(--color-paper);
+  padding: 1.1rem 1.25rem;
+  opacity: 0.45;
+  transition: opacity 300ms var(--ease-out);
+}
+
+.reasoning-step.is-settled {
+  /* Staggered only to pace reading — the work finished before any of this
+     rendered, so the delay must never be mistaken for progress. */
+  animation: reasoning-settle 320ms var(--ease-out) backwards;
+  animation-delay: calc(var(--reveal-order) * 70ms);
+  opacity: 1;
+}
+
+@keyframes reasoning-settle {
+  from {
+    opacity: 0.45;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reasoning-step.is-settled {
+    animation: none;
+  }
+  .reasoning-step {
+    transition: none;
+  }
+}
+
+.reasoning-step.is-skipped {
+  opacity: 0.3;
+}
+
+.reasoning-step-mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.1rem;
+  border-radius: 999px;
+  background: oklch(19% 0.025 145 / 10%);
+}
+
+.reasoning-step.is-settled .reasoning-step-mark {
+  background: var(--color-forest);
+  color: var(--color-paper);
+}
+
+.reasoning-step-mark svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.reasoning-step-mark .is-spinning {
+  animation: reasoning-spin 1.1s linear infinite;
+}
+
+@keyframes reasoning-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reasoning-step-mark .is-spinning {
+    animation: none;
+  }
+}
+
+.reasoning-step-label {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.reasoning-step-detail {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.reasoning-step-count {
+  margin: 0.45rem 0 0;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+}
+
+.reasoning-actions {
+  margin-top: 2rem;
+}
+
 /* ── Calendar ──────────────────────────────────────────────────────── */
 
 .calendar-horizon {
