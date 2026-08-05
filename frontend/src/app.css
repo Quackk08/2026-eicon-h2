@@ -2463,7 +2463,9 @@
   line-height: 1.5;
 }
 
-.effort-options > div {
+/* Scoped away from .effort-track and .effort-axis, which are also direct
+   children and bring their own layout. */
+.effort-options > div[role="radiogroup"]:not(.effort-track) {
   display: grid;
   gap: 0.5rem;
   margin-top: 1.5rem;
@@ -2522,7 +2524,7 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .effort-options > div {
+  .effort-options > div[role="radiogroup"]:not(.effort-track) {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
@@ -2594,6 +2596,19 @@
 
 .mission-status.is-completed {
   background: var(--color-leaf);
+}
+
+.mission-status.is-planned {
+  background: var(--color-sky);
+}
+
+.mission-status.is-partly {
+  background: var(--color-citron);
+}
+
+.mission-status.is-not_today {
+  background: transparent;
+  color: oklch(19% 0.025 145 / 62%);
 }
 
 .mission-hero {
@@ -2714,6 +2729,24 @@
   left: 1rem;
   font-size: 0.65rem;
   text-transform: uppercase;
+}
+
+/* Carries the Place's own colour, like .place-swatch does on the list page. */
+.mission-place-visual.is-sky {
+  background: var(--color-sky);
+}
+
+.mission-place-visual.is-clay {
+  background: var(--color-clay);
+}
+
+.mission-place-visual.is-leaf {
+  background: var(--color-leaf);
+}
+
+.mission-place-visual.is-plum {
+  background: var(--color-plum);
+  color: var(--color-paper);
 }
 
 .mission-place > div:last-child > p:nth-of-type(2) {
@@ -6554,7 +6587,7 @@
   line-height: 1.6;
 }
 
-.signal-field > div {
+.signal-field > div[role="radiogroup"] {
   display: grid;
   gap: 0.5rem;
   margin-top: 1.5rem;
@@ -6576,7 +6609,9 @@
   background: var(--color-citron);
 }
 
-.signal-field input {
+/* Only the radios are visually replaced by their labels; the bare selector
+   also collapsed the range slider to an invisible 1px square. */
+.signal-field input[type="radio"] {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -6595,6 +6630,21 @@
   border: 3px solid var(--color-paper);
   background: var(--color-forest);
   box-shadow: 0 0 0 1px var(--color-forest);
+}
+
+/* Shown only when the server refused a Check-In outright; the record itself
+   is safe on the device, and the copy says so. */
+.checkin-submit-error {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  border: 1px solid var(--color-clay);
+  border-left-width: 3px;
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  font-family: var(--font-editorial);
+  font-size: 0.85rem;
+  line-height: 1.6;
 }
 
 .checkin-note {
@@ -7127,18 +7177,18 @@
 }
 
 /* The radio labels grid sits below the slider */
-.signal-field > div[role="group"] {
+.signal-field > div[role="radiogroup"] {
   display: grid;
   gap: 0.5rem;
   margin-top: 1rem;
 }
 
 @media (min-width: 48rem) {
-  .signal-field > div[role="group"] {
+  .signal-field > div[role="radiogroup"] {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
-  .signal-field > div[role="group"] label {
+  .signal-field > div[role="radiogroup"] label {
     min-height: 4rem;
     align-content: center;
     justify-items: center;

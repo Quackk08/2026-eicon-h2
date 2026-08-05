@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Clock3, MapPin, SlidersHorizontal } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createMissionFromOption, type MissionVariant, type RecommendationOption } from "../data/appData";
@@ -8,7 +8,12 @@ import {
   getRecommendationReasons,
   getRecommendedMissionOption
 } from "../data/missionLogic";
-import { fetchPlaceForTemplate, requestDailyRecommendation, selectRecommendation } from "../api/backend";
+import {
+  fetchLatestRecommendation,
+  fetchPlaceForTemplate,
+  requestDailyRecommendation,
+  selectRecommendation
+} from "../api/backend";
 import { ApiError } from "../api/client";
 import { fromApiMission } from "../api/mappers";
 import type { ApiPlaceSearchResult, ApiRecommendation } from "../api/types";
@@ -24,7 +29,7 @@ const variantLabels: Record<MissionVariant, string> = {
 
 export function RecommendationPage() {
   const navigate = useNavigate();
-  const { data, ready, recommendation: serverPick, updateData, refresh } = useAppState();
+  const { data, ready, online, recommendation: serverPick, updateData, refresh } = useAppState();
   const [loadingPick, setLoadingPick] = useState(true);
   const [placePick, setPlacePick] = useState<ApiPlaceSearchResult | null>(null);
   const [pagePick, setPagePick] = useState<ApiRecommendation | null>(null);
@@ -37,25 +42,37 @@ export function RecommendationPage() {
   const latestCheckIn = [...data.checkIns].sort(
     (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
   )[0] ?? null;
-  const currentServerPick =
-    serverPick?.check_in_id === latestCheckIn?.id ? serverPick : null;
-  const activePick =
-    pagePick?.check_in_id === latestCheckIn?.id ? pagePick : currentServerPick;
+  // A pick counts as current when it references the latest Check-In — or,
+  // because a Check-In recorded offline keeps its device-side id that the
+  // server has never seen, when it was simply generated today.
+  const isCurrentPick = (pick: ApiRecommendation | null): pick is ApiRecommendation =>
+    pick !== null &&
+    (pick.check_in_id === latestCheckIn?.id || pick.created_at.slice(0, 10) === today);
+  const currentServerPick = isCurrentPick(serverPick) ? serverPick : null;
+  const activePick = (isCurrentPick(pagePick) ? pagePick : null) ?? currentServerPick;
 
-
-  // Today's step comes from the shared backend pick. Only ask for a new one
-  // if there is none yet — arriving here from a Check-In already generated it.
+  // Today's step comes from the shared backend pick. Reuse today's existing
+  // recommendation before generating: POST /recommendations/daily mints a new
+  // row every time, and opening a page must not create records.
+  const resolvedForCheckIn = useRef<string | null>(null);
   useEffect(() => {
     if (!ready || !hasCheckInToday) {
       setLoadingPick(false);
       return;
     }
+    const checkInKey = latestCheckIn?.id ?? "none";
+    if (resolvedForCheckIn.current === checkInKey) return;
+    resolvedForCheckIn.current = checkInKey;
 
     setLoadingPick(true);
     let active = true;
     (async () => {
       try {
-        const pick = currentServerPick ?? await requestDailyRecommendation();
+        let pick = currentServerPick;
+        if (!pick) {
+          const latest = await fetchLatestRecommendation().catch(() => null);
+          pick = isCurrentPick(latest) ? latest : await requestDailyRecommendation();
+        }
         if (!active || !pick) return;
         setPagePick(pick);
         if (!currentServerPick) await refresh();
@@ -65,6 +82,7 @@ export function RecommendationPage() {
         if (active) setPlacePick(place);
       } catch {
         // No Vision/Check-In yet, or backend unreachable — fall back locally.
+        if (active) resolvedForCheckIn.current = null;
       } finally {
         if (active) setLoadingPick(false);
       }
@@ -72,11 +90,17 @@ export function RecommendationPage() {
     return () => {
       active = false;
     };
-  }, [hasCheckInToday, latestCheckIn?.id, ready, refresh, currentServerPick?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resolved once per check-in
+  }, [hasCheckInToday, latestCheckIn?.id, ready]);
 
   const recommended =
     (activePick && data.recommendations.find((option) => option.id === activePick.selected_template_id)) ??
     getRecommendedMissionOption(data);
+
+  // Without a server-side pick and without a connection, choosing would mint
+  // a Mission id the backend has never heard of — and the reflection later
+  // queued against it would be quietly discarded at sync time.
+  const canChoose = Boolean(activePick) || online;
 
   const chooseMission = async (option: RecommendationOption) => {
     setChoosing(true);
@@ -92,15 +116,15 @@ export function RecommendationPage() {
         }));
         await refresh();
       } catch (cause) {
-        if (cause instanceof ApiError) {
-          setError(cause.message);
-          setChoosing(false);
-          return;
-        }
-        updateData((current) => ({
-          ...current,
-          mission: createMissionFromOption(option)
-        }));
+        // Whether refused or undelivered, a Mission the server does not know
+        // about cannot carry a reflection later — stay here and say so.
+        setError(
+          cause instanceof ApiError
+            ? cause.message
+            : "The Mission could not be started. Please check the connection and try again."
+        );
+        setChoosing(false);
+        return;
       }
     } else {
       updateData((current) => ({
@@ -137,14 +161,26 @@ export function RecommendationPage() {
     );
   }
 
+  // Checked in, but there are no sized steps to offer. That has two distinct
+  // causes with two distinct remedies — an unhelpful "check in first" here
+  // used to point at the very thing the person had just done.
   if (!recommended) {
-    return (
+    return online ? (
       <main className="app-page flow-page mission-empty">
         <p className="app-kicker">No steps yet</p>
-        <h1>There is nothing to suggest until you check in.</h1>
-        <p>A Check-In is what decides today's size, so it comes first.</p>
-        <Link className="primary-command" to="/app/check-in">
-          Start Check-In <ArrowRight aria-hidden="true" />
+        <h1>Your Vision needs a Route before today can be sized.</h1>
+        <p>Once your Life Vision has a Route of possible steps, every Check-In picks the one that fits.</p>
+        <Link className="primary-command" to="/app/vision">
+          Review your Life Vision <ArrowRight aria-hidden="true" />
+        </Link>
+      </main>
+    ) : (
+      <main className="app-page flow-page mission-empty">
+        <p className="app-kicker">Waiting for the connection</p>
+        <h1>Today's suggestion needs the server.</h1>
+        <p>Your Check-In is saved on this device. The suggestion will arrive on its own once ReNew can reach the server again.</p>
+        <Link className="primary-command" to="/app/today">
+          Back to Today <ArrowRight aria-hidden="true" />
         </Link>
       </main>
     );
@@ -173,7 +209,9 @@ export function RecommendationPage() {
   return (
     <main className="app-page flow-page recommendation-page">
       <header className="flow-heading">
-        <Link className="icon-button" to="/app/check-in" aria-label="Back to Check-In" title="Back to Check-In">
+        {/* People arrive here from a finished Check-In; "back" must not
+            restart that wizard. */}
+        <Link className="icon-button" to="/app/today" aria-label="Back to Today" title="Back to Today">
           <ArrowLeft aria-hidden="true" />
         </Link>
         <div>
@@ -195,13 +233,24 @@ export function RecommendationPage() {
             <span><Clock3 aria-hidden="true" /> {recommended.durationMinutes} min</span>
             <span><MapPin aria-hidden="true" /> {placeName}</span>
           </div>
-          <button className="primary-command" type="button" disabled={choosing} onClick={() => void chooseMission(recommended)}>
-            Choose this Mission <ArrowRight aria-hidden="true" />
+          {/* Error sits above the button it belongs to. */}
+          {error && <p className="auth-note" role="alert">{error}</p>}
+          {!activePick && !online && (
+            <p className="auth-note" role="status">
+              Offline — this is the closest cached fit. Choosing a Mission needs the connection back;
+              your Check-In is saved and waiting.
+            </p>
+          )}
+          <button
+            className="primary-command"
+            type="button"
+            disabled={choosing || !canChoose}
+            onClick={() => void chooseMission(recommended)}
+          >
+            {choosing ? "Choosing..." : "Choose this Mission"} <ArrowRight aria-hidden="true" />
           </button>
         </div>
       </section>
-
-      {error && <p className="auth-note" role="alert">{error}</p>}
 
       <section className="recommendation-reason" aria-labelledby="reason-title">
         <div>
@@ -209,32 +258,39 @@ export function RecommendationPage() {
           <h2 id="reason-title">Why this fits today</h2>
         </div>
         <ul>
-          {reasons.map((reason) => <li key={reason}><Check aria-hidden="true" /> {reason}</li>)}
+          {reasons.map((reason, index) => <li key={index}><Check aria-hidden="true" /> {reason}</li>)}
         </ul>
       </section>
 
-      <section className="alternative-section" aria-labelledby="alternative-title">
-        <div className="section-title-row">
-          <div>
-            <p className="app-kicker">You stay in control</p>
-            <h2 id="alternative-title">Other workable sizes</h2>
+      {alternatives.length > 0 && (
+        <section className="alternative-section" aria-labelledby="alternative-title">
+          <div className="section-title-row">
+            <div>
+              <p className="app-kicker">You stay in control</p>
+              <h2 id="alternative-title">Other workable sizes</h2>
+            </div>
           </div>
-        </div>
-        <div className="alternative-list">
-          {alternatives.map((option) => (
-            <article key={option.id}>
-              <div>
-                <span>{variantLabels[option.variant]}</span>
-                <h3>{option.title}</h3>
-                <p>{option.description}</p>
-              </div>
-              <button className="secondary-command" type="button" disabled={choosing} onClick={() => void chooseMission(option)}>
-                Choose <ArrowRight aria-hidden="true" />
-              </button>
-            </article>
-          ))}
-        </div>
-      </section>
+          <div className="alternative-list">
+            {alternatives.map((option) => (
+              <article key={option.id}>
+                <div>
+                  <span>{variantLabels[option.variant]}</span>
+                  <h3>{option.title}</h3>
+                  <p>{option.description}</p>
+                </div>
+                <button
+                  className="secondary-command"
+                  type="button"
+                  disabled={choosing || !canChoose}
+                  onClick={() => void chooseMission(option)}
+                >
+                  {choosing ? "Choosing..." : "Choose"} <ArrowRight aria-hidden="true" />
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="recommendation-skip">
         <p>Nothing here needs to become a task today.</p>

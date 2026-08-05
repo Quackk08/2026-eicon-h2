@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Check, CircleDot, Pause } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import type { EffortLevel, Reflection } from "../data/appData";
@@ -22,6 +22,37 @@ export function ReflectionPage() {
   const [effort, setEffort] = useState<EffortLevel>(3);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [queuedNote, setQueuedNote] = useState(false);
+  const effortStopRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const moveEffort = (next: EffortLevel) => {
+    setEffort(next);
+    // Roving tabindex: focus travels with the checked stop.
+    effortStopRefs.current[next - 1]?.focus();
+  };
+
+  // On a hard load the mission arrives after the first render, so the
+  // preselection derived from it has to catch up — otherwise a Mission left
+  // for another day opened with "Completed" already chosen.
+  useEffect(() => {
+    setOutcome(mission?.status === "not_today" ? "not_today" : "completed");
+  }, [mission?.id, mission?.status]);
+
+  // Checked before the mission guard: saving clears the mission, and this
+  // screen is the answer to "did it save?" — not "nothing to reflect on".
+  if (queuedNote) {
+    return (
+      <main className="app-page flow-page mission-empty">
+        <p className="app-kicker">Saved on this device</p>
+        <h1>Your reflection is recorded.</h1>
+        <p>It will reach the server on its own once ReNew can connect again — nothing is lost in the meantime.</p>
+        <Link className="primary-command" to="/app/today">
+          Back to Today <ArrowRight aria-hidden="true" />
+        </Link>
+      </main>
+    );
+  }
 
   if (!mission) {
     return (
@@ -39,13 +70,16 @@ export function ReflectionPage() {
   const adaptationCopy =
     outcome === "completed" && effort <= 3
       ? "Keep this step available and let the next Check-In decide whether to extend it."
-      : outcome === "partly"
-        ? "Keep the same direction and begin one level smaller next time."
-        : "Pause this step without penalty. Your route will still be here when conditions change.";
+      : outcome === "completed"
+        ? "This step stays at its current size — completing it with that much effort is the signal, not a problem."
+        : outcome === "partly"
+          ? "Keep the same direction and begin one level smaller next time."
+          : "Pause this step without penalty. Your route will still be here when conditions change.";
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaving(true);
+    setSubmitError(null);
     const reflection: Reflection = {
       id: crypto.randomUUID(),
       missionId: mission.id,
@@ -55,41 +89,64 @@ export function ReflectionPage() {
       createdAt: new Date().toISOString()
     };
 
+    // The server (or the sync replay) also records the outcome and advances
+    // the Route on a completed reflection; a rejection has to keep the form
+    // on screen instead of navigating away from an unsaved record.
+    let queued = false;
+    try {
+      ({ queued } = await submitReflectionOrQueue(mission.id, {
+        outcome,
+        effort,
+        note: reflection.note
+      }));
+    } catch {
+      setSubmitError(
+        "The reflection could not be saved. Nothing was recorded on the server — please try again."
+      );
+      setSaving(false);
+      return;
+    }
+
     updateData((current) => {
       const currentMission = current.mission;
-      const routeStepId = currentMission?.routeStepId ?? current.route.find((item) => !item.completed)?.id;
+      // Only the step this Mission actually belongs to may advance. Guessing
+      // "the first incomplete step" used to tick off an unrelated level when
+      // the Mission carried no routeStepId.
+      const routeStepId = currentMission?.routeStepId ?? null;
       const completedAt = new Date().toISOString();
 
       return {
         ...current,
         reflections: [...current.reflections, reflection],
         route: current.route.map((step) =>
-          outcome === "completed" && !step.completed && step.id === routeStepId
+          outcome === "completed" && routeStepId !== null && !step.completed && step.id === routeStepId
             ? { ...step, completed: true }
             : step
         ),
         missionHistory: currentMission
           ? [
               ...current.missionHistory.filter((item) => item.id !== currentMission.id),
-              { ...currentMission, status: outcome, completedAt }
+              {
+                ...currentMission,
+                status: outcome,
+                ...(outcome !== "not_today" ? { completedAt } : {})
+              }
             ]
           : current.missionHistory,
         mission: null
       };
     });
-    try {
-      const { queued } = await submitReflectionOrQueue(mission.id, {
-        outcome,
-        effort,
-        note: reflection.note
-      });
-      if (!queued) await refresh();
-    } catch {
-      // Rejected by the server rather than undelivered; kept on this device.
-    } finally {
+
+    if (queued) {
+      // Same situation as an offline Check-In, same promise: recorded here,
+      // synced when the connection returns.
+      setQueuedNote(true);
       setSaving(false);
+      return;
     }
 
+    await refresh().catch(() => undefined);
+    setSaving(false);
     navigate("/app/today", { replace: true });
   };
 
@@ -134,8 +191,8 @@ export function ReflectionPage() {
 
         <fieldset className="effort-options effort-fillbar">
           <legend>How much effort did it take?</legend>
-          {/* Fill-bar / dial — primary interactive element */}
-          <div className="effort-track" role="group" aria-label="Effort level">
+          {/* Fill-bar — a radio group with one tab stop; arrows move the value. */}
+          <div className="effort-track" role="radiogroup" aria-label="Effort level">
             <div
               className="effort-fill"
               aria-hidden="true"
@@ -148,14 +205,23 @@ export function ReflectionPage() {
                 <button
                   key={label}
                   type="button"
+                  ref={(element) => { effortStopRefs.current[index] = element; }}
                   className={`effort-stop${effort === value ? " is-active" : ""}`}
                   style={{ left: `${pct}%` }}
-                  aria-pressed={effort === value}
+                  role="radio"
+                  aria-checked={effort === value}
                   aria-label={label}
+                  tabIndex={effort === value ? 0 : -1}
                   onClick={() => setEffort(value)}
                   onKeyDown={(e) => {
-                    if (e.key === "ArrowRight") { e.preventDefault(); setEffort((v) => Math.min(5, v + 1) as EffortLevel); }
-                    if (e.key === "ArrowLeft") { e.preventDefault(); setEffort((v) => Math.max(1, v - 1) as EffortLevel); }
+                    if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+                      e.preventDefault();
+                      moveEffort(Math.min(5, effort + 1) as EffortLevel);
+                    }
+                    if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+                      e.preventDefault();
+                      moveEffort(Math.max(1, effort - 1) as EffortLevel);
+                    }
                   }}
                 />
               );
@@ -168,27 +234,9 @@ export function ReflectionPage() {
             ))}
           </div>
           {/* Screen-reader announced selection */}
-          <p className="effort-selection-label sr-only" aria-live="polite">
+          <p className="sr-only" aria-live="polite">
             Effort: {effortLabels[effort - 1]}
           </p>
-          {/* Hidden radio inputs for form semantics */}
-          <div style={{ display: "none" }}>
-            {effortLabels.map((label, index) => {
-              const value = (index + 1) as EffortLevel;
-              return (
-                <label className={effort === value ? "is-selected" : ""} key={label}>
-                  <input
-                    type="radio"
-                    name="effort"
-                    value={value}
-                    checked={effort === value}
-                    onChange={() => setEffort(value)}
-                  />
-                  {label}
-                </label>
-              );
-            })}
-          </div>
         </fieldset>
 
         <label className="checkin-note">
@@ -207,8 +255,10 @@ export function ReflectionPage() {
           <p>{adaptationCopy}</p>
         </aside>
 
+        {submitError && <p className="auth-note" role="alert">{submitError}</p>}
+
         <button className="primary-command flow-submit" type="submit" disabled={saving}>
-          Save reflection <ArrowRight aria-hidden="true" />
+          {saving ? "Saving..." : "Save reflection"} <ArrowRight aria-hidden="true" />
         </button>
       </form>
     </main>

@@ -429,7 +429,10 @@ export async function setMissionPlace(missionId: string, placeId: string | null)
 
 export async function updateMission(
   missionId: string,
-  patch: { status?: "planned" | "in_progress" | "cancelled"; scheduledFor?: string }
+  patch: {
+    status?: "planned" | "in_progress" | "cancelled" | "completed" | "partially_completed" | "not_today";
+    scheduledFor?: string;
+  }
 ): Promise<ApiMission> {
   return api.patch<ApiMission>(`/missions/${missionId}`, patch);
 }

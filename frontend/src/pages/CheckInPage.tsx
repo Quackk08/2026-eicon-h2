@@ -41,6 +41,8 @@ function SignalField({
       <div className="signal-fill-track" aria-hidden="true">
         <span className="signal-fill-bar" style={{ width: `${fillPct}%` }} />
       </div>
+      {/* Pointer-friendly duplicate of the radio group below; one control is
+          enough for assistive tech, so this one stays out of its way. */}
       <input
         type="range"
         className="signal-range-slider"
@@ -49,11 +51,11 @@ function SignalField({
         max={5}
         step={1}
         value={value}
-        aria-label={`${label}: ${labels[value - 1]}`}
-        aria-valuetext={labels[value - 1]}
+        aria-hidden="true"
+        tabIndex={-1}
         onChange={(e) => onChange(Number(e.target.value) as EffortLevel)}
       />
-      <div role="group" aria-labelledby={`${fieldId}-legend`}>
+      <div role="radiogroup" aria-labelledby={`${fieldId}-legend`}>
         <span id={`${fieldId}-legend`} className="sr-only">{label} — select a value</span>
         {labels.map((item, index) => {
           const optionValue = (index + 1) as EffortLevel;
@@ -89,6 +91,7 @@ export function CheckInPage() {
   // Saved here, not on the server yet — the one thing worth saying plainly at
   // the moment it happens.
   const [queuedLocally, setQueuedLocally] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const location = useLocation();
 
   /*
@@ -143,6 +146,7 @@ export function CheckInPage() {
 
   const submitCheckIn = async () => {
     setSubmitting(true);
+    setSubmitError(null);
 
     const record: CheckInRecord = {
       id: crypto.randomUUID(),
@@ -169,17 +173,32 @@ export function CheckInPage() {
         setQueuedLocally(true);
         return;
       }
-
-      // A Check-In is what today's suggestion is based on, so ask for a new
-      // one now rather than leaving the previous pick on screen.
-      await requestDailyRecommendation();
-      await refresh();
     } catch {
-      // Rejected by the server rather than undelivered; kept on this device.
-    } finally {
+      // The server refused the record outright (not a connection problem, or
+      // it would have been queued). Silently moving on read as success while
+      // the record only existed on this device.
+      setSubmitError(
+        "This Check-In is kept on this device, but the server did not accept it. You can continue — today's suggestion will be based on your previous records."
+      );
       setSubmitting(false);
+      return;
     }
 
+    // A Check-In is what today's suggestion is based on, so ask for a new one
+    // now rather than leaving the previous pick on screen. Failing to get one
+    // is not failing the Check-In — the Recommendation page explains itself.
+    try {
+      await requestDailyRecommendation();
+    } catch {
+      // No recommendation could be generated (e.g. no active Vision yet).
+    }
+    await refresh().catch(() => undefined);
+    setSubmitting(false);
+    navigate("/app/recommendation");
+  };
+
+  const continueDespiteError = () => {
+    setSubmitError(null);
     navigate("/app/recommendation");
   };
 
@@ -214,7 +233,6 @@ export function CheckInPage() {
     if (mode === "standard" && step === 6) return <SignalField label="Social load" fieldId="checkin-social" prompt="How demanding does being around people feel?" value={values.socialLoad} labels={inverseLabels} onChange={(v) => setSignal("socialLoad", v)} />;
     return (
       <div className="checkin-step">
-        <p className="app-kicker">Step {step + 1} of {totalSteps}</p>
         <h1>Anything worth remembering?</h1>
         <p>This is optional. Write a short note for your own context, or skip ahead.</p>
         <label className="checkin-note">
@@ -251,10 +269,16 @@ export function CheckInPage() {
 
       {renderStep()}
 
+      {submitError && (
+        <div className="checkin-submit-error" role="alert">
+          <p>{submitError}</p>
+          <button className="secondary-command" type="button" onClick={continueDespiteError}>
+            Continue anyway <ArrowRight aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
       <div className="checkin-actions">
-        {step > 0 && (
-          <button className="secondary-command" type="button" onClick={goBack}>Back</button>
-        )}
         {step < totalSteps - 1 ? (
           <button className="primary-command" type="button" onClick={goNext}>
             Continue <ArrowRight aria-hidden="true" />

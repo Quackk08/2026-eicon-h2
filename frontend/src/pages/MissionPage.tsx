@@ -14,11 +14,14 @@ import { getMissionPlace } from "../data/missionLogic";
 import { adaptMission, updateMission as updateMissionOnServer } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
-/* ─── Size-adjustment stepper data ─── */
+/* ─── Size-adjustment stepper data ───
+   Three stops, because that is what adaptation actually does: one ladder
+   level down, stay, or one level up. A fourth "minimum" stop used to sit
+   here promising "the smallest possible version" while sending the same
+   one-step-down request as "lighter". */
 
 const sizeSteps = [
-  { key: "minimum", label: "Minimum action", description: "The smallest possible version — just showing up counts." },
-  { key: "lighter", label: "A little lighter", description: "Shorter duration or a simpler location." },
+  { key: "lighter", label: "A little lighter", description: "One level smaller — just showing up counts." },
   { key: "recommended", label: "Recommended size", description: "Today's suggested step, matched to your conditions." },
   { key: "more", label: "A little more", description: "A bit further or longer if energy allows." }
 ] as const;
@@ -39,83 +42,106 @@ export function MissionPage() {
   const matchingPlace = mission ? getMissionPlace(data, mission) : null;
   const reducedMotion = data.settings.reducedMotion;
 
-  /* ─── Timer state ─── */
+  /* ─── Timer state ───
+     The countdown is anchored to the Mission's own startedAt rather than to
+     seconds ticked away in component state, so leaving for the place detail
+     page (or reloading) no longer restarts a Mission that was half done. */
   const totalSeconds = (mission?.durationMinutes ?? 0) * 60;
-  const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
-  const [timerRunning, setTimerRunning] = useState(false);
-  const [timerDone, setTimerDone] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const remainingFromMission = () => {
+    if (!mission || mission.status !== "in_progress" || !mission.startedAt) return totalSeconds;
+    const elapsed = Math.floor((Date.now() - new Date(mission.startedAt).getTime()) / 1000);
+    return Math.min(Math.max(totalSeconds - elapsed, 0), totalSeconds);
+  };
+  const [secondsLeft, setSecondsLeft] = useState(remainingFromMission);
+  const [timerRunning, setTimerRunning] = useState(
+    () => mission?.status === "in_progress" && remainingFromMission() > 0
+  );
+  const timerDone = totalSeconds > 0 && secondsLeft === 0;
 
   /* Start/stop the interval when timerRunning changes */
   useEffect(() => {
-    if (!timerRunning) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      return;
-    }
-    intervalRef.current = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current!);
-          setTimerRunning(false);
-          setTimerDone(true);
-          return 0;
-        }
-        return prev - 1;
-      });
+    if (!timerRunning) return;
+    const interval = setInterval(() => {
+      setSecondsLeft((prev) => Math.max(prev - 1, 0));
     }, 1000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => clearInterval(interval);
   }, [timerRunning]);
 
-  /* Reset timer if mission changes */
+  /* The terminal transition lives outside the state updater, where StrictMode
+     cannot run it twice. */
   useEffect(() => {
-    setSecondsLeft((mission?.durationMinutes ?? 0) * 60);
-    setTimerRunning(false);
-    setTimerDone(false);
-  }, [mission?.id]);
+    if (secondsLeft === 0 && timerRunning) setTimerRunning(false);
+  }, [secondsLeft, timerRunning]);
+
+  /* Re-anchor when the mission itself changes */
+  useEffect(() => {
+    const remaining = remainingFromMission();
+    setSecondsLeft(remaining);
+    setTimerRunning(mission?.status === "in_progress" && remaining > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- anchored to identity + status
+  }, [mission?.id, mission?.status, mission?.startedAt]);
 
   const progressPct = totalSeconds > 0 ? ((totalSeconds - secondsLeft) / totalSeconds) * 100 : 0;
 
   /* ─── Size-stepper state ─── */
   const [showStepper, setShowStepper] = useState(false);
   const [activeSize, setActiveSize] = useState<SizeKey>("recommended");
-  const stepperRef = useRef<HTMLDivElement>(null);
+  const [sizeBusy, setSizeBusy] = useState(false);
+  const [sizeError, setSizeError] = useState<string | null>(null);
+  const stepperToggleRef = useRef<HTMLButtonElement>(null);
+
+  const closeStepper = () => {
+    setShowStepper(false);
+    stepperToggleRef.current?.focus();
+  };
 
   const applySize = async (key: SizeKey) => {
-    if (!mission) return;
+    if (!mission || sizeBusy) return;
+    setSizeError(null);
 
-    if (key === "minimum" || key === "lighter" || key === "more") {
-      try {
-        await adaptMission(mission.id, key === "more" ? "bigger" : "smaller");
-        await refresh();
-        setActiveSize(key);
-        setShowStepper(false);
-        return;
-      } catch {
-        // Fall through to the locally known option when the backend is unavailable.
-      }
+    if (key === "recommended") {
+      // Staying at the suggested size adjusts nothing.
+      setShowStepper(false);
+      return;
+    }
+
+    setSizeBusy(true);
+    try {
+      await adaptMission(mission.id, key === "more" ? "bigger" : "smaller");
+      await refresh();
+      setActiveSize(key);
+      setShowStepper(false);
+      setSizeBusy(false);
+      return;
+    } catch {
+      // Fall through to the locally known option when the backend is unavailable.
     }
 
     const variantMap: Record<SizeKey, MissionVariant> = {
-      minimum: "different",
       lighter: "lighter",
       recommended: "recommended",
       more: "more"
     };
-    const targetVariant = variantMap[key];
-    const target = data.recommendations.find((o) => o.variant === targetVariant)
-      ?? data.recommendations.find((o) => o.variant === "lighter")
-      ?? data.recommendations[0];
-    if (!target || !mission) return;
+    const target = data.recommendations.find((o) => o.variant === variantMap[key]);
+    setSizeBusy(false);
+    if (!target) {
+      // Nothing cached locally either. Ending in silence with the stepper
+      // still open read as a button that does nothing.
+      setSizeError("The size could not be adjusted right now. Please check the connection and try again.");
+      return;
+    }
     updateData((current) => ({
       ...current,
       mission: current.mission
         ? createMissionFromOption(target, {
             id: current.mission.id,
-            status: "planned",
+            // Resizing changes the step, not where the person is in it — an
+            // in-progress Mission used to snap back to "planned" here and
+            // quietly lose its start time.
+            status: current.mission.status,
             selectedAt: current.mission.selectedAt,
-            scheduledFor: current.mission.scheduledFor
+            scheduledFor: current.mission.scheduledFor,
+            startedAt: current.mission.startedAt
           })
         : null
     }));
@@ -135,9 +161,9 @@ export function MissionPage() {
       setActiveSize(prev.key);
     } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      applySize(activeSize);
+      void applySize(activeSize);
     } else if (e.key === "Escape") {
-      setShowStepper(false);
+      closeStepper();
     }
   };
 
@@ -195,6 +221,9 @@ export function MissionPage() {
           }
         : null
     }));
+    // Best-effort: the reflection that follows also records the outcome, but
+    // without this a refresh in between resurrected the Mission as still open.
+    void updateMissionOnServer(mission.id, { status }).catch(() => undefined);
     navigate("/app/reflection");
   };
 
@@ -228,7 +257,7 @@ export function MissionPage() {
           {mission.status === "in_progress" && (
             <div className="mission-timer" role="timer" aria-live="off" aria-label="Mission timer">
               {/* Numeric countdown — always visible, primary element */}
-              <p className="mission-timer-display" aria-atomic="true">
+              <p className="mission-timer-display">
                 {timerDone ? "Time's up" : formatCountdown(secondsLeft)}
               </p>
               {timerDone && (
@@ -258,7 +287,7 @@ export function MissionPage() {
               )}
 
               <div className="mission-timer-controls">
-                {!timerDone && (
+                {!timerDone ? (
                   <button
                     className="secondary-command"
                     type="button"
@@ -266,6 +295,19 @@ export function MissionPage() {
                     onClick={() => setTimerRunning((r) => !r)}
                   >
                     {timerRunning ? <><Pause aria-hidden="true" /> Pause</> : <><Play aria-hidden="true" /> Resume</>}
+                  </button>
+                ) : (
+                  /* The window ending is not the Mission ending — more time
+                     stays one tap away instead of requiring a page round-trip. */
+                  <button
+                    className="secondary-command"
+                    type="button"
+                    onClick={() => {
+                      setSecondsLeft(Math.max(Math.round(totalSeconds / 2), 60));
+                      setTimerRunning(true);
+                    }}
+                  >
+                    <Play aria-hidden="true" /> A little more time
                   </button>
                 )}
                 <button
@@ -295,6 +337,7 @@ export function MissionPage() {
           <button
             className="secondary-command"
             type="button"
+            ref={stepperToggleRef}
             aria-expanded={showStepper}
             aria-controls="mission-size-stepper"
             onClick={() => setShowStepper((v) => !v)}
@@ -303,32 +346,35 @@ export function MissionPage() {
           </button>
 
           {showStepper && (
-            <div
-              id="mission-size-stepper"
-              className="mission-size-stepper"
-              ref={stepperRef}
-              role="group"
-              aria-label="Adjust Mission size"
-              tabIndex={0}
-              onKeyDown={handleStepperKey}
-            >
+            <div id="mission-size-stepper" className="mission-size-stepper">
               <p className="mission-stepper-hint">
-                Drag or use arrow keys to adjust today's size.
+                Use the arrow keys or tap a stop to adjust today's size.
               </p>
-              <div className="mission-stepper-track" aria-hidden="true">
+              {/* The stops are the real, focusable control — a radio group
+                  with one tab stop. The old markup hid them from assistive
+                  tech with aria-hidden while leaving them in the tab order. */}
+              <div
+                className="mission-stepper-track"
+                role="radiogroup"
+                aria-label="Mission size"
+                onKeyDown={handleStepperKey}
+              >
                 {sizeSteps.map((step, i) => (
                   <button
                     key={step.key}
                     className={`mission-stepper-stop${activeSize === step.key ? " is-active" : ""}`}
                     type="button"
-                    aria-pressed={activeSize === step.key}
+                    role="radio"
+                    aria-checked={activeSize === step.key}
                     aria-label={step.label}
+                    tabIndex={activeSize === step.key ? 0 : -1}
                     style={{ left: `${(i / (sizeSteps.length - 1)) * 100}%` }}
                     onClick={() => setActiveSize(step.key)}
                   />
                 ))}
                 <div
                   className="mission-stepper-fill"
+                  aria-hidden="true"
                   style={{
                     width: `${(sizeSteps.findIndex((s) => s.key === activeSize) / (sizeSteps.length - 1)) * 100}%`
                   }}
@@ -342,18 +388,20 @@ export function MissionPage() {
               <p className="mission-stepper-description" aria-live="polite">
                 {activeStepInfo.description}
               </p>
+              {sizeError && <p className="auth-note" role="alert">{sizeError}</p>}
               <div className="mission-stepper-actions">
                 <button
                   className="primary-command"
                   type="button"
-                  onClick={() => applySize(activeSize)}
+                  disabled={sizeBusy}
+                  onClick={() => void applySize(activeSize)}
                 >
-                  Apply this size <ArrowRight aria-hidden="true" />
+                  {sizeBusy ? "Adjusting..." : "Apply this size"} <ArrowRight aria-hidden="true" />
                 </button>
                 <button
                   className="secondary-command"
                   type="button"
-                  onClick={() => setShowStepper(false)}
+                  onClick={closeStepper}
                 >
                   Keep current
                 </button>

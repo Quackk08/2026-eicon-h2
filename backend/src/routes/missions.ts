@@ -63,7 +63,12 @@ router.get("/missions/today", resolveProfile, async (req, res, next) => {
 });
 
 const missionPatchSchema = z.object({
-  status: z.enum(["planned", "in_progress", "cancelled"]).optional(),
+  // Outcome statuses are accepted here as well as via the reflection route:
+  // the client marks the Mission done the moment the person does, and the
+  // reflection — which may arrive later or from the offline queue — refines it.
+  status: z
+    .enum(["planned", "in_progress", "cancelled", "completed", "partially_completed", "not_today"])
+    .optional(),
   scheduledFor: z.string().datetime({ offset: true }).optional()
 }).refine((value) => value.status !== undefined || value.scheduledFor !== undefined, {
   message: "status or scheduledFor required"
