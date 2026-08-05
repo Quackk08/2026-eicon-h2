@@ -56,7 +56,16 @@ router.patch("/routes/:id", resolveProfile, async (req, res, next) => {
       await updateRouteStatus((req.params.id as string), parsed.data.status);
     }
     if (parsed.data.stepId && parsed.data.stepStatus) {
-      await updateStepStatus(parsed.data.stepId, parsed.data.stepStatus);
+      // Owning the route is not the same as owning this step, and
+      // updateStepStatus matches on the step id alone. Without this, any
+      // route id of one's own was enough to set the status of a step on
+      // someone else's route. The sibling step endpoints below already
+      // make exactly this check.
+      const step = await getRouteStepById(parsed.data.stepId);
+      if (!step || step.route_id !== route.id) {
+        return res.status(404).json({ error: "step not found" });
+      }
+      await updateStepStatus(step.id, parsed.data.stepStatus);
     }
 
     res.json(await getRouteById((req.params.id as string)));
