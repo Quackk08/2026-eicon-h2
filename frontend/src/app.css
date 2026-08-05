@@ -1133,6 +1133,7 @@
 .community-detail-hero h1 {
   max-width: 48rem;
   margin-top: 1rem;
+  overflow-wrap: anywhere;
   font-family: var(--font-display);
   font-size: 3rem;
   font-weight: 400;
@@ -1531,6 +1532,7 @@
 
 .place-detail-title h1 {
   margin-top: 0.75rem;
+  overflow-wrap: anywhere;
   font-family: var(--font-display);
   font-size: 3rem;
   font-weight: 400;
@@ -3317,7 +3319,7 @@
   padding-inline: 0.15rem;
   color: oklch(19% 0.025 145 / 56%);
   flex-direction: column;
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   line-height: 1.1;
 }
 
@@ -4187,7 +4189,7 @@
 }
 
 .activity-filters button {
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   border: 1px solid var(--color-line);
   border-radius: 99rem;
   background: transparent;
@@ -5944,12 +5946,12 @@
 }
 
 .planner-day-strip {
+  /* Two rows of 4+3 on phones: a 504px-wide scroll strip left days 6 and 7
+     invisible behind a scrollbar iOS never draws. */
   display: grid;
   margin-top: 1rem;
   border: 1px solid var(--color-ink);
-  overflow-x: auto;
-  grid-template-columns: repeat(7, minmax(4.5rem, 1fr));
-  scrollbar-width: thin;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .planner-day-strip button {
@@ -5960,6 +5962,7 @@
   justify-items: start;
   border: 0;
   border-right: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
   background: var(--color-paper);
   color: inherit;
   gap: 0.25rem;
@@ -5971,6 +5974,12 @@
 
 .planner-day-strip button:last-child {
   border-right: 0;
+}
+
+@media (min-width: 48rem) {
+  .planner-day-strip button {
+    border-bottom: 0;
+  }
 }
 
 .planner-day-strip button.is-selected {
@@ -6434,7 +6443,6 @@
   }
 
   .planner-day-strip {
-    overflow-x: visible;
     grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 
@@ -7683,12 +7691,13 @@
 }
 
 .insight-bar-label {
+  /* Wraps instead of truncating: in an ~80px column, "More than 30 min"
+     used to render as "More tha…" on every phone. */
   font-size: 0.58rem;
   text-transform: uppercase;
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
   max-width: 100%;
 }
 
@@ -7724,7 +7733,7 @@
 }
 
 .place-filter-chip {
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   border: 1px solid var(--color-line);
   border-radius: 99rem;
   background: transparent;
@@ -7808,6 +7817,7 @@
 /* ── 7b. Vision / Route "(i)" info affordances ── */
 
 .info-affordance {
+  position: relative;
   display: inline-grid;
   width: 1.25rem;
   height: 1.25rem;
@@ -7821,6 +7831,13 @@
   margin-left: 0.35rem;
   opacity: 0.62;
   transition: opacity 150ms var(--ease-out);
+}
+
+/* The visual stays 20px; the touch target does not. */
+.info-affordance::after {
+  position: absolute;
+  inset: -0.75rem;
+  content: "";
 }
 
 .info-affordance:hover,

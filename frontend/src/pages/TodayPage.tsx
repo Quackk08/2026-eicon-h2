@@ -38,7 +38,12 @@ import {
   getRecommendedMissionOption
 } from "../data/missionLogic";
 import { toDateKey } from "../data/dates";
-import { selectRecommendation, updateMission as updateMissionOnServer } from "../api/backend";
+import {
+  fetchLatestRecommendation,
+  requestDailyRecommendation,
+  selectRecommendation,
+  updateMission as updateMissionOnServer
+} from "../api/backend";
 import { fromApiMission } from "../api/mappers";
 import { useAppState } from "../state/AppState";
 
@@ -381,16 +386,31 @@ export function TodayPage() {
     }
   };
 
+  /**
+   * A Mission the server actually knows about. Falling back to a local id
+   * here produced Missions every later PATCH answered with 404 — starting,
+   * scheduling, and reflecting all silently broke downstream.
+   */
   const createServerMission = async (option: RecommendationOption): Promise<Mission> => {
-    if (!recommendation) return createMissionFromOption(option);
-    const created = await selectRecommendation(
-      recommendation.id,
-      option.id,
-      option.routeStepId ?? null
-    );
+    let pick = recommendation ?? (await fetchLatestRecommendation().catch(() => null));
+    if (!pick) {
+      try {
+        pick = await requestDailyRecommendation();
+      } catch {
+        // The server refuses to recommend without a Check-In — the honest
+        // next step for the person, not an error to bury.
+        throw new Error("needs-check-in");
+      }
+    }
+    const created = await selectRecommendation(pick.id, option.id, option.routeStepId ?? null);
     return fromApiMission(created, data.vision.id) ??
       createMissionFromOption(option, { id: created.id });
   };
+
+  const describeMissionError = (cause: unknown, fallback: string): string =>
+    cause instanceof Error && cause.message === "needs-check-in"
+      ? "Scheduling needs today's conditions. Complete a quick Check-In first and this will work."
+      : fallback;
 
   const startSelectedMission = async () => {
     setActionBusy(true);
@@ -407,10 +427,13 @@ export function TodayPage() {
         mission: { ...selectedMission, status: "in_progress", startedAt }
       }));
       navigate("/app/mission");
-    } catch {
+    } catch (cause) {
       setNotice({
         tone: "error",
-        text: "The Mission could not be started. Please check the connection and try again."
+        text: describeMissionError(
+          cause,
+          "The Mission could not be started. Please check the connection and try again."
+        )
       });
     } finally {
       setActionBusy(false);
@@ -502,10 +525,13 @@ export function TodayPage() {
         tone: "ok",
         text: wasEditing ? "Mission moved." : "Mission added to your week."
       });
-    } catch {
+    } catch (cause) {
       setNotice({
         tone: "error",
-        text: "The plan could not be saved. Please check the connection and try again."
+        text: describeMissionError(
+          cause,
+          "The plan could not be saved. Please check the connection and try again."
+        )
       });
     } finally {
       setActionBusy(false);

@@ -63,11 +63,15 @@ export function RecommendationPage() {
       return;
     }
     const checkInKey = latestCheckIn?.id ?? "none";
-    if (resolvedForCheckIn.current === checkInKey) return;
+    if (resolvedForCheckIn.current === checkInKey) {
+      setLoadingPick(false);
+      return;
+    }
     resolvedForCheckIn.current = checkInKey;
 
     setLoadingPick(true);
     let active = true;
+    let completed = false;
     (async () => {
       try {
         let pick = currentServerPick;
@@ -75,6 +79,7 @@ export function RecommendationPage() {
           const latest = await fetchLatestRecommendation().catch(() => null);
           pick = isCurrentPick(latest) ? latest : await requestDailyRecommendation();
         }
+        completed = true;
         if (!active || !pick) return;
         setPagePick(pick);
         if (!currentServerPick) await refresh();
@@ -84,6 +89,7 @@ export function RecommendationPage() {
         if (active) setPlacePick(place);
       } catch {
         // No Vision/Check-In yet, or backend unreachable — fall back locally.
+        completed = true;
         if (active) resolvedForCheckIn.current = null;
       } finally {
         if (active) setLoadingPick(false);
@@ -91,6 +97,9 @@ export function RecommendationPage() {
     })();
     return () => {
       active = false;
+      // An aborted run (StrictMode re-mount, fast navigation) must give its
+      // claim back, or the next mount early-returns into an eternal spinner.
+      if (!completed) resolvedForCheckIn.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resolved once per check-in
   }, [hasCheckInToday, latestCheckIn?.id, ready]);

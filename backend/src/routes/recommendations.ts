@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import type { RecommendationResult, StateVector } from "@renew/shared";
 import { listVisions } from "../repositories/visions.js";
+import { getLatestRouteForVision } from "../repositories/routes.js";
 import { getPreferences } from "../repositories/preferences.js";
 import { listRecentCheckIns, type CheckInRow } from "../repositories/checkIns.js";
 import {
@@ -51,15 +52,25 @@ router.post("/recommendations/daily", resolveProfile, async (req, res, next) => 
       : visions.find((v) => v.status === "active");
     if (!vision) return res.status(422).json({ error: "no active life vision found" });
 
-    const [preferences, recentCheckIns, candidates] = await Promise.all([
+    const [preferences, recentCheckIns, domainCandidates, route] = await Promise.all([
       getPreferences(req.profileId!),
       listRecentCheckIns(req.profileId!, 1),
-      listActionTemplatesForProfile(req.profileId!, vision.domain)
+      listActionTemplatesForProfile(req.profileId!, vision.domain),
+      getLatestRouteForVision(vision.id)
     ]);
 
     if (recentCheckIns.length === 0) {
       return res.status(422).json({ error: "submit a check-in before requesting a recommendation" });
     }
+
+    // A Vision with a Route has already chosen its ladder; recommending from
+    // the whole domain could (and did) pick a template from a different
+    // ladder, which the client can neither display against the Route nor
+    // select — every choice then failed template validation.
+    const routeTemplateIds = new Set((route?.steps ?? []).map((step) => step.template_id));
+    const routeCandidates = domainCandidates.filter((candidate) => routeTemplateIds.has(candidate.id));
+    const candidates = routeCandidates.length > 0 ? routeCandidates : domainCandidates;
+
     if (candidates.length === 0) {
       return res.status(422).json({ error: "no reviewed action templates for this domain yet" });
     }
