@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { useAppState } from "../state/AppState";
 
 const navigation = [
   { label: "Today", href: "/app/today", icon: CalendarCheck2 },
@@ -36,8 +37,45 @@ const pageTitles: Record<string, string> = {
   "/app/support": "Support"
 };
 
+/**
+ * What the header says about where this person's work currently is.
+ *
+ * The rule is that the ordinary case stays quiet and only the exceptions
+ * speak. "tone" drives the dot; nothing is signalled by colour alone, so the
+ * label always changes with it.
+ *
+ * Offline is deliberately not phrased as a failure. Every write lands in
+ * IndexedDB first, so nothing is at risk — it is waiting, and saying
+ * otherwise would alarm someone about a state the app was built to handle.
+ */
+function describeSyncState(
+  online: boolean,
+  pending: number,
+  syncing: boolean,
+  justSynced: number
+): { tone: "ok" | "waiting" | "idle"; label: string; count: string; pulse: boolean } {
+  const count = pending > 0 ? String(pending) : "";
+
+  if (justSynced > 0) {
+    return { tone: "ok", label: `${justSynced} synced`, count: "", pulse: false };
+  }
+  if (syncing) {
+    return { tone: "ok", label: pending > 0 ? `Syncing ${pending}` : "Syncing", count, pulse: true };
+  }
+  if (pending > 0) {
+    const where = online ? "Waiting to sync" : "On this device";
+    return { tone: "waiting", label: `${where} · ${pending}`, count, pulse: false };
+  }
+  if (!online) {
+    return { tone: "idle", label: "On this device", count: "", pulse: false };
+  }
+  return { tone: "ok", label: "Synced", count: "", pulse: false };
+}
+
 export function AppShell() {
   const location = useLocation();
+  const { online, pending, syncing, justSynced } = useAppState();
+  const sync = describeSyncState(online, pending, syncing, justSynced);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const basePath = Object.keys(pageTitles).find((path) => location.pathname.startsWith(path));
   const pageTitle = basePath ? pageTitles[basePath] : "ReNew";
@@ -80,7 +118,25 @@ export function AppShell() {
           </Link>
           <p>{pageTitle}</p>
           <div className="product-header-actions">
-            <span className="save-state"><i /> Saved locally</span>
+            {/* Same chip, same place — now driven by where the work actually
+                is. Phones get the dot and a count, because the full phrase
+                squeezes the page title down to an ellipsis; the wording is
+                still there for screen readers at every size. */}
+            <span
+              className="save-state"
+              data-tone={sync.tone}
+              data-pulse={sync.pulse ? "true" : "false"}
+              role="status"
+              aria-live="polite"
+            >
+              <i aria-hidden="true" />
+              <span className="save-state-label">{sync.label}</span>
+              {sync.count ? (
+                <span className="save-state-count" aria-hidden="true">
+                  {sync.count}
+                </span>
+              ) : null}
+            </span>
             <Link className="header-checkin" to="/app/check-in">
               Check in
             </Link>

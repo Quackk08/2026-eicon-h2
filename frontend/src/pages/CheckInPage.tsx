@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, CloudOff } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { CheckInRecord, EffortLevel } from "../data/appData";
 import { requestDailyRecommendation, submitCheckInOrQueue } from "../api/backend";
 import { useAppState } from "../state/AppState";
@@ -86,6 +86,19 @@ export function CheckInPage() {
     mood: 3, energy: 3, capacity: 3, stress: 3, sleep: 3, socialLoad: 3
   });
   const [note, setNote] = useState("");
+  // Saved here, not on the server yet — the one thing worth saying plainly at
+  // the moment it happens.
+  const [queuedLocally, setQueuedLocally] = useState(false);
+  const location = useLocation();
+
+  /*
+   * Navigating to Check-In while already standing on the confirmation does
+   * not remount this page, so without this the "Saved on this device" screen
+   * would answer every later attempt and the sidebar's Check-In link would
+   * appear to do nothing. Keyed on the location rather than the path, since
+   * both are /app/check-in.
+   */
+  useEffect(() => setQueuedLocally(false), [location.key]);
 
   /* A1: Guard — Vision must exist before Check-In is useful */
   if (!data.vision.title.trim()) {
@@ -96,6 +109,28 @@ export function CheckInPage() {
         <p>A Vision gives every Check-In a destination to aim toward.</p>
         <Link className="primary-command" to="/app/vision">
           Create a Life Vision <ArrowRight aria-hidden="true" />
+        </Link>
+      </main>
+    );
+  }
+
+  /*
+   * The Check-In is recorded; only today's suggestion is missing, and it is
+   * missing for a reason that will pass. Framing it as saved rather than
+   * failed matters — this is a record of how someone actually was, and the
+   * app promises never to lose one.
+   */
+  if (queuedLocally) {
+    return (
+      <main className="app-page flow-page mission-empty">
+        <p className="app-kicker">Saved on this device</p>
+        <h1>Your Check-In is recorded.</h1>
+        <p>
+          Today's step needs the connection back. It will arrive on its own once ReNew can
+          reach the server — nothing here is lost in the meantime.
+        </p>
+        <Link className="primary-command" to="/app/today">
+          Back to Today <ArrowRight aria-hidden="true" />
         </Link>
       </main>
     );
@@ -128,12 +163,17 @@ export function CheckInPage() {
       const { queued } = await submitCheckInOrQueue(record);
       // Offline, the Check-In is in the outbox and there is nothing for the
       // server to base a new suggestion on yet — asking would only fail.
-      if (!queued) {
-        // A Check-In is what today's suggestion is based on, so ask for a new
-        // one now rather than leaving the previous pick on screen.
-        await requestDailyRecommendation();
-        await refresh();
+      if (queued) {
+        // Sending someone to a suggestion that cannot exist yet reads as the
+        // Check-In having vanished. Say where it went instead.
+        setQueuedLocally(true);
+        return;
       }
+
+      // A Check-In is what today's suggestion is based on, so ask for a new
+      // one now rather than leaving the previous pick on screen.
+      await requestDailyRecommendation();
+      await refresh();
     } catch {
       // Rejected by the server rather than undelivered; kept on this device.
     } finally {

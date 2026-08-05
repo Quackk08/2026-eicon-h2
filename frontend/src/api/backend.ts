@@ -46,6 +46,25 @@ import type {
 export { ensureProfile, getProfileId } from "./client";
 export { ApiError } from "./client";
 
+/* ── Reachability ──────────────────────────────────────────────────── */
+
+/**
+ * Asks whether the server is actually reachable, in one request.
+ *
+ * navigator.onLine only knows whether the device has a network interface, so
+ * it reports "online" on a captive portal or when the API itself is down.
+ * This is the cheapest honest answer: /api/health needs no profile and
+ * touches no table, so polling it while offline costs nothing.
+ */
+export async function isServerReachable(): Promise<boolean> {
+  try {
+    const response = await fetch("/api/health", { cache: "no-store" });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 /* ── Auth ──────────────────────────────────────────────────────────── */
 
 export interface SessionInfo {

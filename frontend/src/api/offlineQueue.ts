@@ -9,6 +9,29 @@ interface SyncResult {
   error?: string;
 }
 
+type QueueListener = (pending: number) => void;
+
+const listeners = new Set<QueueListener>();
+
+/**
+ * Reports the queue depth whenever it changes.
+ *
+ * Without this the header would keep claiming everything is synced until the
+ * next full refresh, which is exactly the moment a person cannot get one —
+ * they are offline. Queueing a write has to be visible as it happens.
+ */
+export function onQueueChange(listener: QueueListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+async function announceDepth(): Promise<void> {
+  if (listeners.size === 0) return;
+  const depth = await pendingCount().catch(() => null);
+  if (depth === null) return;
+  listeners.forEach((listener) => listener(depth));
+}
+
 /**
  * Records a write that could not reach the server, so it can be replayed
  * later. The key is generated here and reused on every retry — that is what
@@ -22,6 +45,7 @@ export async function enqueue(draft: OperationDraft): Promise<void> {
     createdAt: new Date().toISOString(),
     retryCount: 0
   });
+  await announceDepth();
 }
 
 export async function pendingCount(): Promise<number> {
@@ -68,6 +92,7 @@ export async function flushQueue(): Promise<number> {
         );
         await transaction.done;
       }
+      await announceDepth();
       return operations.length;
     }
 
@@ -79,7 +104,9 @@ export async function flushQueue(): Promise<number> {
     await Promise.all(settled.map((key) => transaction.store.delete(key)));
     await transaction.done;
 
-    return database.count("outbox");
+    const remaining = await database.count("outbox");
+    await announceDepth();
+    return remaining;
   } finally {
     flushing = false;
   }
