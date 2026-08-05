@@ -117,6 +117,19 @@ export function SignInPage() {
         <p>Your vision and daily route are ready whenever you are.</p>
       </section>
 
+      {/* A build without Supabase credentials cannot sign anyone in. Saying
+          so here rather than after a submitted password is the difference
+          between a known limitation and a form that looks broken: the
+          fields used to accept a whole sign-in attempt before answering
+          "not configured in this build". Guest mode is unaffected, so the
+          way onward is a real one, not an apology. */}
+      {!authEnabled && (
+        <p className="auth-note" role="status">
+          Signing in is unavailable in this build. You can still use ReNew as a guest —{" "}
+          <Link to="/onboarding">start from onboarding</Link> and your work stays on this device.
+        </p>
+      )}
+
       <section className="auth-form-wrap" aria-label="Sign in form">
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="field-group">
@@ -194,7 +207,7 @@ export function SignInPage() {
               Continue to ReNew <ArrowUpRight aria-hidden="true" />
             </button>
           ) : (
-            <button className="primary-command" type="submit" disabled={busy}>
+            <button className="primary-command" type="submit" disabled={busy || !authEnabled}>
               Sign in <ArrowUpRight aria-hidden="true" />
             </button>
           )}
@@ -213,12 +226,14 @@ export function SignInPage() {
           <p className="auth-note">
             New to ReNew? <Link to="/onboarding">Create your first life route</Link>
           </p>
-          <p className="auth-note">
-            Already started as a guest?{" "}
-            <button className="text-button" type="button" disabled={busy} onClick={() => void authenticate("signUp")}>
-              Create an account to keep it
-            </button>
-          </p>
+          {authEnabled && (
+            <p className="auth-note">
+              Already started as a guest?{" "}
+              <button className="text-button" type="button" disabled={busy} onClick={() => void authenticate("signUp")}>
+                Create an account to keep it
+              </button>
+            </p>
+          )}
         </form>
       </section>
     </main>
