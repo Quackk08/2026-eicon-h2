@@ -74,7 +74,7 @@ function describeSyncState(
 
 export function AppShell() {
   const location = useLocation();
-  const { online, pending, syncing, justSynced } = useAppState();
+  const { ready, online, pending, syncing, justSynced } = useAppState();
   const sync = describeSyncState(online, pending, syncing, justSynced);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const basePath = Object.keys(pageTitles).find((path) => location.pathname.startsWith(path));
@@ -84,8 +84,28 @@ export function AppShell() {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [location.pathname]);
 
+  // Navigating is what the drawer is for; it should never outlive the tap.
+  // Without this, the bottom nav (which sits above the drawer) or browser
+  // Back left the open drawer covering the new page.
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [mobileMenuOpen]);
+
   return (
     <div className="product-shell">
+      {/* First tab stop on every page; visible only while focused. */}
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <aside className="product-sidebar">
         <Link className="app-wordmark product-wordmark" to="/">
           ReNew
@@ -154,6 +174,7 @@ export function AppShell() {
               type="button"
               aria-label={mobileMenuOpen ? "Close app menu" : "Open app menu"}
               aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-app-drawer"
               onClick={() => setMobileMenuOpen((current) => !current)}
             >
               {mobileMenuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
@@ -162,20 +183,39 @@ export function AppShell() {
         </header>
 
         {mobileMenuOpen && (
-          <nav className="mobile-app-drawer" aria-label="More app navigation">
+          <nav className="mobile-app-drawer" id="mobile-app-drawer" aria-label="More app navigation">
             {navigation.map(({ label, href, icon: Icon }) => (
-              <NavLink to={href} key={href} onClick={() => setMobileMenuOpen(false)}>
+              <NavLink
+                className={({ isActive }) => (isActive ? "is-active" : "")}
+                to={href}
+                key={href}
+                onClick={() => setMobileMenuOpen(false)}
+              >
                 <Icon aria-hidden="true" /> {label}
               </NavLink>
             ))}
-            <NavLink to="/app/support" onClick={() => setMobileMenuOpen(false)}>
+            <NavLink
+              className={({ isActive }) => (isActive ? "is-active" : "")}
+              to="/app/support"
+              onClick={() => setMobileMenuOpen(false)}
+            >
               <HeartHandshake aria-hidden="true" /> Support
             </NavLink>
           </nav>
         )}
 
-        <div className="product-content">
-          <Outlet />
+        <div className="product-content" id="main-content" tabIndex={-1}>
+          {/* Every page reads this state; rendering them against the empty
+              default while IndexedDB is still opening produced a flash of
+              false "nothing here yet" screens on every hard load. */}
+          {ready ? (
+            <Outlet />
+          ) : (
+            <main className="app-page dashboard-loading" aria-live="polite">
+              <span />
+              <p>Loading what is stored on this device...</p>
+            </main>
+          )}
         </div>
 
         <nav className="mobile-bottom-nav" aria-label="Primary app navigation">

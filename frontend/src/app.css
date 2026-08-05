@@ -1,8 +1,37 @@
+/* The palette is light-only for now; declaring it keeps native controls
+   (selects, scrollbars, autofill) from switching to UA dark styles on a
+   device set to dark mode. */
+:root {
+  color-scheme: light;
+}
+
 .auth-page,
 .app-page {
   min-height: 100svh;
   background: var(--color-paper);
   color: var(--color-ink);
+}
+
+/* First tab stop of the app shell; parked off-screen until focused. */
+.skip-link {
+  position: fixed;
+  z-index: 70;
+  top: 0.75rem;
+  left: 0.75rem;
+  transform: translateY(-200%);
+  background: var(--color-ink);
+  color: var(--color-paper);
+  padding: 0.75rem 1.25rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
+#main-content:focus {
+  outline: none;
 }
 
 .auth-page {
@@ -701,6 +730,14 @@
 
 .settings-data .text-button svg {
   width: 1rem;
+}
+
+/* Dim + catch clicks behind the confirm sheet; the sheet itself sits above. */
+.confirm-dialog-backdrop {
+  position: fixed;
+  z-index: 79;
+  inset: 0;
+  background: oklch(19% 0.025 145 / 40%);
 }
 
 .reset-confirm {
@@ -3071,7 +3108,10 @@
 .mobile-app-drawer {
   position: fixed;
   z-index: 25;
-  top: 4.5rem;
+  /* The header grows with the top safe-area inset (its padding is
+     max(0.75rem, env(...))), so the drawer's start has to grow with it or
+     its first link slides underneath the header on notched phones. */
+  top: calc(4.5rem + max(0px, env(safe-area-inset-top) - 0.75rem));
   right: 0;
   bottom: calc(4.5rem + env(safe-area-inset-bottom));
   left: 0;
@@ -3089,6 +3129,10 @@
   align-items: center;
   gap: 0.75rem;
   border-bottom: 1px solid var(--color-line);
+}
+
+.mobile-app-drawer a.is-active {
+  font-weight: 700;
 }
 
 .mobile-app-drawer svg {
