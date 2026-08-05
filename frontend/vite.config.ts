@@ -40,6 +40,15 @@ export default defineConfig({
         // would otherwise be downloaded in full on first visit.
         globPatterns: ["**/*.{js,css,html,svg,woff2}"],
 
+        /*
+         * The on-device model library is 6MB of JavaScript and must never be
+         * precached: it is opt-in precisely so that people who do not want
+         * it never download it, and precaching would hand it to everyone on
+         * their first visit. Anyone who does turn it on fetches this chunk
+         * then, which is also when they agree to the far larger weights.
+         */
+        globIgnores: ["**/webllm-*.js"],
+
         // Client-side routing: /app/today has no file behind it.
         navigateFallback: "/index.html",
         // ...but an API path must never be answered with the HTML shell,
@@ -66,6 +75,19 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Named rather than left to a content hash so the service worker can
+        // exclude it by pattern. Without a stable name the 6MB library
+        // silently rejoins the precache the next time its hash changes.
+        manualChunks(id: string) {
+          if (id.includes("@mlc-ai/web-llm")) return "webllm";
+          return undefined;
+        }
+      }
+    }
+  },
   server: {
     port: 5173,
     proxy: {

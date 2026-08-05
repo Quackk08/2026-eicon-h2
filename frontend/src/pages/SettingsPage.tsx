@@ -16,6 +16,7 @@ import { saveCheckInRhythm, savePreferences, saveProfile as saveProfileOnServer 
 import { clearAppData, createDefaultAppData } from "../data/appData";
 import type { CheckInRhythm, UserPreferences } from "../data/appData";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { OnDeviceModelSetting } from "../components/OnDeviceModelSetting";
 import { useAppState } from "../state/AppState";
 
 const weekDays = [
@@ -355,6 +356,7 @@ export function SettingsPage() {
                 onChange={(e) => updateSetting("reducedMotion", e.target.checked)}
               />
             </label>
+            <OnDeviceModelSetting />
             {/* Edited in place — this used to link into onboarding, and
                 finishing that wizard replaced the person's Vision. */}
             <label className="settings-row">

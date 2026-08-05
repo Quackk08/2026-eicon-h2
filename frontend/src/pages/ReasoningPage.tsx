@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ReasoningStep } from "@renew/shared";
 import { requestDailyRecommendation } from "../api/backend";
+import { describeWithLocalModel } from "../ai/localRerank";
+import { isEngineReady } from "../ai/webllm";
 import { useAppState } from "../state/AppState";
 
 /**
@@ -38,10 +40,16 @@ type Phase = "working" | "done" | "failed";
  */
 export function ReasoningPage() {
   const navigate = useNavigate();
-  const { refresh } = useAppState();
+  const { data, refresh } = useAppState();
   const [phase, setPhase] = useState<Phase>("working");
   const [steps, setSteps] = useState<ReasoningStep[]>([]);
   const request = useRef<Promise<{ trace?: ReasoningStep[] }> | null>(null);
+
+  const enabled = data.settings.onDeviceModel;
+  // Read through a ref so the local pass sees current data without making
+  // the effect re-run — and re-request — every time app state changes.
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
   /*
    * The request is held in a ref rather than started fresh each mount, so
@@ -58,10 +66,30 @@ export function ReasoningPage() {
 
     let active = true;
     request.current
-      .then((result) => {
+      .then(async (result) => {
         if (!active) return;
-        setSteps(result.trace ?? []);
+        const trace = result.trace ?? [];
+        setSteps(trace);
         setPhase("done");
+
+        /*
+         * Third tier, and only ever a third tier.
+         *
+         * The server has already decided, safely, from reviewed steps. If
+         * its own AI pass did not run — no key, or it returned nothing —
+         * and this person has turned the on-device model on, it may reorder
+         * those same steps and say why in plainer words. It cannot reach
+         * past them: the candidate list it is given is the one the rules
+         * already approved.
+         */
+        const serverUsedAi = trace.some((step) => step.key === "ai" && step.label.includes("AI"));
+        if (serverUsedAi || !enabled || !isEngineReady()) return;
+
+        const local = await describeWithLocalModel(dataRef.current);
+        if (!active || !local) return;
+        setSteps((current) =>
+          current.map((step) => (step.key === "ai" ? { ...step, ...local } : step))
+        );
       })
       .catch(() => {
         if (active) setPhase("failed");
@@ -75,7 +103,7 @@ export function ReasoningPage() {
     return () => {
       active = false;
     };
-  }, [refresh]);
+  }, [refresh, enabled]);
 
   const byKey = new Map(steps.map((step) => [step.key, step]));
 

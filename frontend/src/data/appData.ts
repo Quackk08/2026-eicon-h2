@@ -200,6 +200,12 @@ export interface AppData {
     reducedMotion: boolean;
     theme: "system" | "light";
     walkthroughSeen: boolean;
+    /**
+     * Whether the optional on-device language model may be used. Off until
+     * someone turns it on, because turning it on means downloading close to
+     * a gigabyte.
+     */
+    onDeviceModel: boolean;
   };
   trustedContact: {
     /** Absent until the server has accepted the contact (e.g. saved offline). */
@@ -266,7 +272,8 @@ export function createDefaultAppData(): AppData {
       },
       reducedMotion: false,
       theme: "system",
-      walkthroughSeen: false
+      walkthroughSeen: false,
+      onDeviceModel: false
     },
     trustedContact: null
   };
@@ -500,7 +507,8 @@ export async function loadAppData(): Promise<AppData> {
         time: rhythmTime,
         enabled: rhythmEnabled
       },
-      walkthroughSeen: storedSettings.walkthroughSeen ?? defaults.settings.walkthroughSeen
+      walkthroughSeen: storedSettings.walkthroughSeen ?? defaults.settings.walkthroughSeen,
+      onDeviceModel: storedSettings.onDeviceModel ?? defaults.settings.onDeviceModel
     }
   };
 }
