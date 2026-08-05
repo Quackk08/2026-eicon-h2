@@ -2987,9 +2987,70 @@
   gap: 0.75rem;
 }
 
-.save-state,
 .header-checkin {
   display: none;
+}
+
+/* Where this person's work is. Phones are the devices that actually lose
+   connection, so unlike the Check-In shortcut this is never hidden on
+   them — it only shrinks to its dot when there is nothing to report. */
+.save-state {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+}
+
+.save-state i {
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--color-leaf);
+}
+
+.save-state[data-tone="waiting"] i {
+  background: var(--color-clay);
+}
+
+.save-state[data-tone="idle"] i {
+  background: oklch(19% 0.025 145 / 35%);
+}
+
+/* Syncing is the one moving state: something is happening that the person
+   did not start and cannot hurry, so it reads as activity rather than as a
+   thing to wait for. */
+.save-state[data-pulse="true"] i {
+  animation: save-state-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes save-state-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-state i {
+    animation: none;
+  }
+}
+
+/* Narrow screens carry the state as the dot plus a count. The wording stays
+   in the DOM for screen readers, which have no shortage of room. */
+.save-state-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.save-state-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 .mobile-app-menu {
@@ -3417,23 +3478,22 @@
     justify-self: start;
   }
 
-  .save-state,
   .header-checkin {
     display: inline-flex;
     min-height: 2.75rem;
     align-items: center;
   }
 
-  .save-state {
-    gap: 0.5rem;
-    font-size: 0.65rem;
+  /* Room enough to name the state outright, so the count is redundant. */
+  .save-state-label {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
   }
 
-  .save-state i {
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 50%;
-    background: var(--color-leaf);
+  .save-state-count {
+    display: none;
   }
 
   .header-checkin {
@@ -6007,6 +6067,35 @@
   position: relative;
 }
 
+/* One shared feedback line for planner actions (save / move / remove / errors). */
+.planner-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--color-line);
+  border-left: 3px solid var(--color-leaf);
+  background: var(--color-sky);
+  padding: 0.65rem 0.9rem;
+  font-family: var(--font-editorial);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.planner-notice svg {
+  width: 0.9rem;
+  flex: none;
+}
+
+.planner-notice[data-tone="error"] {
+  border-left-color: var(--color-clay);
+}
+
+/* Second tap confirms; the question mark is the warning. */
+.planner-small-command.is-danger {
+  border-color: var(--color-clay);
+  background: var(--color-clay);
+}
+
 .planner-library {
   scroll-margin-top: 5rem;
   padding: 3.5rem 0;
@@ -8022,11 +8111,11 @@
 /* ── Coach-marks (replace floating tooltips) ── */
 
 .coach-mark-overlay {
+  /* Clickable: tapping the dimmed page leaves the tour. */
   position: fixed;
   z-index: 58;
   inset: 0;
   background: oklch(19% 0.025 145 / 52%);
-  pointer-events: none;
 }
 
 .coach-mark-cutout {
@@ -8129,6 +8218,27 @@
   width: 0.9rem;
 }
 
+/* When the spotlighted element sits in the lower half of the viewport, the
+   bubble moves to the top so it never covers what it is pointing at. */
+.coach-mark-tip[data-place="top"] {
+  top: calc(5.5rem + env(safe-area-inset-top));
+  bottom: auto;
+}
+
+.coach-mark-tip[data-place="top"]::before {
+  top: 100%;
+  bottom: auto;
+  border-bottom-color: transparent;
+  border-top-color: var(--color-ink);
+}
+
+.coach-mark-tip[data-place="top"]::after {
+  top: calc(100% - 1px);
+  bottom: auto;
+  border-bottom-color: transparent;
+  border-top-color: var(--color-citron);
+}
+
 @media (min-width: 64rem) {
   .coach-mark-tip {
     bottom: 2rem;
@@ -8136,6 +8246,11 @@
     right: 2rem;
     margin-inline: 0;
     max-width: 22rem;
+  }
+
+  .coach-mark-tip[data-place="top"] {
+    top: 6rem;
+    bottom: auto;
   }
 }
 

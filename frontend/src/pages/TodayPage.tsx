@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import {
   ArrowRight,
   CalendarClock,
@@ -64,6 +64,37 @@ const outcomeLabels = {
 } as const;
 
 const scheduleTimes = ["08:00", "10:00", "12:00", "14:00", "18:00", "20:00"];
+
+/**
+ * A <select> whose value is absent from its options renders as the first
+ * option instead, silently moving the plan. The Check-In rhythm and an
+ * already-saved plan are both free-form times, so whatever is actually
+ * selected is always offered.
+ */
+function withSelectedTime(value: string): string[] {
+  return scheduleTimes.includes(value) ? scheduleTimes : [...scheduleTimes, value].sort();
+}
+
+type Notice = { text: string; tone: "ok" | "error" } | null;
+
+/** The three first-visit coach-marks; each points at one spotlighted element. */
+const walkthroughTips = [
+  {
+    label: "Plan · Do · Review",
+    copy: "These three cells show where you are in today's flow.",
+    step: "01 / 03"
+  },
+  {
+    label: "Your Life Vision",
+    copy: "Tap here anytime to read or update your direction.",
+    step: "02 / 03"
+  },
+  {
+    label: "Why this fits today",
+    copy: "These reasons explain exactly why this Mission size was matched to your Check-In.",
+    step: "03 / 03"
+  }
+];
 
 interface ScheduleDay {
   value: string;
@@ -155,25 +186,44 @@ export function TodayPage() {
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(scheduleDays[0].value);
   const [scheduleTime, setScheduleTime] = useState(data.settings.checkInRhythm.time);
-  const [scheduleNotice, setScheduleNotice] = useState("");
+  const [notice, setNotice] = useState<Notice>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 
   /* ─── Collapsible "This Week" section ─── */
   const [weekOpen, setWeekOpen] = useState(false);
 
   /* ─── Walkthrough state ─── */
-  const [activeTooltip, setActiveTooltip] = useState<number | null>(
-    data.settings.walkthroughSeen ? null : 0
-  );
-  const [walkthroughDone, setWalkthroughDone] = useState(data.settings.walkthroughSeen);
+  const [activeTooltip, setActiveTooltip] = useState<number | null>(null);
+  const [walkthroughDone, setWalkthroughDone] = useState(true);
+  const [spotlight, setSpotlight] = useState<DOMRect | null>(null);
+  const walkthroughOffered = useRef(false);
 
   /* Info disclosure state — "(i)" affordances */
   const [visionInfoOpen, setVisionInfoOpen] = useState(false);
   const [routeInfoOpen, setRouteInfoOpen] = useState(false);
 
+  const scheduleFormRef = useRef<HTMLFormElement>(null);
+  const tooltipRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
+
+  /*
+   * The stored flag is only trustworthy once IndexedDB has loaded. Reading it
+   * during the first render read the empty default instead, so every returning
+   * user was shown the tour again on every visit.
+   */
+  useEffect(() => {
+    if (!ready || walkthroughOffered.current) return;
+    walkthroughOffered.current = true;
+    if (!data.settings.walkthroughSeen) {
+      setWalkthroughDone(false);
+      setActiveTooltip(0);
+    }
+  }, [ready, data.settings.walkthroughSeen]);
+
   const dismissWalkthrough = () => {
     setActiveTooltip(null);
     setWalkthroughDone(true);
+    setSpotlight(null);
     updateData((current) => ({
       ...current,
       settings: { ...current.settings, walkthroughSeen: true }
@@ -199,7 +249,61 @@ export function TodayPage() {
     return () => document.removeEventListener("keydown", handler);
   }, [walkthroughDone]);
 
-  const tooltipRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
+  /*
+   * Each step names one element ("Tap here anytime"), so it has to be visible
+   * and marked. Without this the ring the stylesheet defines was never drawn
+   * and the bubble sat at the bottom of the viewport pointing at nothing.
+   */
+  useEffect(() => {
+    if (walkthroughDone || activeTooltip === null) {
+      setSpotlight(null);
+      return;
+    }
+    const target = tooltipRefs[activeTooltip]?.current;
+    if (!target) {
+      setSpotlight(null);
+      return;
+    }
+
+    target.scrollIntoView({
+      behavior: data.settings.reducedMotion ? "auto" : "smooth",
+      block: "center"
+    });
+
+    const measure = () => setSpotlight(target.getBoundingClientRect());
+    measure();
+    // Capture phase so the scroll above is tracked wherever it happens.
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
+  }, [walkthroughDone, activeTooltip, data.settings.reducedMotion]);
+
+  /*
+   * The editor renders below the week panel, which is collapsed by default —
+   * so "Add to calendar" appeared to do nothing at all. Bring it into view,
+   * put the cursor in it, and let Escape back out.
+   */
+  useEffect(() => {
+    if (!scheduleTargetId) return;
+    const form = scheduleFormRef.current;
+    form?.scrollIntoView({
+      behavior: data.settings.reducedMotion ? "auto" : "smooth",
+      block: "center"
+    });
+    form?.querySelector("select")?.focus();
+
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setScheduleTargetId(null);
+        setEditingPlanId(null);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [scheduleTargetId, data.settings.reducedMotion]);
 
   useEffect(() => {
     if (data.mission) {
@@ -260,7 +364,6 @@ export function TodayPage() {
   const unscheduledCurrentMission =
     isTodaySelected && data.mission && !data.mission.scheduledFor ? data.mission : null;
   const selectedDayCount = selectedDayPlans.length + (unscheduledCurrentMission ? 1 : 0);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const locationName =
     selectedPlace?.name ?? (selectedOption.format === "At home" ? "Home" : "Online");
   const focusTiming =
@@ -275,7 +378,7 @@ export function TodayPage() {
 
   const chooseOption = (option: RecommendationOption, scrollToFocus = true) => {
     setSelectedOptionId(option.id);
-    setScheduleNotice("");
+    setNotice(null);
     if (scrollToFocus) {
       document.getElementById("planner-focus")?.scrollIntoView({
         behavior: data.settings.reducedMotion ? "auto" : "smooth",
@@ -297,7 +400,7 @@ export function TodayPage() {
 
   const startSelectedMission = async () => {
     setActionBusy(true);
-    setScheduleNotice("");
+    setNotice(null);
     try {
       const selectedMission =
         data.mission?.optionId === selectedOption.id
@@ -311,7 +414,10 @@ export function TodayPage() {
       }));
       navigate("/app/mission");
     } catch {
-      setScheduleNotice("The Mission could not be started. Please check the connection and try again.");
+      setNotice({
+        tone: "error",
+        text: "The Mission could not be started. Please check the connection and try again."
+      });
     } finally {
       setActionBusy(false);
     }
@@ -356,7 +462,12 @@ export function TodayPage() {
       setScheduleDate(preferredDate ?? selectedDay);
       setScheduleTime(data.settings.checkInRhythm.time);
     }
-    setScheduleNotice("");
+    setNotice(null);
+  };
+
+  const closeSchedule = () => {
+    setScheduleTargetId(null);
+    setEditingPlanId(null);
   };
 
   const saveSchedule = async (event: FormEvent<HTMLFormElement>) => {
@@ -364,7 +475,7 @@ export function TodayPage() {
     if (!scheduleTarget) return;
 
     setActionBusy(true);
-    setScheduleNotice("");
+    setNotice(null);
     const wasEditing = editingPlanId !== null;
     const scheduledFor = new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
     try {
@@ -389,11 +500,19 @@ export function TodayPage() {
       }
       await refresh();
       setSelectedDay(scheduleDate);
-      setScheduleTargetId(null);
-      setEditingPlanId(null);
-      setScheduleNotice(wasEditing ? "Mission moved." : "Mission added to your week.");
+      closeSchedule();
+      // The plan lands in the week panel, which is collapsed by default —
+      // opening it is how "added to your week" becomes something you can see.
+      setWeekOpen(true);
+      setNotice({
+        tone: "ok",
+        text: wasEditing ? "Mission moved." : "Mission added to your week."
+      });
     } catch {
-      setScheduleNotice("The plan could not be saved. Please check the connection and try again.");
+      setNotice({
+        tone: "error",
+        text: "The plan could not be saved. Please check the connection and try again."
+      });
     } finally {
       setActionBusy(false);
     }
@@ -401,23 +520,27 @@ export function TodayPage() {
 
   const startPlannedMissionNow = async (mission: Mission) => {
     setActionBusy(true);
+    setNotice(null);
     try {
       await updateMissionOnServer(mission.id, { status: "in_progress" });
-    const startedAt = new Date().toISOString();
-    updateData((current) => ({
-      ...current,
-      mission: {
-        ...mission,
-        status: "in_progress",
-        scheduledFor: null,
-        selectedAt: startedAt,
-        startedAt
-      },
-      plannedMissions: current.plannedMissions.filter((item) => item.id !== mission.id)
-    }));
-    navigate("/app/mission");
+      const startedAt = new Date().toISOString();
+      updateData((current) => ({
+        ...current,
+        mission: {
+          ...mission,
+          status: "in_progress",
+          scheduledFor: null,
+          selectedAt: startedAt,
+          startedAt
+        },
+        plannedMissions: current.plannedMissions.filter((item) => item.id !== mission.id)
+      }));
+      navigate("/app/mission");
     } catch {
-      setScheduleNotice("The planned Mission could not be started.");
+      setNotice({
+        tone: "error",
+        text: "The planned Mission could not be started. Please check the connection and try again."
+      });
     } finally {
       setActionBusy(false);
     }
@@ -425,28 +548,47 @@ export function TodayPage() {
 
   const removePlannedMission = async (missionId: string) => {
     setActionBusy(true);
+    setNotice(null);
     try {
       await updateMissionOnServer(missionId, { status: "cancelled" });
-    updateData((current) => ({
-      ...current,
-      plannedMissions: current.plannedMissions.filter((mission) => mission.id !== missionId)
-    }));
+      updateData((current) => ({
+        ...current,
+        plannedMissions: current.plannedMissions.filter((mission) => mission.id !== missionId)
+      }));
+      setConfirmRemoveId(null);
+      setNotice({ tone: "ok", text: "Mission removed from your week." });
     } catch {
-      setScheduleNotice("The planned Mission could not be removed.");
+      setNotice({
+        tone: "error",
+        text: "The planned Mission could not be removed. Please check the connection and try again."
+      });
     } finally {
       setActionBusy(false);
     }
   };
 
+  const isReviewable =
+    activeStatus === "completed" || activeStatus === "partly" || activeStatus === "not_today";
+
   const primaryLabel = !isTodaySelected
     ? `Plan for ${selectedDayInfo.weekday}`
     : activeStatus === "in_progress"
       ? "Finish and reflect"
-      : activeStatus === "completed" || activeStatus === "partly" || activeStatus === "not_today"
+      : isReviewable
         ? "Open reflection"
         : activeStatus === "planned"
           ? "Start mission"
           : "Start now";
+
+  // The icon has to agree with the label; a play triangle on "Plan for Wed"
+  // promised the Mission was about to begin.
+  const PrimaryIcon = !isTodaySelected
+    ? CalendarPlus
+    : activeStatus === "in_progress"
+      ? Check
+      : isReviewable
+        ? ArrowRight
+        : Play;
 
   const handlePrimaryAction = () => {
     if (isTodaySelected) {
@@ -461,34 +603,32 @@ export function TodayPage() {
 
       {/* ── First-visit coach-marks (spotlight pattern, one element each) ── */}
       {!walkthroughDone && activeTooltip !== null && (() => {
-        const tips = [
-          {
-            ref: tooltipRefs[0],
-            label: "Plan · Do · Review",
-            copy: "These three cells show where you are in today's flow.",
-            step: "01 / 03"
-          },
-          {
-            ref: tooltipRefs[1],
-            label: "Your Life Vision",
-            copy: "Tap here anytime to read or update your direction.",
-            step: "02 / 03"
-          },
-          {
-            ref: tooltipRefs[2],
-            label: "Why this fits today",
-            copy: "These reasons explain exactly why this Mission size was matched to your Check-In.",
-            step: "03 / 03"
-          }
-        ];
-        const tip = tips[activeTooltip];
+        const tip = walkthroughTips[activeTooltip];
+        // Keep the bubble clear of whatever it is pointing at, so step 2 does
+        // not sit on top of the very link it is asking you to look at.
+        const place = spotlight && spotlight.top > window.innerHeight * 0.55 ? "top" : "bottom";
         return (
           <>
-            {/* Dim overlay — pointer-events off so spotlight area is clickable */}
-            <div className="coach-mark-overlay" aria-hidden="true" />
+            {/* Dim overlay — clicking anywhere outside the bubble leaves the tour */}
+            <div className="coach-mark-overlay" onClick={dismissWalkthrough} />
+            {spotlight && (
+              <div
+                className="coach-mark-cutout"
+                aria-hidden="true"
+                style={
+                  {
+                    "--cx": `${spotlight.left - 6}px`,
+                    "--cy": `${spotlight.top - 6}px`,
+                    "--cw": `${spotlight.width + 12}px`,
+                    "--ch": `${spotlight.height + 12}px`
+                  } as CSSProperties
+                }
+              />
+            )}
             {/* Tip bubble with pointer arrow */}
             <div
               className="coach-mark-tip"
+              data-place={place}
               role="dialog"
               aria-modal="true"
               aria-label={`Walkthrough step ${activeTooltip + 1} of 3`}
@@ -508,11 +648,11 @@ export function TodayPage() {
               <div className="coach-mark-actions">
                 <span className="app-kicker" style={{ marginRight: "auto" }}>{tip.step}</span>
                 {activeTooltip < 2 ? (
-                  <button className="primary-command" type="button" onClick={advanceTooltip}>
+                  <button className="primary-command" type="button" onClick={advanceTooltip} autoFocus>
                     Next <ArrowRight aria-hidden="true" />
                   </button>
                 ) : (
-                  <button className="primary-command" type="button" onClick={dismissWalkthrough}>
+                  <button className="primary-command" type="button" onClick={dismissWalkthrough} autoFocus>
                     Got it <Check aria-hidden="true" />
                   </button>
                 )}
@@ -600,7 +740,7 @@ export function TodayPage() {
 
         <div className="planner-focus-actions">
           <button className="primary-command" type="button" disabled={actionBusy} onClick={handlePrimaryAction}>
-            <Play aria-hidden="true" />
+            <PrimaryIcon aria-hidden="true" />
             {primaryLabel}
           </button>
           <Link
@@ -644,6 +784,19 @@ export function TodayPage() {
         )}
       </section>
 
+      {/* One shared feedback line for every planner action; sits between the
+          hero and the week panel so it is adjacent to whichever produced it. */}
+      {notice && (
+        <p
+          className="planner-notice"
+          data-tone={notice.tone}
+          role={notice.tone === "error" ? "alert" : "status"}
+        >
+          {notice.tone === "ok" ? <Check aria-hidden="true" /> : <Info aria-hidden="true" />}
+          {notice.text}
+        </p>
+      )}
+
       {/* ── Collapsible "This Week" section ── */}
       <div className="today-week-section">
         <button
@@ -679,7 +832,10 @@ export function TodayPage() {
                       type="button"
                       role="tab"
                       aria-selected={selectedDay === day.value}
-                      onClick={() => setSelectedDay(day.value)}
+                      onClick={() => {
+                        setSelectedDay(day.value);
+                        setConfirmRemoveId(null);
+                      }}
                       key={day.value}
                     >
                       <span>{index === 0 ? "Today" : day.weekday}</span>
@@ -737,11 +893,31 @@ export function TodayPage() {
                         <p>{mission.durationMinutes} min / {place?.name ?? mission.placeType}</p>
                       </div>
                       <div className="planner-agenda-actions">
-                        {isTodaySelected && (
-                          <button className="planner-small-command" type="button" disabled={actionBusy} onClick={() => void startPlannedMissionNow(mission)}>Start</button>
+                        {confirmRemoveId === mission.id ? (
+                          /* Two-tap removal — the first tap swaps the icon for an
+                             explicit question instead of deleting outright. */
+                          <>
+                            <button
+                              className="planner-small-command is-danger"
+                              type="button"
+                              disabled={actionBusy}
+                              onClick={() => void removePlannedMission(mission.id)}
+                            >
+                              Remove?
+                            </button>
+                            <button className="text-button" type="button" onClick={() => setConfirmRemoveId(null)}>
+                              Keep
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {isTodaySelected && (
+                              <button className="planner-small-command" type="button" disabled={actionBusy} onClick={() => void startPlannedMissionNow(mission)}>Start</button>
+                            )}
+                            <button className="icon-button" type="button" aria-label={`Move ${mission.title}`} title="Move" onClick={() => openSchedule(option, mission)}><CalendarClock aria-hidden="true" /></button>
+                            <button className="icon-button" type="button" disabled={actionBusy} aria-label={`Remove ${mission.title}`} title="Remove" onClick={() => setConfirmRemoveId(mission.id)}><X aria-hidden="true" /></button>
+                          </>
                         )}
-                        <button className="icon-button" type="button" aria-label={`Move ${mission.title}`} title="Move" onClick={() => openSchedule(option, mission)}><CalendarClock aria-hidden="true" /></button>
-                        <button className="icon-button" type="button" disabled={actionBusy} aria-label={`Remove ${mission.title}`} title="Remove" onClick={() => void removePlannedMission(mission.id)}><X aria-hidden="true" /></button>
                       </div>
                     </article>
                   );
@@ -758,7 +934,6 @@ export function TodayPage() {
 
               <div className="planner-day-footer">
                 <Link to="/app/check-in">Update today's conditions <ArrowRight aria-hidden="true" /></Link>
-                {scheduleNotice && <span aria-live="polite">{scheduleNotice}</span>}
               </div>
             </aside>
 
@@ -775,7 +950,7 @@ export function TodayPage() {
 
       {/* ── Schedule editor (shown when scheduling) ── */}
       {scheduleTarget && (
-        <form className="mission-schedule-editor planner-schedule-editor" onSubmit={saveSchedule}>
+        <form ref={scheduleFormRef} className="mission-schedule-editor planner-schedule-editor" onSubmit={saveSchedule}>
           <div>
             <p className="app-kicker">{editingPlanId ? "Move Mission" : "Add to calendar"}</p>
             <h2>{scheduleTarget.title}</h2>
@@ -789,12 +964,12 @@ export function TodayPage() {
           <label>
             Time
             <select value={scheduleTime} onChange={(event) => setScheduleTime(event.target.value)}>
-              {scheduleTimes.map((time) => <option value={time} key={time}>{time}</option>)}
+              {withSelectedTime(scheduleTime).map((time) => <option value={time} key={time}>{time}</option>)}
             </select>
           </label>
           <div className="mission-schedule-actions">
             <button className="primary-command" type="submit" disabled={actionBusy}>Save plan <ArrowRight aria-hidden="true" /></button>
-            <button className="icon-button" type="button" aria-label="Close schedule editor" title="Close" onClick={() => setScheduleTargetId(null)}>
+            <button className="icon-button" type="button" aria-label="Close schedule editor" title="Close" onClick={closeSchedule}>
               <X aria-hidden="true" />
             </button>
           </div>
