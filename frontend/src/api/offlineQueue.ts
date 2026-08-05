@@ -1,4 +1,4 @@
-import { databasePromise, type OutboxOperation } from "../data/appData";
+import { getDatabase, type OutboxOperation } from "../data/appData";
 import { api, ApiError } from "./client";
 
 type OperationDraft = Omit<OutboxOperation, "idempotencyKey" | "createdAt" | "retryCount">;
@@ -38,7 +38,7 @@ async function announceDepth(): Promise<void> {
  * lets the server recognise a replay and refuse to apply it twice.
  */
 export async function enqueue(draft: OperationDraft): Promise<void> {
-  const database = await databasePromise;
+  const database = await getDatabase();
   await database.put("outbox", {
     ...draft,
     idempotencyKey: crypto.randomUUID(),
@@ -49,7 +49,7 @@ export async function enqueue(draft: OperationDraft): Promise<void> {
 }
 
 export async function pendingCount(): Promise<number> {
-  const database = await databasePromise;
+  const database = await getDatabase();
   return database.count("outbox");
 }
 
@@ -71,7 +71,7 @@ export async function flushQueue(): Promise<number> {
   flushing = true;
 
   try {
-    const database = await databasePromise;
+    const database = await getDatabase();
     const operations = (await database.getAll("outbox")).sort((a, b) =>
       a.createdAt.localeCompare(b.createdAt)
     );

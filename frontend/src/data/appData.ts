@@ -323,16 +323,30 @@ interface ReNewDatabase extends DBSchema {
   };
 }
 
-export const databasePromise = openDB<ReNewDatabase>("renew-client", 2, {
-  upgrade(database) {
-    if (!database.objectStoreNames.contains("state")) {
-      database.createObjectStore("state");
+let databasePromise: ReturnType<typeof openDB<ReNewDatabase>> | null = null;
+
+/**
+ * The local database, opened on first use.
+ *
+ * Lazy rather than opened at module scope, because importing a module
+ * should not reach for a browser API. It used to, which meant this file —
+ * and everything that imports a type from it — could only be loaded inside
+ * a browser, and that is why the mission normalising below went untested
+ * long enough to lose people's places on every reload.
+ */
+export function getDatabase(): ReturnType<typeof openDB<ReNewDatabase>> {
+  databasePromise ??= openDB<ReNewDatabase>("renew-client", 2, {
+    upgrade(database) {
+      if (!database.objectStoreNames.contains("state")) {
+        database.createObjectStore("state");
+      }
+      if (!database.objectStoreNames.contains("outbox")) {
+        database.createObjectStore("outbox", { keyPath: "idempotencyKey" });
+      }
     }
-    if (!database.objectStoreNames.contains("outbox")) {
-      database.createObjectStore("outbox", { keyPath: "idempotencyKey" });
-    }
-  }
-});
+  });
+  return databasePromise;
+}
 
 export function createMissionFromOption(
   option: RecommendationOption,
@@ -438,7 +452,7 @@ function normalizeMission(
 }
 
 export async function loadAppData(): Promise<AppData> {
-  const database = await databasePromise;
+  const database = await getDatabase();
   const rawStored = await database.get("state", "app");
 
   if (!rawStored) {
@@ -514,11 +528,11 @@ export async function loadAppData(): Promise<AppData> {
 }
 
 export async function saveAppData(data: AppData): Promise<void> {
-  const database = await databasePromise;
+  const database = await getDatabase();
   await database.put("state", { ...data, dataVersion: DATA_VERSION }, "app");
 }
 
 export async function clearAppData(): Promise<void> {
-  const database = await databasePromise;
+  const database = await getDatabase();
   await database.delete("state", "app");
 }
