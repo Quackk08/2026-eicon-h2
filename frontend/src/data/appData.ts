@@ -329,7 +329,19 @@ export const databasePromise = openDB<ReNewDatabase>("renew-client", 2, {
 
 export function createMissionFromOption(
   option: RecommendationOption,
-  overrides: Partial<Pick<Mission, "id" | "status" | "selectedAt" | "scheduledFor" | "startedAt" | "completedAt">> = {}
+  overrides: Partial<
+    Pick<
+      Mission,
+      | "id"
+      | "status"
+      | "selectedAt"
+      | "scheduledFor"
+      | "startedAt"
+      | "completedAt"
+      | "placeId"
+      | "placeType"
+    >
+  > = {}
 ): Mission {
   return {
     id: overrides.id ?? crypto.randomUUID(),
@@ -340,8 +352,17 @@ export function createMissionFromOption(
     title: option.title,
     description: option.description,
     durationMinutes: option.durationMinutes,
-    placeType: option.placeType,
-    placeId: option.placeId,
+    // The option carries the template's category; a Mission carries the
+    // place actually resolved for it, which is the more specific of the
+    // two and must survive being rebuilt from its option.
+    //
+    // `undefined` rather than `??` on purpose: a Mission whose placeId is
+    // null has no place *deliberately* — an action made smaller until it
+    // no longer needs one — and `??` would hand it the option's place
+    // back. Only a record that never carried the field at all falls
+    // through to the option.
+    placeType: overrides.placeType !== undefined ? overrides.placeType : option.placeType,
+    placeId: overrides.placeId !== undefined ? overrides.placeId : option.placeId,
     estimatedCost: option.estimatedCost,
     format: option.format,
     supplies: option.supplies,
@@ -358,6 +379,14 @@ export function createMissionFromOption(
  * Missions are stored whole, so a stored one is already complete. Options
  * are only consulted to refresh a Mission whose action still exists — there
  * is no option list to fall back on before the backend has loaded.
+ *
+ * Whatever the Mission decided for itself has to be carried across. The
+ * place is the one that bit: an option holds the template's category while
+ * a Mission holds the reviewed place the backend actually resolved, and
+ * rebuilding without it dropped that place on every reload — then wrote the
+ * emptied copy straight back to IndexedDB. The visible cost was someone
+ * opening their calendar offline, on the morning they were going somewhere,
+ * to find the somewhere gone.
  */
 function normalizeMission(
   mission: Partial<Mission>,
@@ -372,7 +401,9 @@ function normalizeMission(
       selectedAt: mission.selectedAt,
       scheduledFor: mission.scheduledFor,
       startedAt: mission.startedAt,
-      completedAt: mission.completedAt
+      completedAt: mission.completedAt,
+      placeId: mission.placeId,
+      placeType: mission.placeType
     });
   }
 
