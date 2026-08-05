@@ -260,7 +260,13 @@ type StoredAppData = AppData & { dataVersion?: number };
  */
 export interface OutboxOperation {
   idempotencyKey: string;
-  entityType: "check_in" | "reflection" | "saved_place" | "trusted_contact" | "mission_place";
+  entityType:
+    | "check_in"
+    | "reflection"
+    | "saved_place"
+    | "trusted_contact"
+    | "mission_place"
+    | "mission_status";
   entityLocalId: string;
   operation: "create" | "update" | "delete";
   payload: Record<string, unknown>;

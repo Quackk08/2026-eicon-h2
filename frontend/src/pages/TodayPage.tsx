@@ -44,7 +44,8 @@ import {
   fetchLatestRecommendation,
   requestDailyRecommendation,
   selectMissionOption,
-  updateMission as updateMissionOnServer
+  updateMission as updateMissionOnServer,
+  updateMissionStatusOrQueue
 } from "../api/backend";
 import { ApiError } from "../api/client";
 import { fromApiMission } from "../api/mappers";
@@ -520,9 +521,11 @@ export function TodayPage() {
       ...current,
       mission: current.mission ? { ...current.mission, status: "completed", completedAt } : null
     }));
-    // Best-effort, like MissionPage: the reflection also records the outcome,
-    // but a refresh in between must not resurrect the Mission as still open.
-    if (missionId) void updateMissionOnServer(missionId, { status: "completed" }).catch(() => undefined);
+    // Like MissionPage: the reflection also records the outcome, but a
+    // refresh in between must not resurrect the Mission as still open.
+    // Queued rather than best-effort, so finishing something offline is
+    // still finished when the connection returns.
+    if (missionId) void updateMissionStatusOrQueue(missionId, "completed").catch(() => undefined);
     navigate("/app/reflection");
   };
 
@@ -532,7 +535,7 @@ export function TodayPage() {
       ...current,
       mission: current.mission ? { ...current.mission, status: "not_today" } : null
     }));
-    if (missionId) void updateMissionOnServer(missionId, { status: "not_today" }).catch(() => undefined);
+    if (missionId) void updateMissionStatusOrQueue(missionId, "not_today").catch(() => undefined);
     navigate("/app/reflection");
   };
 

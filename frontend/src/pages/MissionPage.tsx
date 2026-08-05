@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createMissionFromOption, type MissionVariant } from "../data/appData";
 import { getMissionPlace } from "../data/missionLogic";
-import { adaptMission, updateMission as updateMissionOnServer } from "../api/backend";
+import { adaptMission, updateMissionStatusOrQueue } from "../api/backend";
 import { useAppState } from "../state/AppState";
 
 /* ─── Size-adjustment stepper data ───
@@ -204,8 +204,8 @@ export function MissionPage() {
   const startMission = () => {
     setMissionStatus("in_progress");
     setTimerRunning(true);
-    void updateMissionOnServer(mission.id, { status: "in_progress" })
-      .then(() => refresh())
+    void updateMissionStatusOrQueue(mission.id, "in_progress")
+      .then(({ queued }) => (queued ? undefined : refresh()))
       .catch(() => undefined);
   };
 
@@ -221,9 +221,10 @@ export function MissionPage() {
           }
         : null
     }));
-    // Best-effort: the reflection that follows also records the outcome, but
-    // without this a refresh in between resurrected the Mission as still open.
-    void updateMissionOnServer(mission.id, { status }).catch(() => undefined);
+    // The reflection that follows also records the outcome, but without this
+    // a refresh in between resurrected the Mission as still open. Queued, so
+    // that stays true when the connection is gone.
+    void updateMissionStatusOrQueue(mission.id, status).catch(() => undefined);
     navigate("/app/reflection");
   };
 

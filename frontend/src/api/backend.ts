@@ -425,6 +425,7 @@ export async function adaptMission(
   return api.post<ApiMission>(`/missions/${missionId}/adapt`, { direction });
 }
 
+
 /**
  * Turns a chosen option into a server Mission even when the option is not
  * one of the recommendation's own three sizes.
@@ -505,14 +506,41 @@ export async function setMissionPlace(missionId: string, placeId: string | null)
   });
 }
 
+export type MissionStatus =
+  | "planned"
+  | "in_progress"
+  | "cancelled"
+  | "completed"
+  | "partially_completed"
+  | "not_today";
+
 export async function updateMission(
   missionId: string,
-  patch: {
-    status?: "planned" | "in_progress" | "cancelled" | "completed" | "partially_completed" | "not_today";
-    scheduledFor?: string;
-  }
+  patch: { status?: MissionStatus; scheduledFor?: string }
 ): Promise<ApiMission> {
   return api.patch<ApiMission>(`/missions/${missionId}`, patch);
+}
+
+/**
+ * Starting, finishing, or setting aside today's Mission — the moments the
+ * daily loop actually turns on.
+ *
+ * These used to be the one part of the loop that simply failed offline:
+ * someone could record the Check-In that produced the Mission and then have
+ * no way to record having done it. Scheduling a Mission for a future day
+ * still goes through updateMission, which is a separate concern with its
+ * own conflict question.
+ */
+export async function updateMissionStatusOrQueue(
+  missionId: string,
+  status: MissionStatus
+): Promise<{ queued: boolean }> {
+  return writeOrQueue(() => api.patch(`/missions/${missionId}`, { status }), {
+    entityType: "mission_status",
+    entityLocalId: missionId,
+    operation: "update",
+    payload: { missionId, status }
+  });
 }
 
 export async function submitReflection(
@@ -557,6 +585,7 @@ export async function joinCommunityActivity(activityId: string): Promise<void> {
 export async function cancelCommunityActivity(activityId: string): Promise<void> {
   await api.post(`/community/activities/${activityId}/cancel`);
 }
+
 
 export async function reportCommunityActivity(activityId: string, reason: string): Promise<void> {
   await api.post(`/community/activities/${activityId}/report`, { reason });

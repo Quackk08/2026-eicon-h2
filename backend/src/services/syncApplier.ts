@@ -48,6 +48,29 @@ const reflectionPayloadSchema = z.intersection(
   reflectionSchema
 );
 const entityIdPayloadSchema = z.object({ id: z.string().uuid() });
+const missionStatusPayloadSchema = z.object({
+  missionId: z.string().uuid(),
+  status: z.enum([
+    "planned",
+    "in_progress",
+    "cancelled",
+    "completed",
+    "partially_completed",
+    "not_today"
+  ])
+});
+
+/**
+ * Resolves a Mission the queue refers to, refusing anything that is not
+ * this profile's. A queued operation carries no authority of its own.
+ */
+async function ownedMission(profileId: string, missionId: string) {
+  const mission = await getMissionById(missionId);
+  if (!mission || mission.profile_id !== profileId) {
+    throw new SyncConflictError("mission not found for this profile");
+  }
+  return mission;
+}
 
 /**
  * Replays one operation that was queued while the device was offline.
@@ -96,16 +119,34 @@ export async function applyOperation(
 
     case "mission_place": {
       const input = parseOrConflict(missionPlacePayloadSchema, operation.payload, "mission_place");
-      const mission = await getMissionById(input.missionId);
-      if (!mission || mission.profile_id !== profileId) {
-        throw new SyncConflictError("mission not found for this profile");
-      }
+      const mission = await ownedMission(profileId, input.missionId);
       if (input.placeId && !(await getPlaceById(input.placeId))) {
         throw new SyncConflictError("place not found");
       }
       await updateMissionPlace(mission.id, input.placeId);
       return;
     }
+
+    /*
+     * Marking today's Mission done is the moment the loop closes, and it
+     * used to be the one step that simply failed without a connection —
+     * someone could record the Check-In that led to the Mission, and then
+     * not record having done it.
+     */
+    case "mission_status": {
+      const input = parseOrConflict(
+        missionStatusPayloadSchema,
+        operation.payload,
+        "mission_status"
+      );
+      const mission = await ownedMission(profileId, input.missionId);
+      await updateMissionStatus(mission.id, input.status);
+      if (input.status === "completed" && mission.route_step_id) {
+        await completeRouteStep(mission.route_step_id);
+      }
+      return;
+    }
+
 
     case "saved_place": {
       const { placeId } = parseOrConflict(
