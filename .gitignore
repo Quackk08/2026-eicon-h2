@@ -19,7 +19,8 @@ Thumbs.db
 coverage/
 .vercel/
 .idea/
-# Per-machine Claude Code settings; only this developer's global ignore covered it.
-.claude/settings.local.json
+# Per-machine Claude Code settings and tooling config. settings.local.json was
+# already listed; launch.json is the same kind of thing, so ignore the folder.
+.claude/
 **/supabase/.temp/
 **/supabase/.branches/
