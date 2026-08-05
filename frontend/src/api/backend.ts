@@ -31,6 +31,7 @@ import type {
   ApiCheckIn,
   ApiCheckInRhythm,
   ApiCommunityActivity,
+  ApiLongTermMission,
   ApiMission,
   ApiPlace,
   ApiPlaceSearchResult,
@@ -578,6 +579,22 @@ export async function submitReflectionOrQueue(
   );
 }
 
+/**
+ * The one-to-two month goal today's Mission is advancing, or null before
+ * onboarding has built a Route. Progress is counted server-side, so this is
+ * the only number any screen should show.
+ */
+export async function fetchActiveLongTermMission(): Promise<ApiLongTermMission | null> {
+  return api.get<ApiLongTermMission | null>("/long-term-missions/active");
+}
+
+export async function renameLongTermMission(
+  id: string,
+  title: string
+): Promise<ApiLongTermMission> {
+  return api.patch<ApiLongTermMission>(`/long-term-missions/${id}`, { title });
+}
+
 export async function joinCommunityActivity(activityId: string): Promise<void> {
   await api.post(`/community/activities/${activityId}/join`);
 }
@@ -702,7 +719,8 @@ export async function hydrateFromBackend(current: AppData): Promise<HydrationRes
     recommendation,
     savedPlaceIds,
     trustedContacts,
-    rhythm
+    rhythm,
+    longTermMission
   ] = await Promise.all([
     fetchProfile(),
     fetchSession().catch(() => null),
@@ -716,7 +734,8 @@ export async function hydrateFromBackend(current: AppData): Promise<HydrationRes
     fetchLatestRecommendation().catch(() => null),
     fetchSavedPlaceIds().catch(() => null),
     fetchTrustedContacts().catch(() => null),
-    fetchCheckInRhythm().catch(() => null)
+    fetchCheckInRhythm().catch(() => null),
+    fetchActiveLongTermMission().catch(() => null)
   ]);
 
   const templatesById = new Map((templates ?? []).map((template) => [template.id, template]));
@@ -746,6 +765,12 @@ export async function hydrateFromBackend(current: AppData): Promise<HydrationRes
           relationship: trustedContacts[0].relationship ?? ""
         }
       : null;
+  }
+  // Null is meaningful here — it is what "no goal yet" looks like before
+  // onboarding builds a Route — so it is only written when the request
+  // actually answered, not when it failed.
+  if (longTermMission !== null) {
+    patch.longTermMission = longTermMission;
   }
   if (rhythm) {
     patch.settings = {

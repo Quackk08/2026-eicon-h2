@@ -50,6 +50,7 @@ import {
 import { ApiError } from "../api/client";
 import { fromApiMission } from "../api/mappers";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { LongTermProgress } from "../components/LongTermProgress";
 import { MissionVerifySheet } from "../components/MissionVerifySheet";
 import { useAppState } from "../state/AppState";
 
@@ -809,6 +810,13 @@ export function TodayPage() {
           )}
         </div>
       </header>
+
+      {/* Sits directly under the Vision because it is the missing middle of
+          that sentence: the direction, then how far into this stretch of it
+          today's action falls. */}
+      {data.longTermMission && data.longTermMission.status === "active" && (
+        <LongTermProgress mission={data.longTermMission} />
+      )}
 
       <div className="planner-header-actions">
         <Link className="primary-command" to="/app/check-in">

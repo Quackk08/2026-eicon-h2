@@ -190,6 +190,26 @@ export interface ApiPlace {
   imageUrl?: string | null;
 }
 
+/**
+ * The one-to-two month commitment behind today's action, with its counting
+ * already done by the server so two screens cannot disagree about progress.
+ */
+export interface ApiLongTermMission {
+  id: string;
+  visionId: string;
+  routeId: string | null;
+  title: string;
+  rationale: string | null;
+  startsOn: string;
+  endsOn: string;
+  targetCount: number;
+  status: "active" | "paused" | "achieved" | "ended";
+  completedCount: number;
+  ratio: number;
+  daysRemaining: number;
+  targetMet: boolean;
+}
+
 export interface ApiPlaceSearchResult {
   selectedPlaceId: string;
   summary: string;

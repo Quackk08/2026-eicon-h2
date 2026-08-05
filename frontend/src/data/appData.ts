@@ -135,6 +135,35 @@ export interface CommunityActivity {
   joined: boolean;
 }
 
+/**
+ * The one-to-two month commitment today's Mission belongs to.
+ *
+ * Kept in local storage like everything else, because the whole reason it
+ * exists is to show that today's ten minutes are part of something — and
+ * the day someone most needs to see that is the day they are on a train
+ * with no signal.
+ *
+ * Progress is counted by the server and copied here rather than recomputed:
+ * the client cannot see which missions were completed on another device.
+ */
+export interface LongTermMission {
+  id: string;
+  visionId: string;
+  routeId: string | null;
+  title: string;
+  /** Why this horizon and this target, in the rule engine's own words. */
+  rationale: string | null;
+  startsOn: string;
+  endsOn: string;
+  targetCount: number;
+  status: "active" | "paused" | "achieved" | "ended";
+  completedCount: number;
+  /** 0-1, already capped by the server. */
+  ratio: number;
+  daysRemaining: number;
+  targetMet: boolean;
+}
+
 export interface CheckInRhythm {
   frequency: "daily" | "weekdays" | "weekly" | "custom";
   days: number[];
@@ -154,6 +183,7 @@ export interface AppData {
   pastVisions: LifeVision[];
   routeId: string | null;
   route: RouteStep[];
+  longTermMission: LongTermMission | null;
   checkIns: CheckInRecord[];
   recommendations: RecommendationOption[];
   mission: Mission | null;
@@ -215,6 +245,7 @@ export function createDefaultAppData(): AppData {
     route: [],
     pastVisions: [],
     routeId: null,
+    longTermMission: null,
     checkIns: [],
     recommendations: [],
     mission: null,
@@ -389,6 +420,7 @@ export async function loadAppData(): Promise<AppData> {
           vision: defaults.vision,
           routeId: null,
           route: [],
+          longTermMission: null,
           recommendations: [],
           places: [],
           community: [],

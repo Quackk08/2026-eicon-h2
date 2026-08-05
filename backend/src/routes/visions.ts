@@ -20,7 +20,13 @@ import {
   replaceGeneratedTemplates
 } from "../repositories/actionTemplates.js";
 import { getPreferences } from "../repositories/preferences.js";
+import { getOrCreateRhythm } from "../repositories/checkinRhythms.js";
+import {
+  createLongTermMission,
+  endOtherActiveLongTermMissions
+} from "../repositories/longTermMissions.js";
 import { generateLadderForVision } from "../services/ladderGenerator.js";
+import { deriveLongTermPlan, withProgress } from "../services/longTermPlanner.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
 
 const router = Router();
@@ -134,7 +140,39 @@ router.post("/visions/:id/generate-route", resolveProfile, async (req, res, next
       vision.id,
       ordered.map((t) => ({ templateId: t.id, ladderLevel: t.ladderLevel }))
     );
-    res.status(201).json(route);
+
+    /*
+     * The Route names a destination but no horizon, which left a person with
+     * a direction that could never be finished and a Mission that expired at
+     * midnight. The one-to-two month commitment is born here because it is
+     * this Route's own promise — reach the top of it, this many times, by
+     * this date — and building it separately would let the two disagree.
+     *
+     * Failure is not allowed to cost someone their Route. Onboarding has
+     * already taken them through four screens by this point, and a goal they
+     * cannot see yet is a far smaller loss than being sent back to the start.
+     */
+    let longTermMission = null;
+    try {
+      const rhythm = await getOrCreateRhythm(req.profileId!);
+      const plan = deriveLongTermPlan({
+        visionSummary: vision.summary,
+        ladderSteps: route.steps.length,
+        rhythm: rhythm.rhythm_type,
+        intervalDays: rhythm.interval_days
+      });
+      const created = await createLongTermMission(req.profileId!, {
+        visionId: vision.id,
+        routeId: route.id,
+        ...plan
+      });
+      await endOtherActiveLongTermMissions(req.profileId!, created.id);
+      longTermMission = await withProgress(created);
+    } catch (err) {
+      console.error("long-term mission could not be derived:", err instanceof Error ? err.message : "unknown");
+    }
+
+    res.status(201).json({ ...route, longTermMission });
   } catch (err) {
     next(err);
   }

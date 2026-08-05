@@ -17,6 +17,7 @@ import {
   getRecommendationById
 } from "../repositories/recommendations.js";
 import { createMission } from "../repositories/missions.js";
+import { getActiveLongTermMission } from "../repositories/longTermMissions.js";
 import { buildRuleBasedRecommendation, computeStateTags } from "../services/ruleEngine.js";
 import { rerankWithGemini } from "../services/geminiAdapter.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
@@ -167,12 +168,19 @@ router.post("/recommendations/:id/select", resolveProfile, async (req, res, next
     const template = await getActionTemplateById(templateId);
     const selection = template ? await selectPlaceForTemplate(req.profileId!, template) : null;
 
+    // Stamped at selection so the Mission carries which longer goal it was
+    // advancing, permanently. Reading it back from whatever happens to be
+    // active later would silently re-attribute a month of finished work the
+    // first time someone changed direction.
+    const longTerm = await getActiveLongTermMission(req.profileId!);
+
     const mission = await createMission(
       req.profileId!,
       templateId,
       recommendation.id,
       parsed.data.routeStepId ?? null,
-      selection?.result.selectedPlaceId ?? null
+      selection?.result.selectedPlaceId ?? null,
+      longTerm?.id ?? null
     );
 
     const place = selection ? await getPlaceById(selection.result.selectedPlaceId) : null;

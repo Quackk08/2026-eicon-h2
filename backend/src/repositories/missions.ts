@@ -8,6 +8,8 @@ export interface MissionRow {
   template_id: string;
   route_step_id: string | null;
   place_id: string | null;
+  /** The one-to-two month goal today's action was advancing, if any. */
+  long_term_mission_id: string | null;
   status: MissionStatus;
   scheduled_for: string;
   scheduled_at: string | null;
@@ -20,7 +22,8 @@ export async function createMission(
   templateId: string,
   recommendationId: string | null,
   routeStepId: string | null,
-  placeId: string | null = null
+  placeId: string | null = null,
+  longTermMissionId: string | null = null
 ): Promise<MissionRow> {
   const { data, error } = await supabase
     .from("missions")
@@ -29,7 +32,8 @@ export async function createMission(
       template_id: templateId,
       recommendation_id: recommendationId,
       route_step_id: routeStepId,
-      place_id: placeId
+      place_id: placeId,
+      long_term_mission_id: longTermMissionId
     })
     .select()
     .single();
