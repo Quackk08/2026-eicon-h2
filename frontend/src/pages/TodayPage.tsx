@@ -4,6 +4,7 @@ import {
   CalendarClock,
   CalendarDays,
   CalendarPlus,
+  Camera,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -19,6 +20,7 @@ import {
   Plus,
   RefreshCcw,
   Route as RouteIcon,
+  Square,
   UsersRound,
   WalletCards,
   X
@@ -45,6 +47,8 @@ import {
   updateMission as updateMissionOnServer
 } from "../api/backend";
 import { fromApiMission } from "../api/mappers";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { MissionVerifySheet } from "../components/MissionVerifySheet";
 import { useAppState } from "../state/AppState";
 
 const variantLabels: Record<MissionVariant, string> = {
@@ -70,6 +74,12 @@ const outcomeLabels = {
 } as const;
 
 const scheduleTimes = ["08:00", "10:00", "12:00", "14:00", "18:00", "20:00"];
+
+function formatCountdown(seconds: number): string {
+  const minutes = Math.floor(Math.max(seconds, 0) / 60);
+  const rest = Math.max(seconds, 0) % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+}
 
 /**
  * A <select> whose value is absent from its options renders as the first
@@ -188,6 +198,12 @@ export function TodayPage() {
   const [notice, setNotice] = useState<Notice>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+
+  /* ─── Live-mission state: the hero itself is the mission surface ─── */
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const verifySheetRef = useRef<HTMLDivElement>(null);
 
   /* ─── Collapsible "This Week" section ─── */
   const [weekOpen, setWeekOpen] = useState(false);
@@ -312,6 +328,34 @@ export function TodayPage() {
     }
   }, [data.mission?.optionId, recommendedOption?.id]);
 
+  // The remaining-time chip on the live hero; only ticks while something runs.
+  const missionRunning = data.mission?.status === "in_progress";
+  useEffect(() => {
+    if (!missionRunning) return;
+    const timer = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [missionRunning]);
+
+  // The verify sheet renders below the hero; bring it into view and let
+  // Escape back out, mirroring the schedule editor's behaviour.
+  useEffect(() => {
+    if (!verifyOpen) return;
+    verifySheetRef.current?.scrollIntoView({
+      behavior: data.settings.reducedMotion ? "auto" : "smooth",
+      block: "center"
+    });
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setVerifyOpen(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [verifyOpen, data.settings.reducedMotion]);
+
+  // A finished (or stopped) mission takes its sheet with it.
+  useEffect(() => {
+    if (!missionRunning) setVerifyOpen(false);
+  }, [missionRunning]);
+
   const selectedOption =
     data.recommendations.find((option) => option.id === selectedOptionId) ?? recommendedOption;
 
@@ -375,6 +419,20 @@ export function TodayPage() {
     ? `${outcomeLabels[latestResult.reflection.outcome]} on ${formatResultDate(latestResult.reflection.createdAt)}`
     : "No result yet";
 
+  // The running Mission, when the hero is showing it. Remaining time is
+  // derived from startedAt (like MissionPage), so it survives navigation.
+  const liveMission = selectedIsActive && activeStatus === "in_progress" ? data.mission : null;
+  const liveRemainingSeconds = liveMission?.startedAt
+    ? Math.min(
+        Math.max(
+          liveMission.durationMinutes * 60 -
+            Math.floor((nowTick - new Date(liveMission.startedAt).getTime()) / 1000),
+          0
+        ),
+        liveMission.durationMinutes * 60
+      )
+    : null;
+
   const chooseOption = (option: RecommendationOption, scrollToFocus = true) => {
     setSelectedOptionId(option.id);
     setNotice(null);
@@ -426,7 +484,9 @@ export function TodayPage() {
         ...current,
         mission: { ...selectedMission, status: "in_progress", startedAt }
       }));
-      navigate("/app/mission");
+      // No navigation: the hero itself becomes the running Mission, with
+      // stop and verify one tap away. The detail page stays reachable
+      // through the "Mission started" button.
     } catch (cause) {
       setNotice({
         tone: "error",
@@ -441,20 +501,39 @@ export function TodayPage() {
   };
 
   const finishSelectedMission = () => {
+    const missionId = data.mission?.id;
     const completedAt = new Date().toISOString();
     updateData((current) => ({
       ...current,
       mission: current.mission ? { ...current.mission, status: "completed", completedAt } : null
     }));
+    // Best-effort, like MissionPage: the reflection also records the outcome,
+    // but a refresh in between must not resurrect the Mission as still open.
+    if (missionId) void updateMissionOnServer(missionId, { status: "completed" }).catch(() => undefined);
     navigate("/app/reflection");
   };
 
   const markNotToday = () => {
+    const missionId = data.mission?.id;
     updateData((current) => ({
       ...current,
       mission: current.mission ? { ...current.mission, status: "not_today" } : null
     }));
+    if (missionId) void updateMissionOnServer(missionId, { status: "not_today" }).catch(() => undefined);
     navigate("/app/reflection");
+  };
+
+  /** The server already recorded the completion; mirror it and hand over to reflection. */
+  const handleVerified = (summary: string | null) => {
+    const completedAt = new Date().toISOString();
+    updateData((current) => ({
+      ...current,
+      mission: current.mission ? { ...current.mission, status: "completed", completedAt } : null
+    }));
+    setVerifyOpen(false);
+    navigate("/app/reflection", {
+      state: { verifiedNote: summary ? `Verified from photo: ${summary}` : "Verified with a photo." }
+    });
   };
 
   const runPrimaryAction = () => {
@@ -756,31 +835,79 @@ export function TodayPage() {
           <small>Today's Mission</small>
         </div>
         <h2 id="planner-focus-title">{selectedOption.title}</h2>
-        <p className="planner-focus-description">{selectedOption.description}</p>
 
-        <div className="planner-focus-actions">
-          <button className="primary-command" type="button" disabled={actionBusy} onClick={handlePrimaryAction}>
-            <PrimaryIcon aria-hidden="true" />
-            {primaryLabel}
-          </button>
-          <Link
-            className="secondary-command"
-            to="/app/recommendation"
-            aria-label="See other Mission sizes"
-          >
-            <RefreshCcw aria-hidden="true" /> See other sizes →
-          </Link>
-          {isTodaySelected && (
-            <button className="text-button" type="button" onClick={() => openSchedule(selectedOption)}>
-              <CalendarPlus aria-hidden="true" /> Add to calendar
-            </button>
-          )}
-          {selectedIsActive && activeStatus !== "completed" && activeStatus !== "not_today" && (
-            <button className="text-button planner-defer-action" type="button" onClick={markNotToday}>
-              <Pause aria-hidden="true" /> Not today
-            </button>
-          )}
-        </div>
+        {liveMission ? (
+          /* ── Live state: what to do, how long is left, and the three
+                controls that matter while it runs. ── */
+          <>
+            <div className="planner-now-card">
+              <div className="planner-now-topline">
+                <p className="app-kicker">What to do now</p>
+                {liveRemainingSeconds !== null && (
+                  <span className="planner-now-remaining" role="timer" aria-label="Time remaining">
+                    <Clock3 aria-hidden="true" />
+                    {liveRemainingSeconds > 0 ? `${formatCountdown(liveRemainingSeconds)} left` : "Time's up — any part counts"}
+                  </span>
+                )}
+              </div>
+              <p>{selectedOption.description}</p>
+              <small>
+                {selectedOption.durationMinutes} min · {locationName}
+                {selectedOption.supplies.length > 0 ? ` · Bring: ${selectedOption.supplies.join(", ")}` : ""}
+              </small>
+            </div>
+
+            <div className="planner-focus-actions">
+              <button
+                className="primary-command planner-started-command"
+                type="button"
+                aria-label="Mission started — open details"
+                onClick={() => navigate("/app/mission")}
+              >
+                <Check aria-hidden="true" /> Mission started
+              </button>
+              <button className="secondary-command" type="button" onClick={() => setStopConfirmOpen(true)}>
+                <Square aria-hidden="true" /> Stop
+              </button>
+              <button
+                className="primary-command"
+                type="button"
+                aria-expanded={verifyOpen}
+                onClick={() => setVerifyOpen((open) => !open)}
+              >
+                <Camera aria-hidden="true" /> Verify
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="planner-focus-description">{selectedOption.description}</p>
+
+            <div className="planner-focus-actions">
+              <button className="primary-command" type="button" disabled={actionBusy} onClick={handlePrimaryAction}>
+                <PrimaryIcon aria-hidden="true" />
+                {actionBusy ? "Starting..." : primaryLabel}
+              </button>
+              <Link
+                className="secondary-command"
+                to="/app/recommendation"
+                aria-label="See other Mission sizes"
+              >
+                <RefreshCcw aria-hidden="true" /> See other sizes →
+              </Link>
+              {isTodaySelected && (
+                <button className="text-button" type="button" onClick={() => openSchedule(selectedOption)}>
+                  <CalendarPlus aria-hidden="true" /> Add to calendar
+                </button>
+              )}
+              {selectedIsActive && activeStatus !== "completed" && activeStatus !== "not_today" && (
+                <button className="text-button planner-defer-action" type="button" onClick={markNotToday}>
+                  <Pause aria-hidden="true" /> Not today
+                </button>
+              )}
+            </div>
+          </>
+        )}
 
         <dl className="planner-facts">
           <div><dt><CalendarClock aria-hidden="true" /> When</dt><dd>{focusTiming}</dd></div>
@@ -803,6 +930,39 @@ export function TodayPage() {
           </aside>
         )}
       </section>
+
+      {/* ── Photo verification, one tap from the running hero ── */}
+      {verifyOpen && liveMission && (
+        <div ref={verifySheetRef}>
+          <MissionVerifySheet
+            mission={liveMission}
+            onClose={() => setVerifyOpen(false)}
+            onVerified={handleVerified}
+            onCompleteWithout={() => {
+              setVerifyOpen(false);
+              finishSelectedMission();
+            }}
+          />
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={stopConfirmOpen}
+        kicker="Stop this Mission"
+        title="Stop here for today?"
+        confirmLabel="Stop for today"
+        cancelLabel="Keep going"
+        onCancel={() => setStopConfirmOpen(false)}
+        onConfirm={() => {
+          setStopConfirmOpen(false);
+          markNotToday();
+        }}
+      >
+        <p>
+          The Mission is set aside without penalty and you can say a word about it in the
+          reflection. Starting again later today is always possible.
+        </p>
+      </ConfirmDialog>
 
       {/* One shared feedback line for every planner action; sits between the
           hero and the week panel so it is adjacent to whichever produced it. */}

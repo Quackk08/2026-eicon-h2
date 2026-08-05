@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Check, CircleDot, Pause } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { EffortLevel, Reflection } from "../data/appData";
 import { submitReflectionOrQueue } from "../api/backend";
 import { useAppState } from "../state/AppState";
@@ -38,6 +38,14 @@ export function ReflectionPage() {
   useEffect(() => {
     setOutcome(mission?.status === "not_today" ? "not_today" : "completed");
   }, [mission?.id, mission?.status]);
+
+  // A photo-verified completion arrives with its extracted summary; start
+  // the note from it rather than asking the person to retype a receipt.
+  const location = useLocation();
+  useEffect(() => {
+    const verifiedNote = (location.state as { verifiedNote?: string } | null)?.verifiedNote;
+    if (verifiedNote) setNote((current) => current || verifiedNote);
+  }, [location.state]);
 
   // Checked before the mission guard: saving clears the mission, and this
   // screen is the answer to "did it save?" — not "nothing to reflect on".

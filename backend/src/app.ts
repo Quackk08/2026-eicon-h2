@@ -29,7 +29,9 @@ const app = express();
 // Same-origin in production — the frontend and this API are served from one
 // domain — so CORS only matters for the local Vite dev server on :5173.
 app.use(cors({ origin: env.clientOrigin }));
-app.use(express.json());
+// Photo verification posts a downscaled image as base64; everything else
+// stays far below even the old 100kb default.
+app.use(express.json({ limit: "3mb" }));
 
 /**
  * Reports whether AI generation is configured, which is otherwise invisible:

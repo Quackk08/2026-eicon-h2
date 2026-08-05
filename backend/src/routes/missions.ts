@@ -20,6 +20,8 @@ import { getActionTemplateById, listActionTemplatesInLadderGroup } from "../repo
 import { getPlaceById } from "../repositories/places.js";
 import { selectPlaceForTemplate } from "../services/placeSelection.js";
 import { completeRouteStep } from "../repositories/routes.js";
+import { verifyMissionEvidence } from "../services/missionVerification.js";
+import { isAIEnabled } from "../config/env.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
 
 const router = Router();
@@ -90,6 +92,63 @@ router.patch("/missions/:id", resolveProfile, async (req, res, next) => {
       updated = await updateMissionStatus(updated.id, parsed.data.status);
     }
     res.json(await withDetails(updated));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * ~2.8MB of base64 ≈ 2MB of JPEG — comfortably above what the client's
+ * downscaling produces, low enough to bound a single Gemini call.
+ */
+const verifySchema = z.object({
+  imageBase64: z.string().min(100).max(2_800_000),
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"])
+});
+
+/**
+ * Reads one photo (receipt or scene) against the mission and, when it
+ * matches, records the completion. Never a gate: any non-verified answer
+ * leaves the mission untouched, and the client keeps "complete anyway"
+ * available. The image is analyzed and dropped — nothing is stored.
+ */
+router.post("/missions/:id/verify", resolveProfile, async (req, res, next) => {
+  try {
+    const mission = await getMissionById(req.params.id as string);
+    if (!mission || mission.profile_id !== req.profileId) return res.status(404).json({ error: "not found" });
+
+    if (!isAIEnabled()) {
+      return res.status(503).json({ error: "verification is not configured on this server" });
+    }
+
+    const parsed = verifySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    const template = await getActionTemplateById(mission.template_id);
+    const verdict = await verifyMissionEvidence({
+      missionTitle: template?.title ?? "A small daily mission",
+      missionDescription: null,
+      placeType: template?.placeTypes?.[0] ?? null,
+      // The row has no dedicated start column; updated_at last moved when
+      // the status flipped to in_progress, which is close enough for the
+      // model's plausibility check.
+      startedAt: mission.status === "in_progress" ? mission.updated_at : null,
+      imageBase64: parsed.data.imageBase64,
+      mimeType: parsed.data.mimeType
+    });
+
+    if (!verdict) {
+      return res.status(502).json({ error: "the photo could not be analyzed right now" });
+    }
+
+    let missionCompleted = false;
+    if (verdict.verdict === "verified") {
+      await updateMissionStatus(mission.id, "completed");
+      if (mission.route_step_id) await completeRouteStep(mission.route_step_id);
+      missionCompleted = true;
+    }
+
+    res.json({ ...verdict, missionCompleted });
   } catch (err) {
     next(err);
   }

@@ -6269,6 +6269,170 @@
   position: relative;
 }
 
+/* ── Live-mission hero: what to do now + started / stop / verify ── */
+
+.planner-now-card {
+  display: grid;
+  gap: 0.5rem;
+  border-left: 3px solid var(--color-leaf);
+  border-radius: 0;
+  background: var(--color-citron);
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+}
+
+.planner-now-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.planner-now-remaining {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+}
+
+.planner-now-remaining svg {
+  width: 0.85rem;
+}
+
+.planner-now-card > p {
+  font-family: var(--font-editorial);
+  font-size: 0.92rem;
+  line-height: 1.65;
+  max-width: 52ch;
+}
+
+.planner-now-card > small {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: oklch(19% 0.025 145 / 62%);
+}
+
+/* Reads as a state, acts as the door to the detail page. */
+.planner-started-command {
+  background: var(--color-leaf);
+  border-color: var(--color-leaf);
+  color: var(--color-ink);
+}
+
+/* ── Verify sheet ── */
+
+.verify-sheet {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid var(--color-ink);
+  background: var(--color-paper);
+  margin-top: 1rem;
+  padding: 1.5rem;
+}
+
+.verify-sheet-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.verify-sheet-heading h2 {
+  margin-top: 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 400;
+}
+
+.verify-sheet-lead {
+  max-width: 52ch;
+  font-family: var(--font-editorial);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.verify-sheet-capture {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+}
+
+.verify-drop {
+  display: grid;
+  width: 100%;
+  min-height: 9rem;
+  justify-items: center;
+  align-content: center;
+  gap: 0.5rem;
+  border: 1px dashed var(--color-ink);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.verify-drop svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.verify-preview {
+  max-width: 100%;
+  max-height: 18rem;
+  border: 1px solid var(--color-line);
+  object-fit: contain;
+}
+
+.verify-capture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.verify-result {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  border-left: 3px solid var(--color-clay);
+  padding: 0.75rem 1rem;
+  background: var(--color-sky);
+}
+
+.verify-result.is-verified {
+  border-left-color: var(--color-leaf);
+  background: var(--color-citron);
+}
+
+.verify-result-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-editorial);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.verify-result-line svg {
+  width: 1rem;
+  flex: none;
+}
+
+.verify-result-summary {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: oklch(19% 0.025 145 / 62%);
+}
+
+.verify-skip {
+  justify-self: start;
+}
+
 /* One shared feedback line for planner actions (save / move / remove / errors). */
 .planner-notice {
   display: flex;

@@ -425,6 +425,34 @@ export async function adaptMission(
   return api.post<ApiMission>(`/missions/${missionId}/adapt`, { direction });
 }
 
+export interface MissionVerification {
+  verdict: "verified" | "unclear" | "mismatch";
+  evidenceType: "receipt" | "scene" | "other";
+  confidence: number;
+  extracted: {
+    merchant?: string | null;
+    amount?: string | null;
+    paidAt?: string | null;
+    items?: string[] | null;
+  } | null;
+  reason: string;
+  missionCompleted: boolean;
+}
+
+/**
+ * Sends one photo for the server to read against the Mission. The image is
+ * analyzed and discarded server-side; only the returned summary exists
+ * afterwards. Requires a connection — a photo is too heavy for the outbox,
+ * and completing without verification is always available instead.
+ */
+export async function verifyMission(
+  missionId: string,
+  imageBase64: string,
+  mimeType: string
+): Promise<MissionVerification> {
+  return api.post<MissionVerification>(`/missions/${missionId}/verify`, { imageBase64, mimeType });
+}
+
 /** Where the backend would hold this action, given the user's constraints. */
 export async function fetchPlaceForTemplate(templateId: string): Promise<ApiPlaceSearchResult | null> {
   try {
