@@ -6,6 +6,12 @@ import type { CommunityActivity } from "@renew/shared";
  * used elsewhere: 0-1 = "being present together" without conversation,
  * up to 3-4 = taking on a role or organizing. Copy is written in the app's
  * UI language (English).
+ *
+ * `location` must name a place from places.seed.ts exactly. The client links
+ * an activity to its venue by that name, so an invented one silently costs
+ * the venue photograph and the "View venue details" link — which is what
+ * these were doing: they still carried placeholder venues from before the
+ * place list was localised to Sangam-dong.
  */
 export const communityActivitySeeds: CommunityActivity[] = [
   {
@@ -26,7 +32,7 @@ export const communityActivitySeeds: CommunityActivity[] = [
     domain: "study_school",
     startsAt: null,
     isOnline: false,
-    location: "Riverside Quiet Library",
+    location: "Mapo Central Library",
     durationMinutes: 40,
     socialLoad: 1,
     maxParticipants: 8,
@@ -38,7 +44,7 @@ export const communityActivitySeeds: CommunityActivity[] = [
     domain: "movement_health",
     startsAt: null,
     isOnline: false,
-    location: "Downtown Green Park",
+    location: "World Cup Park (Peace Park)",
     durationMinutes: 10,
     socialLoad: 2,
     maxParticipants: 6,
@@ -50,7 +56,7 @@ export const communityActivitySeeds: CommunityActivity[] = [
     domain: "study_school",
     startsAt: null,
     isOnline: false,
-    location: "Maple Street Cafe",
+    location: "DMC Cafe Street",
     durationMinutes: 30,
     socialLoad: 2,
     maxParticipants: 6,
@@ -74,7 +80,7 @@ export const communityActivitySeeds: CommunityActivity[] = [
     domain: "creativity",
     startsAt: null,
     isOnline: false,
-    location: "Arts District Community Studio",
+    location: "Oil Tank Culture Park",
     durationMinutes: 45,
     socialLoad: 3,
     maxParticipants: 8,
