@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ReNew">
+  <!--
+    Placeholder app icon, not final artwork. The mark is the Life Route read
+    literally: five rungs that grow as they climb, because the product's one
+    idea is that today's step can be made smaller without losing the
+    destination. Brand colours are taken from styles.css.
+  -->
+  <rect width="512" height="512" rx="112" fill="#12211a" />
+  <g stroke="#8fd14f" stroke-width="26" stroke-linecap="round" fill="none">
+    <path d="M150 380h60" />
+    <path d="M150 316h103" />
+    <path d="M150 252h146" />
+    <path d="M150 188h189" />
+    <path d="M150 124h232" opacity="0.45" />
+  </g>
+</svg>
