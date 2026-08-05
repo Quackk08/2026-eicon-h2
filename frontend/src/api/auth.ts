@@ -25,6 +25,14 @@ export interface AuthResult {
    * asynchronously, so getAccessToken() can still be empty at that point.
    */
   accessToken?: string;
+  /**
+   * The account was created, but Supabase is holding it until the address
+   * is confirmed. Not an error, and specifically not something to retry:
+   * signing up again with the same address answers "User already
+   * registered", which reads like a real failure and is the likeliest way
+   * for someone to give up here.
+   */
+  confirmationRequired?: boolean;
 }
 
 export async function getAccessToken(): Promise<string | null> {
@@ -57,10 +65,17 @@ export async function signUp(email: string, password: string): Promise<AuthResul
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) return { ok: false, error: error.message };
 
-  // With email confirmation on, signUp succeeds without a session. Saying so
-  // is better than leaving someone on a screen that looks like it failed.
+  // With email confirmation on, signUp succeeds without a session. `ok`
+  // stays false because there is no token, so nothing downstream tries to
+  // claim the guest profile against a session that does not exist yet —
+  // that handover happens on the first real sign-in instead, and the guest
+  // id stays in this browser until it does.
   if (!data.session) {
-    return { ok: false, error: "Check your email to confirm this address, then sign in." };
+    return {
+      ok: false,
+      confirmationRequired: true,
+      error: "Account created. Confirm the address from the email we just sent, then sign in."
+    };
   }
   return { ok: true, accessToken: data.session.access_token };
 }

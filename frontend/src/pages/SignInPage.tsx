@@ -35,6 +35,14 @@ export function SignInPage() {
       const result =
         mode === "signIn" ? await signInAndLink(email, password) : await signUpAndLink(email, password);
 
+      // Waiting on an email confirmation is an outcome, not a failure. Shown
+      // as an error it reads as "that did not work", and the natural next
+      // move — sign up again — answers "User already registered".
+      if (result.confirmationRequired) {
+        setNotice(result.error ?? "Account created. Confirm the address by email, then sign in.");
+        return;
+      }
+
       if (!result.ok) {
         setError(result.error ?? "Could not sign in.");
         return;
