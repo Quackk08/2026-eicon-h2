@@ -5,7 +5,8 @@ import {
   type ActionTemplate,
   type GeneratedLadderStep
 } from "@renew/shared";
-import { env, isAIEnabled } from "../config/env.js";
+import { isAIEnabled } from "../config/env.js";
+import { callGeminiRaw } from "./geminiTransport.js";
 import { classifyLadderSafety } from "./ladderSafetyClassifier.js";
 import {
   logLadderGeneration,
@@ -182,35 +183,17 @@ Respond with ONLY a JSON object in exactly this shape:
  * rate-limit window was busy is worse than waiting a moment.
  */
 async function callGemini(prompt: string, attempt = 0): Promise<string | null> {
-  if (!env.geminiApiKey) return null;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.geminiModel}:generateContent?key=${env.geminiApiKey}`;
+  const { text, status } = await callGeminiRaw({
+    parts: [{ text: prompt }],
+    label: "ladder",
+    temperature: 0.5,
+    timeoutMs: 25_000
+  });
 
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json", temperature: 0.5 }
-      }),
-      signal: AbortSignal.timeout(25000)
-    });
-
-    if (res.status === 429 && attempt === 0) {
-      console.warn("[ladder] rate limited, retrying once in 20s");
-      await new Promise((resolve) => setTimeout(resolve, 20000));
-      return callGemini(prompt, attempt + 1);
-    }
-
-    if (!res.ok) {
-      console.error("[ladder] request failed", res.status, (await res.text().catch(() => "")).slice(0, 200));
-      return null;
-    }
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    return typeof text === "string" ? text : null;
-  } catch (err) {
-    console.error("[ladder] request threw", err);
-    return null;
+  if (status === 429 && attempt === 0) {
+    console.warn("[ladder] rate limited, retrying once in 20s");
+    await new Promise((resolve) => setTimeout(resolve, 20000));
+    return callGemini(prompt, attempt + 1);
   }
+  return text;
 }

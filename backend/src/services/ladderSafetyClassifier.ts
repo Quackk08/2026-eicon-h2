@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { callGeminiRaw } from "./geminiTransport.js";
 import type { GeneratedLadderStep } from "@renew/shared";
-import { env, isAIEnabled } from "../config/env.js";
+import { isAIEnabled } from "../config/env.js";
 
 const verdictSchema = z.object({
   safe: z.boolean(),
@@ -88,34 +89,17 @@ Respond with ONLY a JSON object:
 }
 
 async function callGemini(prompt: string, attempt = 0): Promise<string | null> {
-  if (!env.geminiApiKey) return null;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.geminiModel}:generateContent?key=${env.geminiApiKey}`;
+  const { text, status } = await callGeminiRaw({
+    parts: [{ text: prompt }],
+    label: "ladder-safety",
+    // Deterministic: a safety verdict should not vary run to run.
+    temperature: 0,
+    timeoutMs: 25_000
+  });
 
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        // Deterministic: a safety verdict should not vary run to run.
-        generationConfig: { responseMimeType: "application/json", temperature: 0 }
-      }),
-      signal: AbortSignal.timeout(25000)
-    });
-
-    if (res.status === 429 && attempt === 0) {
-      await new Promise((resolve) => setTimeout(resolve, 20000));
-      return callGemini(prompt, attempt + 1);
-    }
-    if (!res.ok) {
-      console.error("[ladder-safety] request failed", res.status);
-      return null;
-    }
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    return typeof text === "string" ? text : null;
-  } catch (err) {
-    console.error("[ladder-safety] request threw", err);
-    return null;
+  if (status === 429 && attempt === 0) {
+    await new Promise((resolve) => setTimeout(resolve, 20000));
+    return callGemini(prompt, attempt + 1);
   }
+  return text;
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { env, isAIEnabled } from "../config/env.js";
+import { callGeminiRaw } from "./geminiTransport.js";
+import { isAIEnabled } from "../config/env.js";
 
 export interface VerifyEvidenceInput {
   missionTitle: string;
@@ -88,45 +89,25 @@ async function callGeminiWithImage(
   imageBase64: string,
   mimeType: string
 ): Promise<string | null> {
-  if (!env.geminiApiKey) return null;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.geminiModel}:generateContent?key=${env.geminiApiKey}`;
-
   // One retry on transient unavailability (Gemini answers 503 under load
   // spikes); anything else fails straight through to the client's fallback.
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: mimeType, data: imageBase64 } }
-              ]
-            }
-          ],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
-        }),
-        // Vision calls carry more payload than the rerank; give them longer.
-        signal: AbortSignal.timeout(25000)
-      });
-      if (res.status === 503 && attempt === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        continue;
-      }
-      if (!res.ok) {
-        console.error("[gemini:verify] request failed", res.status, await res.text().catch(() => ""));
-        return null;
-      }
-      const data = await res.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      return typeof text === "string" ? text : null;
-    } catch (err) {
-      console.error("[gemini:verify] request threw", err);
-      return null;
+    const { text, status } = await callGeminiRaw({
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: mimeType, data: imageBase64 } }
+      ],
+      label: "gemini:verify",
+      temperature: 0.2,
+      // Vision calls carry more payload than the rerank; give them longer.
+      timeoutMs: 25_000
+    });
+
+    if (status === 503 && attempt === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      continue;
     }
+    return text;
   }
   return null;
 }

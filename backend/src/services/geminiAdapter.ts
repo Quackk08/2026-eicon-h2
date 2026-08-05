@@ -1,5 +1,6 @@
 import { recommendationResultSchema, hasOnlyKnownTemplateIds, type RecommendationResult } from "@renew/shared";
-import { env, isAIEnabled } from "../config/env.js";
+import { callGemini as callGeminiApi, GEMINI_TIMEOUTS } from "./geminiTransport.js";
+import { isAIEnabled } from "../config/env.js";
 import type { StateTag } from "../types.js";
 
 interface RerankInput {
@@ -67,28 +68,9 @@ Respond with ONLY a JSON object matching exactly this shape:
 }
 
 async function callGemini(prompt: string): Promise<string | null> {
-  if (!env.geminiApiKey) return null;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.geminiModel}:generateContent?key=${env.geminiApiKey}`;
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json", temperature: 0.3 }
-      }),
-      signal: AbortSignal.timeout(15000)
-    });
-    if (!res.ok) {
-      console.error("[gemini] request failed", res.status, await res.text().catch(() => ""));
-      return null;
-    }
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    return typeof text === "string" ? text : null;
-  } catch (err) {
-    console.error("[gemini] request threw", err);
-    return null;
-  }
+  return callGeminiApi({
+    parts: [{ text: prompt }],
+    label: "gemini",
+    timeoutMs: GEMINI_TIMEOUTS.interactive
+  });
 }
