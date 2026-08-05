@@ -425,6 +425,34 @@ export async function adaptMission(
   return api.post<ApiMission>(`/missions/${missionId}/adapt`, { direction });
 }
 
+/**
+ * Turns a chosen option into a server Mission even when the option is not
+ * one of the recommendation's own three sizes.
+ *
+ * The select endpoint only accepts the pick's selected/smaller/extension
+ * templates, but the UI deliberately offers every Route step — "you stay in
+ * control" is the product's promise. For an off-menu choice, the sanctioned
+ * path is select-the-default then adapt to the chosen template (the adapt
+ * endpoint allows any step in the same ladder). The Route step id rides on
+ * the base select, which stores it unvalidated, so completion still
+ * advances the right level.
+ */
+export async function selectMissionOption(
+  pick: ApiRecommendation,
+  option: { id: string; routeStepId?: string | null }
+): Promise<ApiMission> {
+  const allowed = new Set(
+    [pick.selected_template_id, pick.smaller_template_id, pick.extension_template_id].filter(
+      (id): id is string => Boolean(id)
+    )
+  );
+  if (allowed.has(option.id)) {
+    return selectRecommendation(pick.id, option.id, option.routeStepId ?? null);
+  }
+  const base = await selectRecommendation(pick.id, pick.selected_template_id, option.routeStepId ?? null);
+  return api.post<ApiMission>(`/missions/${base.id}/adapt`, { templateId: option.id });
+}
+
 export interface MissionVerification {
   verdict: "verified" | "unclear" | "mismatch";
   evidenceType: "receipt" | "scene" | "other";

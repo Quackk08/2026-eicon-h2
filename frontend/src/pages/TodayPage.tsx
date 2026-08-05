@@ -43,9 +43,10 @@ import { toDateKey } from "../data/dates";
 import {
   fetchLatestRecommendation,
   requestDailyRecommendation,
-  selectRecommendation,
+  selectMissionOption,
   updateMission as updateMissionOnServer
 } from "../api/backend";
+import { ApiError } from "../api/client";
 import { fromApiMission } from "../api/mappers";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { MissionVerifySheet } from "../components/MissionVerifySheet";
@@ -460,7 +461,19 @@ export function TodayPage() {
         throw new Error("needs-check-in");
       }
     }
-    const created = await selectRecommendation(pick.id, option.id, option.routeStepId ?? null);
+
+    let created;
+    try {
+      created = await selectMissionOption(pick, option);
+    } catch (cause) {
+      // A pick from before the Route changed (or was regenerated under old
+      // rules) can name templates from another ladder entirely; every start
+      // then 400s. A fresh pick lines back up with today's Route.
+      if (!(cause instanceof ApiError && cause.status === 400)) throw cause;
+      pick = await requestDailyRecommendation();
+      created = await selectMissionOption(pick, option);
+    }
+
     return fromApiMission(created, data.vision.id) ??
       createMissionFromOption(option, { id: created.id });
   };

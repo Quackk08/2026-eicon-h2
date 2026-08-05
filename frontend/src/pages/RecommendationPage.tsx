@@ -12,7 +12,7 @@ import {
   fetchLatestRecommendation,
   fetchPlaceForTemplate,
   requestDailyRecommendation,
-  selectRecommendation,
+  selectMissionOption,
   setMissionPlace
 } from "../api/backend";
 import { PENDING_PLACE_KEY } from "./PlaceDetailPage";
@@ -119,7 +119,17 @@ export function RecommendationPage() {
 
     if (activePick) {
       try {
-        const created = await selectRecommendation(activePick.id, option.id, option.routeStepId ?? null);
+        let created;
+        try {
+          created = await selectMissionOption(activePick, option);
+        } catch (cause) {
+          // A stale pick can name templates from a different ladder than
+          // today's Route; regenerate once and retry before giving up.
+          if (!(cause instanceof ApiError && cause.status === 400)) throw cause;
+          const freshPick = await requestDailyRecommendation();
+          setPagePick(freshPick);
+          created = await selectMissionOption(freshPick, option);
+        }
         // "Find a step for this place" left a place waiting for the Mission
         // that now exists; attach it and clear the intent.
         const pendingPlaceId = sessionStorage.getItem(PENDING_PLACE_KEY);
