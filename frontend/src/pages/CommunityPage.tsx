@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useAppState } from "../state/AppState";
 
 export function CommunityPage() {
-  const { data } = useAppState();
+  const { data, online } = useAppState();
   const [query, setQuery] = useState("");
   const [load, setLoad] = useState<"All" | "Low" | "Medium">("All");
   const [joinedOnly, setJoinedOnly] = useState(false);
@@ -59,9 +59,9 @@ export function CommunityPage() {
         </button>
       </section>
 
-      <div className="place-type-tabs" role="tablist" aria-label="Expected social load">
+      <div className="place-type-tabs" role="group" aria-label="Expected social load">
         {(["All", "Low", "Medium"] as const).map((item) => (
-          <button className={load === item ? "is-active" : ""} type="button" role="tab" aria-selected={load === item} onClick={() => setLoad(item)} key={item}>
+          <button className={load === item ? "is-active" : ""} type="button" aria-pressed={load === item} onClick={() => setLoad(item)} key={item}>
             {item === "All" ? "All social settings" : `${item} social load`}
           </button>
         ))}
@@ -92,10 +92,20 @@ export function CommunityPage() {
             </article>
           ))}
         </section>
+      ) : data.community.length === 0 ? (
+        <section className="empty-results">
+          <p className="app-kicker">No activities loaded yet</p>
+          <h2>{online ? "Reviewed activities are still on their way." : "Activities arrive with the connection."}</h2>
+          <p>
+            {online
+              ? "If this persists, there may be no reviewed Shared Activities for your area yet."
+              : "This device has no cached activities yet. They will appear once ReNew can reach the server."}
+          </p>
+        </section>
       ) : (
         <section className="empty-results">
           <p className="app-kicker">No matching activities</p>
-        <h2>Try a different social setting or view all reviewed Shared Activities.</h2>
+          <h2>Try a different social setting or view all reviewed Shared Activities.</h2>
           <button className="secondary-command" type="button" onClick={() => { setQuery(""); setLoad("All"); setJoinedOnly(false); }}>
             Reset filters
           </button>

@@ -9,7 +9,8 @@ import { createCheckIn } from "../repositories/checkIns.js";
 import { getOrCreateRhythm, updateRhythm } from "../repositories/checkinRhythms.js";
 import { computeNextCheckinAt } from "../services/checkinScheduler.js";
 import { createReflection } from "../repositories/reflections.js";
-import { getMissionById, updateMissionStatus } from "../repositories/missions.js";
+import { getMissionById, updateMissionPlace, updateMissionStatus } from "../repositories/missions.js";
+import { getPlaceById } from "../repositories/places.js";
 import { completeRouteStep } from "../repositories/routes.js";
 import { savePlace, unsavePlace } from "../repositories/savedPlaces.js";
 import {
@@ -38,6 +39,10 @@ function parseOrConflict<T>(schema: z.ZodType<T>, payload: unknown, what: string
 }
 
 const savedPlacePayloadSchema = z.object({ placeId: z.string().min(1).max(200) });
+const missionPlacePayloadSchema = z.object({
+  missionId: z.string().uuid(),
+  placeId: z.string().min(1).max(200).nullable()
+});
 const reflectionPayloadSchema = z.intersection(
   z.object({ missionId: z.string().uuid() }),
   reflectionSchema
@@ -86,6 +91,19 @@ export async function applyOperation(
       if (input.result === "completed" && mission.route_step_id) {
         await completeRouteStep(mission.route_step_id);
       }
+      return;
+    }
+
+    case "mission_place": {
+      const input = parseOrConflict(missionPlacePayloadSchema, operation.payload, "mission_place");
+      const mission = await getMissionById(input.missionId);
+      if (!mission || mission.profile_id !== profileId) {
+        throw new SyncConflictError("mission not found for this profile");
+      }
+      if (input.placeId && !(await getPlaceById(input.placeId))) {
+        throw new SyncConflictError("place not found");
+      }
+      await updateMissionPlace(mission.id, input.placeId);
       return;
     }
 

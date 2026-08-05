@@ -16,15 +16,20 @@ import {
   joinCommunityActivity,
   reportCommunityActivity
 } from "../api/backend";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useAppState } from "../state/AppState";
 
 export function CommunityDetailPage() {
   const { activityId } = useParams();
   const { data, updateData, refresh } = useAppState();
   const activity = data.community.find((item) => item.id === activityId);
+  const activityIndex = data.community.findIndex((item) => item.id === activityId);
   const [confirming, setConfirming] = useState<"join" | "cancel" | null>(null);
+  const [participationBusy, setParticipationBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportSent, setReportSent] = useState(false);
+  const [reportBusy, setReportBusy] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
 
   if (!activity) {
     return (
@@ -40,36 +45,57 @@ export function CommunityDetailPage() {
 
   const confirmParticipation = async () => {
     const joined = confirming === "join";
-    updateData((current) => ({
-      ...current,
-      community: current.community.map((item) => (item.id === activity.id ? { ...item, joined } : item))
-    }));
-    setConfirming(null);
-
+    setParticipationBusy(true);
+    setNotice(null);
     try {
       if (joined) {
         await joinCommunityActivity(activity.id);
       } else {
         await cancelCommunityActivity(activity.id);
       }
+      // Only after the server accepted it — a hopeful local flip was quietly
+      // reverted on the next reconnect, un-joining people without a word.
+      updateData((current) => ({
+        ...current,
+        community: current.community.map((item) => (item.id === activity.id ? { ...item, joined } : item))
+      }));
+      setConfirming(null);
       await refresh();
+      setNotice({ tone: "ok", text: joined ? "You're in — see you there." : "Your place has been released." });
     } catch {
-      // Recorded locally; it syncs on the next successful load.
+      setConfirming(null);
+      setNotice({
+        tone: "error",
+        text: joined
+          ? "Joining needs the connection. Nothing was changed — please try again."
+          : "Cancelling needs the connection. You are still registered — please try again."
+      });
+    } finally {
+      setParticipationBusy(false);
     }
   };
 
   const submitReport = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const form = event.currentTarget;
-    const reason = new FormData(form).get("reason");
-    const details = new FormData(form).get("details");
-    setReportSent(true);
-    setReportOpen(false);
+    const formData = new FormData(event.currentTarget);
+    const reason = formData.get("reason");
+    const details = formData.get("details");
+    setReportBusy(true);
+    setNotice(null);
 
     try {
       await reportCommunityActivity(activity.id, [reason, details].filter(Boolean).join(": "));
+      // "Recorded" only once it actually is.
+      setReportSent(true);
+      setReportOpen(false);
+      setNotice({ tone: "ok", text: "Report recorded. The review team will take it from here." });
     } catch {
-      // The report stays queued locally rather than being lost.
+      setNotice({
+        tone: "error",
+        text: "The report could not be sent. Please check the connection and try again — nothing was recorded yet."
+      });
+    } finally {
+      setReportBusy(false);
     }
   };
 
@@ -88,8 +114,16 @@ export function CommunityDetailPage() {
           <h1>{activity.title}</h1>
           <p>{activity.description}</p>
         </div>
-        <div className="community-detail-number" aria-hidden="true">C1</div>
+        <div className="community-detail-number" aria-hidden="true">
+          C{activityIndex >= 0 ? activityIndex + 1 : 1}
+        </div>
       </section>
+
+      {notice && (
+        <p className="auth-note" role={notice.tone === "error" ? "alert" : "status"}>
+          {notice.text}
+        </p>
+      )}
 
       <section className="community-facts">
         <article><CalendarDays aria-hidden="true" /><span>When</span><p>{activity.dateLabel}</p></article>
@@ -132,37 +166,40 @@ export function CommunityDetailPage() {
         </section>
       </div>
 
-      {confirming && (
-        <section className="participation-confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-          <div>
-            <p className="app-kicker">Confirm your choice</p>
-            <h2 id="confirm-title">{confirming === "join" ? "Join this Community Step?" : "Cancel your place?"}</h2>
-            <p>
-              {confirming === "join"
-                ? `${activity.title} at ${activity.place}, ${activity.dateLabel}. ReNew will only save your participation on this device.`
-                : "Your place will be released. Your personal Check-In and Mission data are never shared with the host."}
-            </p>
-          </div>
-          <div>
-            <button className="secondary-command" type="button" onClick={() => setConfirming(null)}>Go back</button>
-            <button className="primary-command" type="button" onClick={confirmParticipation}>
-              Confirm {confirming === "join" ? "join" : "cancellation"} <Check aria-hidden="true" />
-            </button>
-          </div>
-        </section>
-      )}
+      <ConfirmDialog
+        open={confirming !== null}
+        kicker="Confirm your choice"
+        title={confirming === "join" ? "Join this Community Step?" : "Cancel your place?"}
+        confirmLabel={confirming === "join" ? "Confirm join" : "Confirm cancellation"}
+        cancelLabel="Go back"
+        busy={participationBusy}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => void confirmParticipation()}
+      >
+        <p>
+          {confirming === "join"
+            ? `${activity.title} at ${activity.place}, ${activity.dateLabel}. Only your participation is recorded — never your Check-Ins or Missions.`
+            : "Your place will be released. Your personal Check-In and Mission data are never shared with the host."}
+        </p>
+      </ConfirmDialog>
 
       <section className="community-report">
         <div>
           <AlertTriangle aria-hidden="true" />
           <div><strong>Something does not look right?</strong><p>Reports are sent to the ReNew review team.</p></div>
         </div>
-        <button className="text-button" type="button" onClick={() => setReportOpen((current) => !current)}>
-          {reportSent ? "Report recorded" : "Report activity"}
-        </button>
+        {/* Once recorded, the control retires — it used to keep toggling a
+            blank form under a label claiming the report was already in. */}
+        {reportSent ? (
+          <span className="joined-status"><Check aria-hidden="true" /> Report recorded</span>
+        ) : (
+          <button className="text-button" type="button" aria-expanded={reportOpen} onClick={() => setReportOpen((current) => !current)}>
+            Report activity
+          </button>
+        )}
       </section>
 
-      {reportOpen && (
+      {reportOpen && !reportSent && (
         <form className="report-form" onSubmit={submitReport}>
           <div className="field-group">
             <label htmlFor="report-reason">Reason</label>
@@ -178,7 +215,9 @@ export function CommunityDetailPage() {
             <label htmlFor="report-note">Details</label>
             <textarea id="report-note" name="details" rows={4} maxLength={500} required />
           </div>
-          <button className="primary-command" type="submit">Record report <ArrowRight aria-hidden="true" /></button>
+          <button className="primary-command" type="submit" disabled={reportBusy}>
+            {reportBusy ? "Recording..." : "Record report"} <ArrowRight aria-hidden="true" />
+          </button>
         </form>
       )}
     </main>

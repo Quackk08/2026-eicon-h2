@@ -37,6 +37,7 @@ import {
   getRecommendationReasons,
   getRecommendedMissionOption
 } from "../data/missionLogic";
+import { toDateKey } from "../data/dates";
 import { selectRecommendation, updateMission as updateMissionOnServer } from "../api/backend";
 import { fromApiMission } from "../api/mappers";
 import { useAppState } from "../state/AppState";
@@ -102,13 +103,6 @@ interface ScheduleDay {
   weekday: string;
   day: string;
   month: string;
-}
-
-function toDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 function buildScheduleDays(): ScheduleDay[] {

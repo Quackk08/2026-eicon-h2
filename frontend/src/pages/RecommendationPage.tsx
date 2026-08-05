@@ -12,8 +12,10 @@ import {
   fetchLatestRecommendation,
   fetchPlaceForTemplate,
   requestDailyRecommendation,
-  selectRecommendation
+  selectRecommendation,
+  setMissionPlace
 } from "../api/backend";
+import { PENDING_PLACE_KEY } from "./PlaceDetailPage";
 import { ApiError } from "../api/client";
 import { fromApiMission } from "../api/mappers";
 import type { ApiPlaceSearchResult, ApiRecommendation } from "../api/types";
@@ -109,6 +111,15 @@ export function RecommendationPage() {
     if (activePick) {
       try {
         const created = await selectRecommendation(activePick.id, option.id, option.routeStepId ?? null);
+        // "Find a step for this place" left a place waiting for the Mission
+        // that now exists; attach it and clear the intent.
+        const pendingPlaceId = sessionStorage.getItem(PENDING_PLACE_KEY);
+        if (pendingPlaceId) {
+          sessionStorage.removeItem(PENDING_PLACE_KEY);
+          if (data.places.some((item) => item.id === pendingPlaceId)) {
+            await setMissionPlace(created.id, pendingPlaceId).catch(() => undefined);
+          }
+        }
         const mission = fromApiMission(created, data.vision.id);
         updateData((current) => ({
           ...current,

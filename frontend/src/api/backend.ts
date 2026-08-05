@@ -436,8 +436,17 @@ export async function fetchPlaceForTemplate(templateId: string): Promise<ApiPlac
   }
 }
 
-export async function setMissionPlace(missionId: string, placeId: string | null): Promise<ApiMission> {
-  return api.patch<ApiMission>(`/missions/${missionId}/place`, { placeId });
+/**
+ * Queued when offline, like saved places — a place chosen on the way there
+ * should still be on the Mission once there is signal again.
+ */
+export async function setMissionPlace(missionId: string, placeId: string | null): Promise<{ queued: boolean }> {
+  return writeOrQueue(() => api.patch<ApiMission>(`/missions/${missionId}/place`, { placeId }), {
+    entityType: "mission_place",
+    entityLocalId: missionId,
+    operation: "update",
+    payload: { missionId, placeId }
+  });
 }
 
 export async function updateMission(

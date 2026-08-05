@@ -6,8 +6,27 @@ import { setPlaceSaved } from "../api/backend";
 
 const placeTypes = ["All", "Library", "Cafe", "Park", "Community"];
 
+/**
+ * Its own component for the one piece of state a card needs. The previous
+ * onError removed the <img> from the DOM behind React's back, which crashes
+ * the reconciler the next time it touches that element.
+ */
+function PlacePhoto({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      className="place-result-photo"
+      src={src}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export function PlacesPage() {
-  const { data, updateData } = useAppState();
+  const { data, online, updateData } = useAppState();
   const [query, setQuery] = useState("");
   const [type, setType] = useState("All");
   const [savedOnly, setSavedOnly] = useState(false);
@@ -91,53 +110,48 @@ export function PlacesPage() {
         </button>
       </section>
 
-      {/* Distance and cost filter chips */}
-      <div className="place-filter-chips" role="group" aria-label="Filter by distance and cost">
-        <button
-          type="button"
-          className={`place-filter-chip${distanceFilter === "all" ? " is-active" : ""}`}
-          aria-pressed={distanceFilter === "all"}
-          onClick={() => setDistanceFilter("all")}
-        >Any distance</button>
-        <button
-          type="button"
-          className={`place-filter-chip${distanceFilter === "near" ? " is-active" : ""}`}
-          aria-pressed={distanceFilter === "near"}
-          onClick={() => setDistanceFilter("near")}
-        >Within 1 km</button>
-        <button
-          type="button"
-          className={`place-filter-chip${distanceFilter === "close" ? " is-active" : ""}`}
-          aria-pressed={distanceFilter === "close"}
-          onClick={() => setDistanceFilter("close")}
-        >Within 0.5 km</button>
-        <button
-          type="button"
-          className={`place-filter-chip${costFilter === "all" ? " is-active" : ""}`}
-          aria-pressed={costFilter === "all"}
-          onClick={() => setCostFilter("all")}
-        >Any cost</button>
-        <button
-          type="button"
-          className={`place-filter-chip${costFilter === "free" ? " is-active" : ""}`}
-          aria-pressed={costFilter === "free"}
-          onClick={() => setCostFilter("free")}
-        >Free only</button>
-        <button
-          type="button"
-          className={`place-filter-chip${costFilter === "low" ? " is-active" : ""}`}
-          aria-pressed={costFilter === "low"}
-          onClick={() => setCostFilter("low")}
-        >Free / Low cost</button>
+      {/* Two mutually exclusive filter sets, each with its own name — one
+          anonymous six-button group hid which choice displaced which. */}
+      <div className="place-filter-chips">
+        <div className="place-filter-chip-group" role="group" aria-label="Filter by distance">
+          {([
+            ["all", "Any distance"],
+            ["near", "Within 1 km"],
+            ["close", "Within 0.5 km"]
+          ] as const).map(([value, label]) => (
+            <button
+              type="button"
+              className={`place-filter-chip${distanceFilter === value ? " is-active" : ""}`}
+              aria-pressed={distanceFilter === value}
+              onClick={() => setDistanceFilter(value)}
+              key={value}
+            >{label}</button>
+          ))}
+        </div>
+        <div className="place-filter-chip-group" role="group" aria-label="Filter by cost">
+          {([
+            ["all", "Any cost"],
+            ["free", "Free only"],
+            ["low", "Free / Low cost"]
+          ] as const).map(([value, label]) => (
+            <button
+              type="button"
+              className={`place-filter-chip${costFilter === value ? " is-active" : ""}`}
+              aria-pressed={costFilter === value}
+              onClick={() => setCostFilter(value)}
+              key={value}
+            >{label}</button>
+          ))}
+        </div>
       </div>
 
-      <div className="place-type-tabs" role="tablist" aria-label="Place type">
+      {/* Filters, not tabs — there is no tabpanel for a tablist to control. */}
+      <div className="place-type-tabs" role="group" aria-label="Place type">
         {placeTypes.map((item) => (
           <button
             className={type === item ? "is-active" : ""}
             type="button"
-            role="tab"
-            aria-selected={type === item}
+            aria-pressed={type === item}
             onClick={() => setType(item)}
             key={item}
           >
@@ -147,7 +161,7 @@ export function PlacesPage() {
       </div>
 
       <div className="place-result-meta">
-        <span>{places.length} reviewed places</span>
+        <span>{places.length} reviewed {places.length === 1 ? "place" : "places"}</span>
         <span><SlidersHorizontal aria-hidden="true" /> Within {data.preferences.maxDistanceKm} km preferred</span>
       </div>
 
@@ -163,15 +177,7 @@ export function PlacesPage() {
                       mapped for every place, but the files arrive one at a
                       time — a missing one hides itself and leaves the plain
                       panel rather than showing a broken-image icon. */}
-                  {place.imageUrl && (
-                    <img
-                      className="place-result-photo"
-                      src={place.imageUrl}
-                      alt=""
-                      loading="lazy"
-                      onError={(event) => event.currentTarget.remove()}
-                    />
-                  )}
+                  {place.imageUrl && <PlacePhoto src={place.imageUrl} />}
                   <span>{String(index + 1).padStart(2, "0")} / {place.type}</span>
                 </Link>
                 <div className="place-result-copy">
@@ -200,6 +206,18 @@ export function PlacesPage() {
               </article>
             );
           })}
+        </section>
+      ) : data.places.length === 0 ? (
+        /* Nothing loaded at all — advising "broaden the filters" here blamed
+           a filter that was never the problem. */
+        <section className="empty-results">
+          <p className="app-kicker">No places loaded yet</p>
+          <h2>{online ? "The reviewed places are still on their way." : "Places arrive with the connection."}</h2>
+          <p>
+            {online
+              ? "If this persists, the server may not have any reviewed places for your area yet."
+              : "This device has no cached places yet. They will appear once ReNew can reach the server."}
+          </p>
         </section>
       ) : (
         <section className="empty-results">

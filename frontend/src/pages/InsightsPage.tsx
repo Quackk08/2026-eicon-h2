@@ -15,6 +15,7 @@ import {
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import type { CheckInRecord, Mission, Reflection } from "../data/appData";
+import { toDateKey } from "../data/dates";
 import { getMissionPlace } from "../data/missionLogic";
 import { fetchStateSummary, fetchWeeklyInsight } from "../api/backend";
 import type { ApiStateSummary, ApiWeeklyInsight } from "../api/types";
@@ -31,59 +32,26 @@ function BarChart({ bars, color = "var(--color-forest)", height = 80 }: BarChart
   if (!bars.length) return null;
   const hasData = bars.some((b) => b.value > 0);
   return (
-    <div className="insight-bar-chart" aria-hidden="true" style={{ height }}>
-      {bars.map((bar, i) => {
-        const pct = bar.maxValue > 0 ? (bar.value / bar.maxValue) * 100 : 0;
-        return (
-          <div key={i} className="insight-bar-col">
-            <div className="insight-bar-track">
-              <div
-                className="insight-bar-fill"
-                style={{ height: `${pct}%`, background: color }}
-              />
+    <>
+      <div className="insight-bar-chart" aria-hidden="true" style={{ height }}>
+        {bars.map((bar, i) => {
+          const pct = bar.maxValue > 0 ? (bar.value / bar.maxValue) * 100 : 0;
+          return (
+            <div key={i} className="insight-bar-col">
+              <div className="insight-bar-track">
+                <div
+                  className="insight-bar-fill"
+                  style={{ height: `${pct}%`, background: color }}
+                />
+              </div>
+              <span className="insight-bar-label">{bar.label}</span>
             </div>
-            <span className="insight-bar-label">{bar.label}</span>
-          </div>
-        );
-      })}
-      {!hasData && <span className="insight-chart-empty">No data yet</span>}
-    </div>
-  );
-}
-
-/* ─── Inline SVG line chart ─── */
-interface LineChartProps {
-  points: number[];
-  labels?: string[];
-  color?: string;
-  height?: number;
-}
-
-function LineChart({ points, labels, color = "var(--color-forest)", height = 80 }: LineChartProps) {
-  if (points.length < 2) return null;
-  const max = Math.max(...points, 1);
-  const w = 100;
-  const h = height;
-  const step = w / (points.length - 1);
-  const coords = points.map((p, i) => ({
-    x: i * step,
-    y: h - (p / max) * (h - 8) - 4
-  }));
-  const pathD = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(" ");
-  return (
-    <div className="insight-line-chart" aria-hidden="true">
-      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ height }}>
-        <path d={pathD} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
-        {coords.map((c, i) => (
-          <circle key={i} cx={c.x} cy={c.y} r="2.5" fill={color} vectorEffect="non-scaling-stroke" />
-        ))}
-      </svg>
-      {labels && (
-        <div className="insight-line-labels">
-          {labels.map((l, i) => <span key={i}>{l}</span>)}
-        </div>
-      )}
-    </div>
+          );
+        })}
+      </div>
+      {/* Outside the aria-hidden chart, so it reaches everyone. */}
+      {!hasData && <p className="insight-chart-empty">No data yet</p>}
+    </>
   );
 }
 
@@ -171,6 +139,7 @@ export function InsightsPage() {
   const [range, setRange] = useState<InsightRange>(7);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [weekly, setWeekly] = useState<ApiWeeklyInsight | null>(null);
+  const [weeklyFailed, setWeeklyFailed] = useState(false);
   const [stateSummary, setStateSummary] = useState<ApiStateSummary | null>(null);
 
   useEffect(() => {
@@ -180,7 +149,9 @@ export function InsightsPage() {
         if (active) setWeekly(insight);
       })
       .catch(() => {
-        // Backend unavailable — the locally computed panels below still render.
+        // Backend unavailable — the locally computed panels below still
+        // render, and the patterns view says why this one is missing.
+        if (active) setWeeklyFailed(true);
       });
     fetchStateSummary()
       .then((summary) => {
@@ -192,7 +163,9 @@ export function InsightsPage() {
     };
   }, []);
 
-  const now = Date.now();
+  // One timestamp per visit: recomputing "now" every render invalidated the
+  // memos that list it as a dependency.
+  const [now] = useState(() => Date.now());
   const cutoff = range === "all" ? null : now - range * dayMs;
   const inRange = (value: string) => cutoff === null || new Date(value).getTime() >= cutoff;
 
@@ -390,7 +363,7 @@ export function InsightsPage() {
           <h1>Your activity, in one place.</h1>
           <p>See what you chose, what happened, and what is already planned next.</p>
         </div>
-        <div className="activity-range" aria-label="Activity range">
+        <div className="activity-range" role="group" aria-label="Activity range">
           {([7, 28, "all"] as InsightRange[]).map((option) => (
             <button
               className={range === option ? "is-active" : ""}
@@ -410,7 +383,7 @@ export function InsightsPage() {
           <button
             className={view === option ? "is-active" : ""}
             type="button"
-            aria-current={view === option ? "page" : undefined}
+            aria-pressed={view === option}
             onClick={() => setView(option)}
             key={option}
           >
@@ -455,17 +428,18 @@ export function InsightsPage() {
           </section>
 
           {/* ── Weekly missions trend chart ── */}
-          {recentHistory.length >= 2 ? (() => {
-            // Build last-7-day buckets labelled Mon–Sun relative to today
+          {(() => {
+            // Buckets keyed by the person's local calendar day. Slicing the
+            // ISO string gave the UTC day, so an evening Mission east of
+            // Greenwich landed on tomorrow's bar (or fell off the chart).
             const buckets: { label: string; value: number }[] = Array.from({ length: 7 }, (_, i) => {
               const d = new Date();
               d.setDate(d.getDate() - (6 - i));
-              const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+              const key = toDateKey(d);
               const label = new Intl.DateTimeFormat("en", { weekday: "short" }).format(d);
-              const value = recentHistory.filter(m => {
-                const at = (m.completedAt ?? m.selectedAt).slice(0,10);
-                return at === key;
-              }).length;
+              const value = recentHistory.filter(
+                (m) => toDateKey(new Date(m.completedAt ?? m.selectedAt)) === key
+              ).length;
               return { label, value };
             });
             const maxVal = Math.max(...buckets.map(b => b.value), 1);
@@ -491,11 +465,13 @@ export function InsightsPage() {
                     </table>
                   </>
                 ) : (
+                  /* Reachable now — the old `>= 2` guard around this section
+                     meant users with 0 or 1 record saw nothing at all. */
                   <p className="insight-chart-empty-text">Not enough data yet. Complete a Mission to see your first chart.</p>
                 )}
               </section>
             );
-          })() : null}
+          })()}
 
           <div className="insight-overview-layout">
             <section className="insight-recent" aria-labelledby="recent-activity-title">
@@ -574,7 +550,7 @@ export function InsightsPage() {
               <h2 id="route-strip-title">{data.vision.title}</h2>
               <p>{completedRoute} of {data.route.length} Route levels explored</p>
             </div>
-            <div className="insight-route-progress" aria-label={`${routePercent}% of Route steps explored`}>
+            <div className="insight-route-progress" role="img" aria-label={`${routePercent}% of Route steps explored`}>
               <span><i style={{ width: `${routePercent}%` }} /></span>
               <strong>{routePercent}%</strong>
             </div>
@@ -590,7 +566,7 @@ export function InsightsPage() {
               <p className="app-kicker">{rangeLabel}</p>
               <h2 id="activity-log-title">Activity log</h2>
             </div>
-            <div className="activity-filters" aria-label="Filter activity">
+            <div className="activity-filters" role="group" aria-label="Filter activity">
               {(["all", "missions", "checkins", "plans"] as ActivityFilter[]).map((option) => (
                 <button
                   className={activityFilter === option ? "is-active" : ""}
@@ -641,7 +617,7 @@ export function InsightsPage() {
             <p>These comparisons describe your activity only. They do not score or diagnose you.</p>
           </header>
 
-          {weekly && (
+          {weekly ? (
             <section className="pattern-section" aria-labelledby="weekly-summary-title">
               <div className="pattern-section-title">
                 <span>00</span>
@@ -658,7 +634,19 @@ export function InsightsPage() {
                 </p>
               )}
             </section>
-          )}
+          ) : weeklyFailed ? (
+            /* Say why the panel is missing rather than omitting it silently. */
+            <section className="pattern-section" aria-labelledby="weekly-summary-title">
+              <div className="pattern-section-title">
+                <span>00</span>
+                <div><p>Last 7 days</p><h3 id="weekly-summary-title">Weekly review</h3></div>
+              </div>
+              <p className="pattern-empty">
+                The weekly review needs the server and could not be loaded right now. The panels
+                below are computed from the records on this device.
+              </p>
+            </section>
+          ) : null}
 
           <section className="pattern-section" aria-labelledby="outcomes-title">
             <div className="pattern-section-title">
@@ -680,9 +668,9 @@ export function InsightsPage() {
                 <table className="sr-only">
                   <caption>Mission outcomes</caption>
                   <tbody>
-                    <tr><th>Completed</th><td>{outcomeCounts.completed}</td></tr>
-                    <tr><th>Partly completed</th><td>{outcomeCounts.partly}</td></tr>
-                    <tr><th>Not today</th><td>{outcomeCounts.notToday}</td></tr>
+                    <tr><th scope="row">Completed</th><td>{outcomeCounts.completed}</td></tr>
+                    <tr><th scope="row">Partly completed</th><td>{outcomeCounts.partly}</td></tr>
+                    <tr><th scope="row">Not today</th><td>{outcomeCounts.notToday}</td></tr>
                   </tbody>
                 </table>
                 {/* Legacy bar rows kept visible for labelled counts */}
@@ -719,7 +707,7 @@ export function InsightsPage() {
                 />
                 <table className="sr-only">
                   <caption>Mission durations</caption>
-                  <tbody>{durationGroups.map(g => <tr key={g.label}><th>{g.label}</th><td>{g.count}</td></tr>)}</tbody>
+                  <tbody>{durationGroups.map(g => <tr key={g.label}><th scope="row">{g.label}</th><td>{g.count}</td></tr>)}</tbody>
                 </table>
                 <div className="pattern-bars is-compact">
                   {durationGroups.map((group) => (
@@ -750,7 +738,7 @@ export function InsightsPage() {
                 />
                 <table className="sr-only">
                   <caption>Mission settings</caption>
-                  <tbody>{settingGroups.map(g => <tr key={g.label}><th>{g.label}</th><td>{g.count}</td></tr>)}</tbody>
+                  <tbody>{settingGroups.map(g => <tr key={g.label}><th scope="row">{g.label}</th><td>{g.count}</td></tr>)}</tbody>
                 </table>
                 <div className="pattern-bars is-compact">
                   {settingGroups.map((group) => (
@@ -778,13 +766,27 @@ export function InsightsPage() {
                 <div><span>Other recorded Check-Ins</span><strong>{averageDuration(otherEnergyMissions)} min</strong><p>Average planned mission length</p></div>
                 <p>Based on {missionCheckInPairs.length} missions selected within 24 hours of a Check-In.</p>
               </div>
-            ) : (
+            ) : missionCheckInPairs.length < 3 ? (
               <div className="condition-empty">
                 <SlidersHorizontal aria-hidden="true" />
                 <div>
                   <h4>More paired records are needed</h4>
                   <p>{missionCheckInPairs.length} of 3 mission and Check-In pairs recorded. Missing days are not estimated.</p>
                   <Link to="/app/check-in">Add a Check-In <ArrowRight aria-hidden="true" /></Link>
+                </div>
+              </div>
+            ) : (
+              /* Enough pairs, but all in one energy band — "7 of 3 recorded"
+                 was nonsense for this case. */
+              <div className="condition-empty">
+                <SlidersHorizontal aria-hidden="true" />
+                <div>
+                  <h4>Nothing to compare yet</h4>
+                  <p>
+                    All {missionCheckInPairs.length} recorded pairs fall in the same energy band, so
+                    there are no two groups to set side by side. The comparison appears once both
+                    kinds of day have records.
+                  </p>
                 </div>
               </div>
             )}
