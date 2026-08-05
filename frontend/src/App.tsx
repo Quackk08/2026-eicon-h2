@@ -13,9 +13,8 @@ import { MissionPage } from "./pages/MissionPage";
 import { ReflectionPage } from "./pages/ReflectionPage";
 import { VisionPage } from "./pages/VisionPage";
 import { RoutePage } from "./pages/RoutePage";
-import { PlacesPage } from "./pages/PlacesPage";
+import { NearbyPage } from "./pages/NearbyPage";
 import { PlaceDetailPage } from "./pages/PlaceDetailPage";
-import { CommunityPage } from "./pages/CommunityPage";
 import { CommunityDetailPage } from "./pages/CommunityDetailPage";
 import { InsightsPage } from "./pages/InsightsPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -504,9 +503,12 @@ export default function App() {
             <Route path="reflection" element={<ReflectionPage />} />
             <Route path="vision" element={<VisionPage />} />
             <Route path="route" element={<RoutePage />} />
-            <Route path="places" element={<PlacesPage />} />
+            <Route path="nearby" element={<NearbyPage />} />
+            {/* Both halves kept their own address for a year of links, saved
+                tabs, and the detail pages' own Back targets. */}
+            <Route path="places" element={<Navigate to="/app/nearby" replace />} />
             <Route path="places/:placeId" element={<PlaceDetailPage />} />
-            <Route path="community" element={<CommunityPage />} />
+            <Route path="community" element={<Navigate to="/app/nearby?show=activities" replace />} />
             <Route path="community/:activityId" element={<CommunityDetailPage />} />
             <Route path="insights" element={<InsightsPage />} />
             <Route path="settings" element={<SettingsPage />} />

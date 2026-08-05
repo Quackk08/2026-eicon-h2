@@ -1189,7 +1189,7 @@ export function TodayPage() {
           </span>
           <ChevronRight aria-hidden="true" />
         </Link>
-        <Link to="/app/places"><MapPin aria-hidden="true" /><span>Places<strong>Review real-world conditions</strong></span><ChevronRight aria-hidden="true" /></Link>
+        <Link to="/app/nearby"><MapPin aria-hidden="true" /><span>Nearby<strong>Review real-world conditions</strong></span><ChevronRight aria-hidden="true" /></Link>
         <Link to="/app/insights"><CheckCircle2 aria-hidden="true" /><span>Insights<strong>Monitor plans and results</strong></span><ChevronRight aria-hidden="true" /></Link>
         <Link to="/app/support"><UsersRound aria-hidden="true" /><span>Support<strong>Available when you choose it</strong></span><ChevronRight aria-hidden="true" /></Link>
       </nav>

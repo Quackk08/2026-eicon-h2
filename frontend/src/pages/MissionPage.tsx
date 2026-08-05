@@ -12,6 +12,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { createMissionFromOption, type MissionVariant } from "../data/appData";
 import { getMissionPlace } from "../data/missionLogic";
 import { adaptMission, updateMissionStatusOrQueue } from "../api/backend";
+import { PlacePhoto } from "../components/PlacePhoto";
 import { useAppState } from "../state/AppState";
 
 /* ─── Size-adjustment stepper data ───
@@ -426,7 +427,11 @@ export function MissionPage() {
         </section>
 
         <section className="mission-place" aria-labelledby="mission-place-title">
+          {/* The place someone is actually being sent to is worth seeing
+              here, not only back on the Places list — this panel was a flat
+              colour even when a photograph of the venue existed. */}
           <div className={`mission-place-visual is-${matchingPlace?.color ?? "leaf"}`} aria-hidden="true">
+            <PlacePhoto src={matchingPlace?.imageUrl ?? null} className="mission-place-photo" />
             <span>{matchingPlace?.type ?? mission.format}</span>
           </div>
           <div>

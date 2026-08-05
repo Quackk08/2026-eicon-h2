@@ -1206,6 +1206,33 @@
   padding: 1.5rem;
 }
 
+/* Shown only when the venue is a reviewed place we hold a photograph of. */
+.host-venue-visual {
+  position: relative;
+  min-height: 9rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--color-ink);
+  overflow: hidden;
+}
+
+.host-venue-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.host-venue-visual span {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  color: oklch(100% 0 0);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  text-shadow: 0 1px 3px oklch(0% 0 0 / 65%);
+}
+
 .participation-panel h2,
 .host-panel h2,
 .participation-confirm h2 {
@@ -1833,6 +1860,48 @@
 
 .place-type-tabs button.is-active {
   border-bottom-color: var(--color-forest);
+}
+
+/* Picks which half of the Nearby tab is showing. Deliberately heavier than
+   the filter rows underneath it — it changes what the page is, not which
+   subset of one list is drawn. */
+.nearby-segments {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.nearby-segments button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  border: 1px solid var(--color-line);
+  background: transparent;
+  color: inherit;
+  padding: 0 1rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.nearby-segments button svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.nearby-segments button.is-active {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.nearby-segment-count {
+  font-size: 0.65rem;
+  opacity: 0.65;
 }
 
 .place-result-meta {
@@ -2847,6 +2916,25 @@
   left: 1rem;
   font-size: 0.65rem;
   text-transform: uppercase;
+}
+
+.mission-place-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Same treatment the list and detail cards use: over a photograph the
+   frame and label need their own contrast rather than the panel's. */
+.mission-place-visual:has(.mission-place-photo)::before {
+  border-color: oklch(100% 0 0 / 45%);
+}
+
+.mission-place-visual:has(.mission-place-photo) span {
+  color: oklch(100% 0 0);
+  text-shadow: 0 1px 3px oklch(0% 0 0 / 65%);
 }
 
 /* Carries the Place's own colour, like .place-swatch does on the list page. */

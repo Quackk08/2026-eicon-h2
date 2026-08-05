@@ -1,31 +1,14 @@
-import { Bookmark, Search, SlidersHorizontal, Users } from "lucide-react";
+import { Bookmark, Search, SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppState } from "../state/AppState";
 import { setPlaceSaved } from "../api/backend";
+import { PlacePhoto } from "../components/PlacePhoto";
 
 const placeTypes = ["All", "Library", "Cafe", "Park", "Community"];
 
-/**
- * Its own component for the one piece of state a card needs. The previous
- * onError removed the <img> from the DOM behind React's back, which crashes
- * the reconciler the next time it touches that element.
- */
-function PlacePhoto({ src }: { src: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return null;
-  return (
-    <img
-      className="place-result-photo"
-      src={src}
-      alt=""
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
-export function PlacesPage() {
+/** The reviewed-places half of the Nearby tab. */
+export function PlacesPanel() {
   const { data, online, updateData } = useAppState();
   const [query, setQuery] = useState("");
   const [type, setType] = useState("All");
@@ -82,18 +65,7 @@ export function PlacesPage() {
   };
 
   return (
-    <main className="app-page discovery-page places-page">
-      <header className="discovery-heading">
-        <div>
-          <p className="app-kicker">Local Life Network</p>
-          <h1>Real places for workable steps.</h1>
-          <p>Reviewed seed locations, filtered around your distance, cost, access, and social preferences.</p>
-        </div>
-        <Link className="secondary-command" to="/app/community">
-          <Users aria-hidden="true" /> Community steps
-        </Link>
-      </header>
-
+    <>
       <section className="place-tools" aria-label="Place filters">
         <label className="search-field">
           <Search aria-hidden="true" />
@@ -177,7 +149,7 @@ export function PlacesPage() {
                       mapped for every place, but the files arrive one at a
                       time — a missing one hides itself and leaves the plain
                       panel rather than showing a broken-image icon. */}
-                  {place.imageUrl && <PlacePhoto src={place.imageUrl} />}
+                  <PlacePhoto src={place.imageUrl} />
                   <span>{String(index + 1).padStart(2, "0")} / {place.type}</span>
                 </Link>
                 <div className="place-result-copy">
@@ -228,6 +200,6 @@ export function PlacesPage() {
           </button>
         </section>
       )}
-    </main>
+    </>
   );
 }

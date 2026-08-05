@@ -1,9 +1,10 @@
-import { ArrowRight, MapPin, Search, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, Search, ShieldCheck, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppState } from "../state/AppState";
 
-export function CommunityPage() {
+/** The reviewed-activities half of the Nearby tab. */
+export function ActivitiesPanel() {
   const { data, online } = useAppState();
   const [query, setQuery] = useState("");
   const [load, setLoad] = useState<"All" | "Low" | "Medium">("All");
@@ -23,18 +24,7 @@ export function CommunityPage() {
   );
 
   return (
-    <main className="app-page discovery-page community-page">
-      <header className="discovery-heading">
-        <div>
-          <p className="app-kicker">Pre-reviewed group activities</p>
-          <h1>Shared Activities</h1>
-          <p>These are pre-reviewed group activities — not a social feed. Each has a clear host, public venue, defined start and end time, and no private messaging.</p>
-        </div>
-        <Link className="secondary-command" to="/app/places">
-          <MapPin aria-hidden="true" /> Browse places
-        </Link>
-      </header>
-
+    <>
       <aside className="community-safety-note">
         <ShieldCheck aria-hidden="true" />
         <div>
@@ -111,6 +101,6 @@ export function CommunityPage() {
           </button>
         </section>
       )}
-    </main>
+    </>
   );
 }

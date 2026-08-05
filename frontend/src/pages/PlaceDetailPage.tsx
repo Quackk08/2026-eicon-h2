@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight, Bookmark, Check, Clock3, MapPin, Route as RouteIcon, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { setMissionPlace, setPlaceSaved } from "../api/backend";
+import { PlacePhoto } from "../components/PlacePhoto";
 import { useAppState } from "../state/AppState";
 
 /**
@@ -16,7 +17,6 @@ export function PlaceDetailPage() {
   const { placeId } = useParams();
   const { data, updateData, refresh } = useAppState();
   const [applyingPlace, setApplyingPlace] = useState(false);
-  const [photoFailed, setPhotoFailed] = useState(false);
   const place = data.places.find((item) => item.id === placeId);
 
   if (!place) {
@@ -24,7 +24,7 @@ export function PlaceDetailPage() {
       <main className="app-page flow-page mission-empty">
         <p className="app-kicker">Place not found</p>
         <h1>This location is not in the reviewed list.</h1>
-        <Link className="primary-command" to="/app/places">
+        <Link className="primary-command" to="/app/nearby">
           Return to Places <ArrowRight aria-hidden="true" />
         </Link>
       </main>
@@ -90,7 +90,7 @@ export function PlaceDetailPage() {
   return (
     <main className="app-page discovery-page place-detail-page">
       <header className="detail-topbar">
-        <Link className="icon-button" to="/app/places" aria-label="Back to Places" title="Back to Places">
+        <Link className="icon-button" to="/app/nearby" aria-label="Back to places" title="Back to places">
           <ArrowLeft aria-hidden="true" />
         </Link>
         <button className={saved ? "secondary-command is-saved" : "secondary-command"} type="button" onClick={toggleSaved}>
@@ -103,15 +103,7 @@ export function PlaceDetailPage() {
         <div className={`place-detail-visual is-${place.color}`} aria-hidden="true">
           {/* The list card shows the photo; losing it on tap-through read
               as a broken page. */}
-          {place.imageUrl && !photoFailed && (
-            <img
-              className="place-detail-photo"
-              src={place.imageUrl}
-              alt=""
-              loading="lazy"
-              onError={() => setPhotoFailed(true)}
-            />
-          )}
+          <PlacePhoto src={place.imageUrl} className="place-detail-photo" />
           <span>{place.type} / {place.distanceKm} km</span>
         </div>
         <div className="place-detail-title">

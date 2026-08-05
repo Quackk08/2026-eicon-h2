@@ -17,6 +17,7 @@ import {
   reportCommunityActivity
 } from "../api/backend";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { PlacePhoto } from "../components/PlacePhoto";
 import { useAppState } from "../state/AppState";
 
 export function CommunityDetailPage() {
@@ -36,7 +37,7 @@ export function CommunityDetailPage() {
       <main className="app-page flow-page mission-empty">
         <p className="app-kicker">Activity not found</p>
         <h1>This step is not in the reviewed community list.</h1>
-        <Link className="primary-command" to="/app/community">Return to Community <ArrowRight aria-hidden="true" /></Link>
+        <Link className="primary-command" to="/app/nearby?show=activities">Return to activities <ArrowRight aria-hidden="true" /></Link>
       </main>
     );
   }
@@ -102,7 +103,7 @@ export function CommunityDetailPage() {
   return (
     <main className="app-page discovery-page community-detail-page">
       <header className="detail-topbar">
-        <Link className="icon-button" to="/app/community" aria-label="Back to Community" title="Back to Community">
+        <Link className="icon-button" to="/app/nearby?show=activities" aria-label="Back to activities" title="Back to activities">
           <ArrowLeft aria-hidden="true" />
         </Link>
         {activity.joined && <span className="joined-status"><Check aria-hidden="true" /> Joined</span>}
@@ -155,6 +156,15 @@ export function CommunityDetailPage() {
         </section>
 
         <section className="host-panel" aria-labelledby="host-title">
+          {/* Somewhere they have never been is easier to walk into having
+              seen it. Only when the venue is a reviewed place we hold a
+              photograph of — an activity elsewhere keeps the plain panel. */}
+          {linkedPlace?.imageUrl && (
+            <div className={`host-venue-visual is-${linkedPlace.color}`} aria-hidden="true">
+              <PlacePhoto src={linkedPlace.imageUrl} className="host-venue-photo" />
+              <span>{linkedPlace.type}</span>
+            </div>
+          )}
           <p className="app-kicker">Reviewed host</p>
           <h2 id="host-title">{activity.host}</h2>
           <p>The host provides the public venue, activity structure, start time, end time, and on-site contact point.</p>

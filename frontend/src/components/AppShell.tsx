@@ -6,7 +6,6 @@ import {
   Menu,
   Route as RouteIcon,
   Settings,
-  UsersRound,
   X
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -16,8 +15,7 @@ import { useAppState } from "../state/AppState";
 const navigation = [
   { label: "Today", href: "/app/today", icon: CalendarCheck2 },
   { label: "Route", href: "/app/route", icon: RouteIcon },
-  { label: "Places", href: "/app/places", icon: MapPin },
-  { label: "Community", href: "/app/community", icon: UsersRound },
+  { label: "Nearby", href: "/app/nearby", icon: MapPin },
   { label: "Insights", href: "/app/insights", icon: BarChart3 },
   { label: "Settings", href: "/app/settings", icon: Settings }
 ];
@@ -30,6 +28,7 @@ const pageTitles: Record<string, string> = {
   "/app/reflection": "Reflection",
   "/app/vision": "Life Vision",
   "/app/route": "Route",
+  "/app/nearby": "Nearby",
   "/app/places": "Places",
   "/app/community": "Shared Activities",
   "/app/insights": "Insights",
