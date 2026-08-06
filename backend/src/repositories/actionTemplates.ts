@@ -64,8 +64,21 @@ export async function listActionTemplatesForProfile(
   if (error) throw error;
 
   const personalRows = data as ActionTemplateRow[];
+
+  // Regenerating leaves earlier ladders behind whenever history references
+  // them, so "this person's generated ladder" means the newest one only.
+  // Mixing two ladders would offer steps from a Vision they have moved on
+  // from. The group id carries its creation time, so the highest is newest.
+  const aiRows = personalRows.filter((row) => row.source === "ai");
+  if (aiRows.length > 0) {
+    const newestGroup = aiRows
+      .map((row) => row.ladder_group_id)
+      .sort()
+      .at(-1);
+    return aiRows.filter((row) => row.ladder_group_id === newestGroup).map(toDomain);
+  }
+
   const personal = personalRows.map(toDomain);
-  if (personalRows.some((row) => row.source === "ai")) return personal;
 
   const reviewed = await listActionTemplatesByDomain(domain);
   return [...reviewed, ...personal];
@@ -76,15 +89,22 @@ export async function replaceGeneratedTemplates(
   domain: string,
   templates: ActionTemplate[]
 ): Promise<void> {
-  // One generated ladder per domain per person — regenerating replaces the
-  // previous attempt instead of piling unused steps up in the library.
+  // Clear the previous attempt so unused steps do not pile up — but a step
+  // an earlier recommendation still points at cannot go. Postgres refuses it
+  // (23503), and that refusal used to escape as a 500 that cost the person
+  // their whole Route: anyone who had ever been recommended a generated step
+  // could no longer regenerate one.
+  //
+  // Those rows stay, because a past recommendation should keep naming what
+  // was actually recommended. Selection below takes the newest ladder, so
+  // the survivors sit in history rather than in anyone's way.
   const { error: deleteError } = await supabase
     .from("action_templates")
     .delete()
     .eq("profile_id", profileId)
     .eq("source", "ai")
     .contains("goal_domains", [domain]);
-  if (deleteError) throw deleteError;
+  if (deleteError && (deleteError as { code?: string }).code !== "23503") throw deleteError;
 
   if (templates.length === 0) return;
 
