@@ -2130,6 +2130,18 @@
 
 /* ── Calendar ──────────────────────────────────────────────────────── */
 
+/*
+ * The page had no container rule, so the heading and the month grid ran
+ * flush to both screen edges. Same padding rhythm as the other pages; the
+ * width is wider than theirs because seven columns need the room, but it is
+ * bounded so the grid stops stretching on a large monitor.
+ */
+.calendar-page {
+  width: min(100%, 84rem);
+  margin-inline: auto;
+  padding: 2.5rem 1.5rem 5rem;
+}
+
 .calendar-horizon {
   display: flex;
   align-items: center;
