@@ -6,6 +6,7 @@ export * from "./direction.js";
 export * from "./insight.js";
 export * from "./ladder.js";
 export * from "./long-term.js";
+export * from "./mission-intent.js";
 export * from "./offline.js";
 export * from "./place.js";
 export * from "./reasoning.js";

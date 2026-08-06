@@ -12,12 +12,13 @@ import {
   SlidersHorizontal,
   X
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import type { CheckInRecord, Mission, Reflection } from "../data/appData";
 import { toDateKey } from "../data/dates";
 import { getMissionPlace } from "../data/missionLogic";
 import { fetchStateSummary, fetchWeeklyInsight } from "../api/backend";
+import { rephraseWeeklySummary } from "../ai/weeklyWording";
 import type { ApiStateSummary, ApiWeeklyInsight } from "../api/types";
 import { useAppState } from "../state/AppState";
 
@@ -142,11 +143,32 @@ export function InsightsPage() {
   const [weeklyFailed, setWeeklyFailed] = useState(false);
   const [stateSummary, setStateSummary] = useState<ApiStateSummary | null>(null);
 
+  // Read through a ref: the fetch below runs once on mount, and listing
+  // the setting as a dependency would re-request the whole insight every
+  // time it was toggled.
+  const onDeviceModel = useRef(data.settings.onDeviceModel);
+  onDeviceModel.current = data.settings.onDeviceModel;
+
   useEffect(() => {
     let active = true;
     fetchWeeklyInsight()
-      .then((insight) => {
-        if (active) setWeekly(insight);
+      .then(async (insight) => {
+        if (!active) return;
+        setWeekly(insight);
+
+        /*
+         * The on-device stand-in for the server's Gemini pass. When Gemini
+         * answered, its wording already arrived and there is nothing to do;
+         * when it is off or out of quota, what reaches the person is the
+         * rule engine's own counting, and the local model softens it
+         * without being allowed to change what it says. Any invented or
+         * dropped number is rejected and the counting stands.
+         */
+        if (insight.source === "ai" || !onDeviceModel.current) return;
+        const rephrased = await rephraseWeeklySummary(insight.summary);
+        if (active && rephrased) {
+          setWeekly((current) => (current ? { ...current, summary: rephrased } : current));
+        }
       })
       .catch(() => {
         // Backend unavailable — the locally computed panels below still

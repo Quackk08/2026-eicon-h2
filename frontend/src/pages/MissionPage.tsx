@@ -13,6 +13,7 @@ import { createMissionFromOption, type MissionVariant } from "../data/appData";
 import { getMissionPlace } from "../data/missionLogic";
 import { adaptMission, updateMissionStatusOrQueue } from "../api/backend";
 import { PlacePhoto } from "../components/PlacePhoto";
+import { TodayInWords } from "../components/TodayInWords";
 import { useAppState } from "../state/AppState";
 
 /* ─── Size-adjustment stepper data ───
@@ -334,6 +335,15 @@ export function MissionPage() {
               <ArrowRight aria-hidden="true" /> Open reflection
             </button>
           )}
+
+          {/* Reaches the same three sizes as the stepper below, from a
+              sentence instead of from deciding which abstract size matches
+              "I barely slept" — which is work, on the day someone has the
+              least of it. It only ever offers; applying stays a choice. */}
+          <TodayInWords
+            busy={sizeBusy}
+            onApply={(adjustment) => void applySize(adjustment === "smaller" ? "lighter" : "more")}
+          />
 
           {/* ── Visual size-adjustment stepper ── */}
           <button

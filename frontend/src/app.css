@@ -1862,6 +1862,106 @@
   border-bottom-color: var(--color-forest);
 }
 
+/* ── "How is today going?" on the Mission page ─────────────────────── */
+
+.today-in-words {
+  margin: 1.5rem 0;
+  border: 1px solid var(--color-line);
+  background: var(--color-paper);
+  padding: 1.1rem 1.25rem;
+}
+
+.today-in-words .app-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.today-in-words .app-kicker svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.today-in-words h3 {
+  margin: 0.35rem 0 0.9rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+.today-in-words form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.today-in-words input {
+  flex: 1 1 12rem;
+  /* 3rem so the control clears the 44px touch minimum, and 1rem type so
+     iOS Safari does not zoom the page on focus. */
+  min-height: 3rem;
+  border: 1px solid var(--color-ink);
+  background: transparent;
+  color: inherit;
+  padding: 0 0.75rem;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.today-in-words form button {
+  min-height: 3rem;
+}
+
+.today-in-words-privacy {
+  margin: 0.6rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  opacity: 0.65;
+}
+
+.today-in-words-result {
+  margin-top: 1rem;
+  border-top: 1px solid var(--color-line);
+  padding-top: 0.9rem;
+}
+
+.today-in-words-result p {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-editorial);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.today-in-words-matched,
+.today-in-words-hedge {
+  opacity: 0.7;
+}
+
+.today-in-words-hedge {
+  font-size: 0.85rem;
+}
+
+.today-in-words-source {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+.today-in-words-source svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.today-in-words-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
 /* ── On-device model opt-in ────────────────────────────────────────── */
 
 .on-device-setting .settings-row strong {
