@@ -13,7 +13,12 @@ export const generatedLadderStepSchema = z.object({
   maxSocialLoad: z.number().int().min(0).max(4),
   costLevel: z.number().int().min(0).max(4),
   placeTypes: z.array(z.string().min(1).max(40)).max(4),
-  indoorOutdoor: z.enum(["indoor", "outdoor", "either"])
+  // Defaulted rather than required: the model drops it now and then, and
+  // this only labels the setting — it feeds no safety filter, unlike
+  // minCapacity, maxSocialLoad and costLevel, which stay strict. Throwing
+  // away four good steps because the fifth omitted a label is the worse
+  // outcome, and "either" is the honest value for "not stated".
+  indoorOutdoor: z.enum(["indoor", "outdoor", "either"]).default("either")
 });
 
 export const generatedLadderSchema = z.object({

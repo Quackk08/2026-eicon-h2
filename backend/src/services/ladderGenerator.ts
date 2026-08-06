@@ -170,7 +170,7 @@ FIELD RANGES — a single value outside these ranges throws the whole ladder awa
 - maxSocialLoad: integer 0 to 4, subject to rule 4 above.
 - costLevel: integer 0 to 4.
 - placeTypes: at most 4 entries, from the list in rule 5.
-- indoorOutdoor: exactly one of "indoor", "outdoor", "either".
+- indoorOutdoor: exactly one of "indoor", "outdoor", "either". Include it on EVERY step; do not omit it.
 
 Respond with ONLY a JSON object in exactly this shape:
 {"contractVersion":1,"steps":[{"title":"string","ladderLevel":1,"estMinutes":5,"minCapacity":0,"maxSocialLoad":0,"costLevel":0,"placeTypes":["home"],"indoorOutdoor":"indoor"}]}
