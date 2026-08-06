@@ -1,9 +1,55 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-export default defineConfig({
+/**
+ * Refuses to produce a production build that cannot sign anyone in.
+ *
+ * Vite inlines `import.meta.env.VITE_*` at build time, so a deploy whose
+ * environment is missing them does not fail — it quietly ships an app where
+ * every sign-in attempt answers "not configured in this build". That is
+ * exactly what happened: the deployed site had no credentials, the build
+ * was green, and nothing anywhere said so until someone tried to log in.
+ *
+ * Guest-only is a legitimate build, so this is not a blanket ban — it just
+ * has to be deliberate. Setting VITE_ALLOW_NO_AUTH=true says "yes, I mean
+ * to ship this without accounts", and the difference between that and an
+ * accident is the whole point.
+ */
+function requireAuthCredentials(mode: string): Plugin {
+  return {
+    name: "renew:require-auth-credentials",
+    apply: "build",
+    configResolved() {
+      const env = loadEnv(mode, process.cwd(), "VITE_");
+      const missing = ["VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY"].filter(
+        (name) => !env[name]
+      );
+      if (missing.length === 0) return;
+
+      if (env.VITE_ALLOW_NO_AUTH === "true") {
+        console.warn(
+          `\n[renew] Building without ${missing.join(" and ")}.` +
+            `\n[renew] Sign-in will be unavailable; guest mode still works.\n`
+        );
+        return;
+      }
+
+      throw new Error(
+        `\n\n[renew] Refusing to build: ${missing.join(" and ")} ${missing.length === 1 ? "is" : "are"} missing.\n` +
+          `        Vite inlines these at build time, so this build would ship with sign-in\n` +
+          `        permanently disabled and no way to tell from the outside.\n\n` +
+          `        Set them in the build environment (on Vercel: Settings -> Environment\n` +
+          `        Variables, then redeploy — existing builds do not pick them up), or set\n` +
+          `        VITE_ALLOW_NO_AUTH=true if a guest-only build is what you intend.\n`
+      );
+    }
+  };
+}
+
+export default defineConfig(({ mode }) => ({
   plugins: [
+    requireAuthCredentials(mode),
     react(),
     VitePWA({
       /*
@@ -97,7 +143,7 @@ export default defineConfig({
       }
     }
   }
-});
+}));
 
 /*
  * There is deliberately no runtime cache for /api.

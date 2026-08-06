@@ -10,8 +10,15 @@ no CORS to open up.
 | Piece | Where it comes from |
 | --- | --- |
 | Static site | `frontend/dist`, built by the Vite build |
-| API | `api/[...path].mjs`, a catch-all serverless function that re-exports the Express app from `backend/dist/app.js` |
+| API | `api/index.mjs`, one serverless function that re-exports the Express app from `backend/dist/app.js` |
+| API routing | `vercel.json` rewrites `/api/:path*` to that function, carrying the original path in `__vercelPath` |
 | Client routes | `vercel.json` rewrites everything except `/api/*` to `index.html` |
+
+The API is routed by an explicit rewrite rather than a filename catch-all
+(`api/[...path].mjs`), because the catch-all only ever matched one segment:
+`/api/health` worked while `/api/places/search` returned Vercel's own
+NOT_FOUND, so most of the API was unreachable in production while every read
+that mattered quietly fell back to seed data.
 
 `backend/src/app.ts` builds the Express app and nothing else. Only
 `backend/src/index.ts` calls `listen()`, and that file is used exclusively
@@ -37,9 +44,34 @@ Build-time, baked into the JavaScript bundle (`VITE_` prefix means public):
 | --- | --- |
 | `VITE_SUPABASE_URL` | Same value as `SUPABASE_URL`. |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Publishable key only. Safe in the browser because every table has RLS enabled with no policies (`backend/supabase/migrations/0004_auth_and_rls.sql`), so this key cannot read application data. |
+| `VITE_ALLOW_NO_AUTH` | Optional escape hatch. Set to `true` only to ship a deliberately guest-only build. |
 
 `PORT` and `CLIENT_ORIGIN` are local-development settings and are not needed
 on Vercel.
+
+### The two `VITE_` variables are not optional in practice
+
+They are inlined into the bundle at build time, which has two consequences
+that have already cost this project a working deployment:
+
+- **Adding them does not fix an existing deployment.** A build that was made
+  without them has them baked in as absent. You have to redeploy.
+- **Their absence used to be invisible.** The build succeeded, the site
+  loaded, and only someone actually trying to sign in would find out — the
+  form accepted a password and then answered "not configured in this build".
+
+The frontend build now refuses rather than shipping that, so this fails loudly
+at build time instead of silently at sign-in time.
+
+### Checking a deployment
+
+```bash
+curl -s https://<domain>/api/health
+```
+
+`databaseConfigured` and `missingEnv` name anything the API is missing. If
+those two fields are absent from the response, the deployment predates them
+and is running old code.
 
 ## Supabase
 
