@@ -95,13 +95,25 @@ router.post("/recommendations/daily", resolveProfile, async (req, res, next) => 
       accessibilityNeeds: preferences?.accessibility_needs ?? []
     };
 
-    const { result: ruleResult, trace: ruleTrace } = buildRuleBasedRecommendation(
-      candidates,
-      stateVector.functionalCapacity,
-      stateTags,
-      constraints,
-      vision.summary
-    );
+    // The rule engine throws when nothing in the Route fits today's
+    // capacity. That is a fact about the data, not a fault, and letting it
+    // reach the error handler answered a 500 — which the client can only
+    // read as "check your connection" while the connection is fine.
+    let ruleResult;
+    let ruleTrace;
+    try {
+      ({ result: ruleResult, trace: ruleTrace } = buildRuleBasedRecommendation(
+        candidates,
+        stateVector.functionalCapacity,
+        stateTags,
+        constraints,
+        vision.summary
+      ));
+    } catch {
+      return res.status(422).json({
+        error: "No step in your Route fits today's capacity. Regenerate the Route, or check in again when more feels possible."
+      });
+    }
 
     // The Route narrowing happened above, before the rule engine saw
     // anything, so its step is prepended rather than produced there.

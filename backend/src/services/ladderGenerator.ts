@@ -107,21 +107,28 @@ export async function generateLadderForVision(args: GenerateArgs): Promise<Actio
 
   await log("accepted", raw);
 
+  // One id for the whole ladder, stamped once. Calling Date.now() per step
+  // split a ladder across two group ids whenever the clock ticked mid-loop,
+  // and "the newest group" then meant whichever stray step landed on the
+  // later millisecond — a one-step ladder the rule engine could not use.
+  const groupId = `ai-${args.profileId.slice(0, 8)}-${Date.now().toString(36)}`;
+
   return steps
     .slice()
     .sort((a, b) => a.ladderLevel - b.ladderLevel)
-    .map((step, index) => toActionTemplate(step, index, args));
+    .map((step, index) => toActionTemplate(step, index, args, groupId));
 }
 
 function toActionTemplate(
   step: GeneratedLadderStep,
   index: number,
-  args: GenerateArgs
+  args: GenerateArgs,
+  groupId: string
 ): ActionTemplate {
   const placeTypes = step.placeTypes.filter((type) => ALLOWED_PLACE_TYPES.includes(type));
 
   return {
-    id: `ai-${args.profileId.slice(0, 8)}-${Date.now().toString(36)}-${index + 1}`,
+    id: `${groupId}-${index + 1}`,
     goalDomains: [args.domain] as ActionTemplate["goalDomains"],
     title: step.title,
     minCapacity: step.minCapacity,
@@ -134,7 +141,7 @@ function toActionTemplate(
     // step keeps no place at all rather than an unresolvable one.
     placeTypes: placeTypes.length > 0 ? placeTypes : ["home"],
     indoorOutdoor: step.indoorOutdoor,
-    ladderGroupId: `ai-${args.profileId.slice(0, 8)}-${Date.now().toString(36)}`,
+    ladderGroupId: groupId,
     ladderLevel: index + 1,
     safetyTags: []
   };
