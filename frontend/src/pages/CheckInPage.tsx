@@ -280,8 +280,12 @@ export function CheckInPage() {
             Continue <ArrowRight aria-hidden="true" />
           </button>
         ) : (
+          /* The label carries the wait. Disabling alone left a greyed button
+             and no explanation, so a slow request was indistinguishable from
+             a button that does nothing — which is exactly how it was
+             reported. */
           <button className="primary-command flow-submit" type="button" disabled={submitting} onClick={submitCheckIn}>
-            Find a workable step <ArrowRight aria-hidden="true" />
+            {submitting ? "Finding your step..." : "Find a workable step"} <ArrowRight aria-hidden="true" />
           </button>
         )}
       </div>

@@ -882,13 +882,19 @@ export function TodayPage() {
             </div>
 
             <div className="planner-focus-actions">
+              {/* Says what tapping does, not what already happened. It read
+                  "Mission started" with a tick, which is the shape of a
+                  confirmation message rather than a control — so starting a
+                  Mission looked like it had gone nowhere, and the way
+                  through to the Mission itself was the one thing on screen
+                  nobody would think to press. The started-ness is carried by
+                  the status line and the countdown above. */}
               <button
                 className="primary-command planner-started-command"
                 type="button"
-                aria-label="Mission started — open details"
                 onClick={() => navigate("/app/mission")}
               >
-                <Check aria-hidden="true" /> Mission started
+                <ArrowRight aria-hidden="true" /> Open this Mission
               </button>
               <button className="secondary-command" type="button" onClick={() => setStopConfirmOpen(true)}>
                 <Square aria-hidden="true" /> Stop
