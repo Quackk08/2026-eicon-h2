@@ -148,10 +148,18 @@ export function RecommendationPage() {
       } catch (cause) {
         // Whether refused or undelivered, a Mission the server does not know
         // about cannot carry a reflection later — stay here and say so.
+        //
+        // Only a fetch that never completed is a connection problem. Blaming
+        // the connection for everything else sent people to check a network
+        // that was fine, and hid the actual fault entirely.
+        const unreachable = cause instanceof TypeError;
+        if (!(cause instanceof ApiError)) console.error("Mission could not be started:", cause);
         setError(
           cause instanceof ApiError
             ? cause.message
-            : "The Mission could not be started. Please check the connection and try again."
+            : unreachable
+              ? "The Mission could not be started — the server did not answer. Check the connection and try again."
+              : "The Mission could not be started. Please try again; if it keeps happening, reload the page."
         );
         setChoosing(false);
         return;
