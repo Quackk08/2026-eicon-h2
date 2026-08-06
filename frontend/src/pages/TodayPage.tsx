@@ -457,10 +457,16 @@ export function TodayPage() {
     if (!pick) {
       try {
         pick = await requestDailyRecommendation();
-      } catch {
-        // The server refuses to recommend without a Check-In — the honest
-        // next step for the person, not an error to bury.
-        throw new Error("needs-check-in");
+      } catch (cause) {
+        // The server refuses to recommend without a Check-In, and that is the
+        // honest next step rather than an error to bury. But it refuses other
+        // things too, and reporting all of them as "check in first" sent
+        // people to redo a Check-In they had already done while the real
+        // reason went unsaid.
+        if (cause instanceof ApiError && /check-in/i.test(cause.message)) {
+          throw new Error("needs-check-in");
+        }
+        throw cause;
       }
     }
 
@@ -480,10 +486,16 @@ export function TodayPage() {
       createMissionFromOption(option, { id: created.id });
   };
 
-  const describeMissionError = (cause: unknown, fallback: string): string =>
-    cause instanceof Error && cause.message === "needs-check-in"
-      ? "Scheduling needs today's conditions. Complete a quick Check-In first and this will work."
-      : fallback;
+  const describeMissionError = (cause: unknown, fallback: string): string => {
+    if (cause instanceof Error && cause.message === "needs-check-in") {
+      return "Scheduling needs today's conditions. Complete a quick Check-In first and this will work.";
+    }
+    // A refusal the server explained should reach the person in its own
+    // words; only an unexplained failure falls back to the generic line.
+    if (cause instanceof ApiError) return cause.message;
+    console.error("Mission action failed:", cause);
+    return fallback;
+  };
 
   const startSelectedMission = async () => {
     setActionBusy(true);
