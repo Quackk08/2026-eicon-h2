@@ -19,7 +19,8 @@ import {
 import { getActionTemplateById, listActionTemplatesInLadderGroup } from "../repositories/actionTemplates.js";
 import { getPlaceById } from "../repositories/places.js";
 import { selectPlaceForTemplate } from "../services/placeSelection.js";
-import { completeRouteStep } from "../repositories/routes.js";
+import { completeRouteStep, getLatestRouteForVision } from "../repositories/routes.js";
+import { listVisions } from "../repositories/visions.js";
 import { verifyMissionEvidence } from "../services/missionVerification.js";
 import { isAIEnabled } from "../config/env.js";
 import { resolveProfile } from "../middleware/resolveProfile.js";
@@ -202,8 +203,26 @@ router.post("/missions/:id/adapt", resolveProfile, async (req, res, next) => {
 
     let targetTemplateId: string | undefined;
     if (parsed.data.templateId) {
-      const target = siblings.find((s) => s.id === parsed.data.templateId);
-      if (!target) return res.status(400).json({ error: "templateId must be in the same ladder group" });
+      let target = siblings.find((s) => s.id === parsed.data.templateId);
+
+      // A step of the person's own Route counts too. The Mission may hold a
+      // template from an earlier generated ladder while the screen offers the
+      // current Route, and refusing that pairing rejected a choice the UI had
+      // just presented — which reached the person as a bare "Bad Request".
+      // The guardrail is that the step is not invented, and a Route step is
+      // as reviewed as a sibling.
+      if (!target) {
+        const [activeVision] = (await listVisions(req.profileId!)).filter((v) => v.status === "active");
+        const currentRoute = activeVision ? await getLatestRouteForVision(activeVision.id) : null;
+        const inRoute = (currentRoute?.steps ?? []).some(
+          (step) => step.template_id === parsed.data.templateId
+        );
+        if (inRoute) target = await getActionTemplateById(parsed.data.templateId) ?? undefined;
+      }
+
+      if (!target) {
+        return res.status(400).json({ error: "that step is not in your Route or its ladder" });
+      }
       targetTemplateId = target.id;
     } else if (parsed.data.direction === "smaller") {
       const smaller = siblings
@@ -226,7 +245,8 @@ router.post("/missions/:id/adapt", resolveProfile, async (req, res, next) => {
     // The new step may belong somewhere else entirely — a smaller version of
     // "study at a cafe" is often "prepare a notebook at home". Re-resolve the
     // place so a Mission never keeps a location its action no longer needs.
-    const targetTemplate = siblings.find((s) => s.id === targetTemplateId)!;
+    const targetTemplate =
+      siblings.find((s) => s.id === targetTemplateId) ?? (await getActionTemplateById(targetTemplateId!))!;
     const selection = await selectPlaceForTemplate(req.profileId!, targetTemplate);
     updated = await updateMissionPlace(updated.id, selection?.result.selectedPlaceId ?? null);
 
